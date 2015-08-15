@@ -1,22 +1,10 @@
 import path from 'path';
 import im from 'immutable';
-import nodeLibsBrowser from 'node-libs-browser';
-import isNull from 'lodash/lang/isNull';
-import mapValues from 'lodash/object/mapValues'
 import browserResolve from 'browser-resolve';
+import {nodeCoreModules} from './node_core_modules';
 import {filenameLogger} from './logger';
 
 const log = filenameLogger(__filename);
-
-const nodeCoreModules = mapValues(nodeLibsBrowser, resolvedPath => {
-  if (!isNull(resolvedPath)) {
-    return resolvedPath;
-  }
-
-  return browserResolve.sync('./empty_module', {
-    filename: __filename
-  });
-});
 
 export function resolveDependencies({filename, dependencies}) {
   log(`Resolving ${dependencies.size} dependencies from ${filename}`);
@@ -26,11 +14,11 @@ export function resolveDependencies({filename, dependencies}) {
   });
 
   return Promise.all(pending.toJS())
-    .then(resolved => {
+    .then((resolved) => {
       return resolved.reduce(
         (map, resolved) => map.merge(resolved),
         im.Map()
-      )
+      );
     });
 }
 
