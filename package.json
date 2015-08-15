@@ -1,0 +1,32 @@
+{
+  "name": "alas",
+  "version": "0.0.0",
+  "description": "alas",
+  "main": "TODO",
+  "scripts": {
+    "test": "mocha lib/test",
+    "build": "babel-node src/scripts/build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markfinger/alas.git"
+  },
+  "author": "Mark Finger",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/markfinger/alas/issues"
+  },
+  "homepage": "https://github.com/markfinger/alas#readme",
+  "dependencies": {
+    "babel": "^5.8.21",
+    "babel-core": "^5.8.22",
+    "browser-resolve": "^1.9.1",
+    "chai": "^3.2.0",
+    "debug": "^2.2.0",
+    "immutable": "^3.7.4",
+    "lodash": "^3.10.1",
+    "mocha": "^2.2.5",
+    "node-libs-browser": "^0.5.2",
+    "source-map-support": "^0.3.2"
+  }
+}
