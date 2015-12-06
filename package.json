@@ -4,8 +4,8 @@
   "description": "alas",
   "main": "TODO",
   "scripts": {
-    "test": "mocha lib/test",
-    "build": "babel-node src/scripts/build.js"
+    "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
+    "_test": "mocha --reporter spec 'lib/**/tests/*.js'"
   },
   "repository": {
     "type": "git",
@@ -18,15 +18,18 @@
   },
   "homepage": "https://github.com/markfinger/alas#readme",
   "dependencies": {
-    "babel": "^5.8.21",
-    "babel-core": "^5.8.22",
-    "browser-resolve": "^1.9.1",
+    "babel-core": "^6.3.13",
     "chai": "^3.2.0",
-    "debug": "^2.2.0",
-    "immutable": "^3.7.4",
+    "chai-immutable": "^1.5.3",
+    "event-emitter": "^0.3.4",
+    "immutable": "^3.7.5",
     "lodash": "^3.10.1",
     "mocha": "^2.2.5",
-    "node-libs-browser": "^0.5.2",
-    "source-map-support": "^0.3.2"
+    "redux": "^3.0.4",
+    "source-map-support": "^0.3.3"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.3.13",
+    "babel-preset-es2015": "^6.1.18"
   }
 }
