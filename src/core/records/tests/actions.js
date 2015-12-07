@@ -1,26 +1,10 @@
 import imm from 'immutable';
 import {assert} from '../../utils/assert';
 import {
-  recordIdTaken, RECORD_ID_TAKEN, addRecord, ADD_RECORD, updateRecord, UPDATE_RECORD
+  addRecord, ADD_RECORD, updateRecord, UPDATE_RECORD
 } from '../actions';
 
 describe('core/records/actions', () => {
-  describe('#recordIdTaken', () => {
-    it('should accept an id and return an action', () => {
-      assert.deepEqual(
-        recordIdTaken('test'),
-        {
-          type: RECORD_ID_TAKEN,
-          recordId: 'test'
-        }
-      );
-    });
-    it('should throw if the record id is not a valid value', () => {
-      assert.throw(() => recordIdTaken(''), 'Record id "" is not a truthy value');
-      assert.throw(() => recordIdTaken(), 'Record id "undefined" is not a truthy value');
-      assert.throw(() => recordIdTaken(null), 'Record id "null" is not a truthy value');
-    });
-  });
   describe('#addRecord', () => {
     it('should accept a record and return an action', () => {
       const record = imm.Map({recordId: 'test'});

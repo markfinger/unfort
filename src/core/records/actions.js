@@ -1,20 +1,8 @@
 import {isObject, isUndefined} from 'lodash/lang';
 import imm from 'immutable';
 
-export const RECORD_ID_TAKEN = 'RECORD_ID_TAKEN';
 export const ADD_RECORD = 'ADD_RECORD';
 export const UPDATE_RECORD = 'UPDATE_RECORD';
-
-export function recordIdTaken(recordId) {
-  if (!recordId) {
-    throw new Error(`Record id "${recordId}" is not a truthy value`);
-  }
-
-  return {
-    type: RECORD_ID_TAKEN,
-    recordId
-  }
-}
 
 export function addRecord(record) {
   _validateRecord(record);

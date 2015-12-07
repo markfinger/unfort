@@ -1,6 +1,6 @@
 import imm from 'immutable';
 import {assert} from '../../utils/assert';
-import {recordIdTaken, addRecord, updateRecord} from '../actions';
+import {addRecord, updateRecord} from '../actions';
 import {recordsReducer} from '../reducers';
 
 describe('core/records/reducers', () => {
@@ -13,88 +13,106 @@ describe('core/records/reducers', () => {
         records: []
       }));
     });
-    describe('recordIdTaken cases', () => {
-      it('should handle the case where a record id is taken', () => {
-        let state = recordsReducer(undefined, recordIdTaken(1));
+    describe('{ADD_RECORD}', () => {
+      it('should handle adding a record when empty', () => {
+        const initialState = imm.fromJS({
+          availableRecordId: 1,
+          recordsById: {},
+          records: []
+        });
+        const record = imm.Map({recordId: 1});
+
+        const state = recordsReducer(initialState, addRecord(record));
         assert.equal(
           state,
           imm.fromJS({
             availableRecordId: 2,
-            recordsById: {},
-            records: []
-          })
-        );
-
-        state = recordsReducer(state, recordIdTaken(2));
-        assert.equal(
-          state,
-          imm.fromJS({
-            availableRecordId: 3,
-            recordsById: {},
-            records: []
+            recordsById: imm.Map().set(1, record),
+            records: [record]
           })
         );
       });
-      it('should throw if the record id taken is not the available record id', () => {
+      it('should handle adding a record when other records exist', () => {
+        const record1 = imm.Map({recordId: 1});
+        const record2 = imm.Map({recordId: 2});
+        const record3 = imm.Map({recordId: 3});
+
+        const initialState = imm.fromJS({
+          availableRecordId: 3,
+          recordsById: imm.Map().set(1, record1).set(2, record2),
+          records: [record1, record2]
+        });
+
+        const state = recordsReducer(initialState, addRecord(record3));
+        assert.equal(
+          state,
+          imm.fromJS({
+            availableRecordId: 4,
+            recordsById: imm.Map().set(1, record1).set(2, record2).set(3, record3, 3),
+            records: [record1, record2, record3]
+          })
+        );
+      });
+      it('should throw if a record with an id not matching the next available id is added', () => {
+        const record = imm.Map({recordId: 2});
+        const state = imm.fromJS({
+          availableRecordId: 1,
+          recordsById: {},
+          records: []
+        });
+
+        const action = addRecord(record);
         assert.throws(
-          () => recordsReducer(undefined, recordIdTaken(2)),
-          'The record id taken, "2", does not match the currently available id: "1"'
+          () => recordsReducer(state, action),
+          `The record id "2" used by "${record}" must match the next available record id "1"`
+        );
+      });
+      it('should throw if a record with an id matching a pre-existing record is added', () => {
+        const record = imm.Map({recordId: 1});
+        const state = imm.fromJS({
+          availableRecordId: 1, // note: should have been incremented
+          recordsById: imm.Map().set(1, record),
+          records: [record]
+        });
+
+        const action = addRecord(record);
+        assert.throws(
+          () => recordsReducer(state, action),
+          `The record id "1" used by "${record}" has already been used`
         );
       });
     });
-    describe('addRecord cases', () => {
-      it('should handle record additions', () => {
-        const state1 = recordsReducer(undefined, recordIdTaken(1));
+    describe('{UPDATE_RECORD}', () => {
+      it('should handle record changes', () => {
+        const record = imm.Map({recordId: 1});
+        const initialState = imm.fromJS({
+          availableRecordId: 2,
+          recordsById: imm.Map().set(1, record),
+          records: [record]
+        });
 
-        const record1 = imm.Map({recordId: 1});
-        const state2 = recordsReducer(state1, addRecord(record1));
+        const updates = imm.Map({
+          foo: 'bar',
+          woz: 'qux'
+        });
+
+        const state = recordsReducer(initialState, updateRecord(record, updates));
         assert.equal(
-          state2,
+          state,
           imm.fromJS({
             availableRecordId: 2,
-            recordsById: imm.Map().set(1, record1),
-            records: [record1]
-          })
-        );
-
-        const state3 = recordsReducer(state2, recordIdTaken(2));
-
-        const record2 = imm.Map({recordId: 2});
-        const state4 = recordsReducer(state3, addRecord(record2));
-        assert.equal(
-          state4,
-          imm.fromJS({
-            availableRecordId: 3,
-            recordsById: imm.Map().set(1, record1).set(2, record2),
-            records: [record1, record2]
+            recordsById: imm.Map().set(1, imm.Map({recordId: 1, foo: 'bar', woz: 'qux'})),
+            records: [imm.Map({recordId: 1, foo: 'bar', woz: 'qux'})]
           })
         );
       });
-      it('should throw if a record with a matching id has already been added', () => {
-        const state1 = recordsReducer(undefined, recordIdTaken(1));
+      it('should throw if a record does not exist', () => {
+        const record = imm.Map({recordId: 1});
+        const updates = imm.Map({foo: 'bar'});
 
-        const record1 = imm.Map({recordId: 1});
-        const state2 = recordsReducer(state1, addRecord(record1));
-        assert.equal(
-          state2,
-          imm.fromJS({
-            availableRecordId: 2,
-            recordsById: imm.Map().set(1, record1),
-            records: [record1]
-          })
-        );
-
-        const state3 = recordsReducer(state2, recordIdTaken(2));
-
-        const record2 = imm.Map({recordId: 2});
-        const state4 = recordsReducer(state3, addRecord(record2));
-        assert.equal(
-          state4,
-          imm.fromJS({
-            availableRecordId: 3,
-            recordsById: imm.Map().set(1, record1).set(2, record2),
-            records: [record1, record2]
-          })
+        assert.throws(
+          () => recordsReducer(undefined, updateRecord(record, updates)),
+          `The record id "1" used by "${record}" has not been encountered yet`
         );
       });
     });
