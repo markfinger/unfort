@@ -110,8 +110,9 @@ describe('core/records/reducers', () => {
         const record = imm.Map({recordId: 1});
         const updates = imm.Map({foo: 'bar'});
 
+        const action = updateRecord(record, updates);
         assert.throws(
-          () => recordsReducer(undefined, updateRecord(record, updates)),
+          () => recordsReducer(undefined, action),
           `The record id "1" used by "${record}" has not been encountered yet`
         );
       });

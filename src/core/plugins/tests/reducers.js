@@ -9,39 +9,41 @@ describe('core/plugins/reducers', () => {
       const initialState = pluginsReducer(undefined, {});
       assert.equal(initialState, imm.List());
     });
-    it('should handle plugin additions', () => {
-      const func1 = () => {};
-      const obj1 = {};
-      let state = pluginsReducer(undefined, addPlugin('test', func1, obj1));
-      assert.equal(
-        state,
-        imm.fromJS([
-          {
-            name: 'test',
-            plugin: func1,
-            options: obj1
-          }
-        ])
-      );
+    describe('{ADD_PLUGIN}', () => {
+      it('should handle plugin additions', () => {
+        const func1 = () => {};
+        const obj1 = {};
+        let state = pluginsReducer(undefined, addPlugin('test', func1, obj1));
+        assert.equal(
+          state,
+          imm.fromJS([
+            {
+              name: 'test',
+              plugin: func1,
+              options: obj1
+            }
+          ])
+        );
 
-      const func2 = () => {};
-      const obj2 = {};
-      state = pluginsReducer(state, addPlugin('another', func2, obj2));
-      assert.equal(
-        state,
-        imm.fromJS([
-          {
-            name: 'test',
-            plugin: func1,
-            options: obj1
-          },
-          {
-            name: 'another',
-            plugin: func2,
-            options: obj2
-          }
-        ])
-      );
+        const func2 = () => {};
+        const obj2 = {};
+        state = pluginsReducer(state, addPlugin('another', func2, obj2));
+        assert.equal(
+          state,
+          imm.fromJS([
+            {
+              name: 'test',
+              plugin: func1,
+              options: obj1
+            },
+            {
+              name: 'another',
+              plugin: func2,
+              options: obj2
+            }
+          ])
+        );
+      });
     });
   });
 });
