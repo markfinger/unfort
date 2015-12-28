@@ -1,42 +1,61 @@
+import imm from 'immutable';
 import {assert} from '../../utils/assert';
 import {
-  addSignal, ADD_SIGNAL, addSignalHandler, ADD_SIGNAL_HANDLER
+  addRecord, ADD_RECORD, updateRecord, UPDATE_RECORD
 } from '../actions';
 
-describe('core/signals/actions', () => {
-  describe('#addSignal', () => {
-    it('should accept a signal name and return an action', () => {
+describe('records/actions', () => {
+  describe('#addRecord', () => {
+    it('should accept a record and return an action', () => {
+      const record = imm.Map({recordId: 'test'});
       assert.deepEqual(
-        addSignal('test'),
+        addRecord(record),
         {
-          type: ADD_SIGNAL,
-          name: 'test'
+          type: ADD_RECORD,
+          record: record
         }
       );
     });
-    it('should throw if the signal name is not a valid string', () => {
-      assert.throw(() => addSignal(''), 'Signal "" must be a string');
-      assert.throw(() => addSignal(), 'Signal "undefined" must be a string');
-      assert.throw(() => addSignal({}), `Signal "[object Object]" must be a string`);
+    it('should throw if the record id is not defined', () => {
+      const record = imm.Map({});
+      assert.throw(() => addRecord(imm.Map({})), `Record "${record}" does not have a "recordId" property defined`);
     });
   });
-  describe('#addSignalHandler', () => {
-    it('should accept a signal name and return an action', () => {
-      const func = () => {};
+  describe('#updateRecord', () => {
+    it('should accept a record object and an updates object, then return an action', () => {
+      const record = imm.Map({
+        recordId: 'test'
+      });
+      const updates = imm.fromJS({
+        foo: 'bar'
+      });
       assert.deepEqual(
-        addSignalHandler('test', func),
+        updateRecord(record, updates),
         {
-          type: ADD_SIGNAL_HANDLER,
-          name: 'test',
-          handler: func
+          type: UPDATE_RECORD,
+          record: record,
+          updates: updates
         }
       );
     });
-    it('should throw if the signal name is not a valid string or the handler is not a valid function', () => {
-      assert.throw(() => addSignalHandler('', () => {}), 'Signal "" must be a string');
-      assert.throw(() => addSignalHandler(), 'Signal "undefined" must be a string');
-      assert.throw(() => addSignalHandler(null, null), 'Signal "null" must be a string');
-      assert.throw(() => addSignalHandler('test'), 'Signal handlers must be functions. Received "undefined" for signal "test"');
+    it('should throw if the record object is not a map', () => {
+      assert.throw(() => updateRecord({}), 'Record "[object Object]" is not an immutable Map');
+      assert.throw(() => updateRecord(), 'Record "undefined" is not an immutable Map');
+    });
+    it('should throw if the record object does not have an "id" property', () => {
+      const record = imm.Map({foo: 'bar'});
+      assert.throw(() => updateRecord(record), `Record "${record}" does not have a "recordId" property defined`);
+    });
+    it('should throw if the updates object is not a map', () => {
+      assert.throw(() => updateRecord(imm.Map({recordId: 'test'}), {}), 'Updates object "[object Object]" is not an immutable Map');
+      assert.throw(() => updateRecord(imm.Map({recordId: 'test'})), 'Updates object "undefined" is not an immutable Map');
+    });
+    it('should throw if the updates object contains an id', () => {
+      const update = imm.Map({recordId: 'foo'});
+      assert.throw(
+        () => updateRecord(imm.Map({recordId: 'test'}), update),
+        `Updates object "${update}" should not contain a "recordId" property`
+      );
     });
   });
 });

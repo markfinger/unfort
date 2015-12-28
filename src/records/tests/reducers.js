@@ -1,73 +1,121 @@
 import imm from 'immutable';
 import {assert} from '../../utils/assert';
-import {addSignal, addSignalHandler} from '../actions';
-import {signalsReducer} from '../reducers';
+import {addRecord, updateRecord} from '../actions';
+import {recordsReducer} from '../reducers';
 
-describe('core/signals/reducers', () => {
+describe('records/reducers', () => {
   describe('#signalsReducer', () => {
     it('should initialize state correctly', () => {
-      const initialState = signalsReducer(undefined, {});
-      assert.equal(initialState, imm.Map());
+      const initialState = recordsReducer(undefined, {});
+      assert.equal(initialState, imm.fromJS({
+        availableRecordId: 1,
+        recordsById: {},
+        records: []
+      }));
     });
-    describe('{ADD_SIGNAL}', () => {
-      it('should handle signal additions', () => {
-        let state = signalsReducer(undefined, addSignal('test'));
-        assert.equal(
-          state,
-          imm.fromJS({
-            test: []
-          })
-        );
-
-        state = signalsReducer(state, addSignal('another'));
-        assert.equal(
-          state,
-          imm.fromJS({
-            test: [],
-            another: []
-          })
-        );
-      });
-      it('should throw if a duplicate signal is added', () => {
-        let state = signalsReducer(undefined, addSignal('test'));
-        const action = addSignal('test');
-        assert.throws(
-          () => signalsReducer(state, action),
-          'Signal "test" has already been added'
-        );
-      });
-    });
-    describe('{ADD_SIGNAL_HANDLER}', () => {
-      it('should handle signal additions and handler additions', () => {
-        let state = imm.Map({
-          test: imm.List()
+    describe('{ADD_RECORD}', () => {
+      it('should handle adding a record when empty', () => {
+        const initialState = imm.fromJS({
+          availableRecordId: 1,
+          recordsById: {},
+          records: []
         });
-        let handler1 = () => {};
-        let handler2 = () => {};
+        const record = imm.Map({recordId: 1});
 
-        state = signalsReducer(state, addSignalHandler('test', handler1));
+        const state = recordsReducer(initialState, addRecord(record));
         assert.equal(
           state,
           imm.fromJS({
-            test: [handler1]
-          })
-        );
-
-        state = signalsReducer(state, addSignalHandler('test', handler2));
-        assert.equal(
-          state,
-          imm.fromJS({
-            test: [handler1, handler2]
+            availableRecordId: 2,
+            recordsById: imm.Map().set(1, record),
+            records: [record]
           })
         );
       });
+      it('should handle adding a record when other records exist', () => {
+        const record1 = imm.Map({recordId: 1});
+        const record2 = imm.Map({recordId: 2});
+        const record3 = imm.Map({recordId: 3});
+
+        const initialState = imm.fromJS({
+          availableRecordId: 3,
+          recordsById: imm.Map().set(1, record1).set(2, record2),
+          records: [record1, record2]
+        });
+
+        const state = recordsReducer(initialState, addRecord(record3));
+        assert.equal(
+          state,
+          imm.fromJS({
+            availableRecordId: 4,
+            recordsById: imm.Map().set(1, record1).set(2, record2).set(3, record3, 3),
+            records: [record1, record2, record3]
+          })
+        );
+      });
+      it('should throw if a record with an id not matching the next available id is added', () => {
+        const record = imm.Map({recordId: 2});
+        const state = imm.fromJS({
+          availableRecordId: 1,
+          recordsById: {},
+          records: []
+        });
+
+        const action = addRecord(record);
+        assert.throws(
+          () => recordsReducer(state, action),
+          `The record id "2" used by "${record}" must match the next available record id "1"`
+        );
+      });
+      it('should throw if a record with an id matching a pre-existing record is added', () => {
+        const record = imm.Map({recordId: 1});
+        const state = imm.fromJS({
+          availableRecordId: 1, // note: should have been incremented
+          recordsById: imm.Map().set(1, record),
+          records: [record]
+        });
+
+        const action = addRecord(record);
+        assert.throws(
+          () => recordsReducer(state, action),
+          `The record id "1" used by "${record}" has already been used`
+        );
+      });
     });
-    it('should throw if a handler is added to a missing signal', () => {
-      const action = addSignalHandler('test', () => {});
-      assert.throws(
-        () => signalsReducer(undefined, action),
-        'Signal "test" has not been defined'
-      );
+    describe('{UPDATE_RECORD}', () => {
+      it('should handle record changes', () => {
+        const record = imm.Map({recordId: 1});
+        const initialState = imm.fromJS({
+          availableRecordId: 2,
+          recordsById: imm.Map().set(1, record),
+          records: [record]
+        });
+
+        const updates = imm.Map({
+          foo: 'bar',
+          woz: 'qux'
+        });
+
+        const state = recordsReducer(initialState, updateRecord(record, updates));
+        assert.equal(
+          state,
+          imm.fromJS({
+            availableRecordId: 2,
+            recordsById: imm.Map().set(1, imm.Map({recordId: 1, foo: 'bar', woz: 'qux'})),
+            records: [imm.Map({recordId: 1, foo: 'bar', woz: 'qux'})]
+          })
+        );
+      });
+      it('should throw if a record does not exist', () => {
+        const record = imm.Map({recordId: 1});
+        const updates = imm.Map({foo: 'bar'});
+
+        const action = updateRecord(record, updates);
+        assert.throws(
+          () => recordsReducer(undefined, action),
+          `The record id "1" used by "${record}" has not been encountered yet`
+        );
+      });
     });
   });
 });

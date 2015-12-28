@@ -1,31 +1,42 @@
-import {isString, isFunction} from 'lodash/lang';
+import {isObject, isUndefined} from 'lodash/lang';
+import imm from 'immutable';
 
-export const ADD_SIGNAL = 'ADD_SIGNAL';
-export const ADD_SIGNAL_HANDLER = 'ADD_SIGNAL_HANDLER';
+export const ADD_RECORD = 'ADD_RECORD';
+export const UPDATE_RECORD = 'UPDATE_RECORD';
 
-export function addSignal(name) {
-  if (!name || !isString(name)) {
-    throw new Error(`Signal "${name}" must be a string`);
-  }
+export function addRecord(record) {
+  _validateRecord(record);
 
   return {
-    type: ADD_SIGNAL,
-    name
-  }
+    type: ADD_RECORD,
+    record
+  };
 }
 
-export function addSignalHandler(name, handler) {
-  if (!name || !isString(name)) {
-    throw new Error(`Signal "${name}" must be a string`);
+export function updateRecord(record, updates) {
+  _validateRecord(record);
+
+  if (!imm.Map.isMap(updates)) {
+    throw new Error(`Updates object "${updates}" is not an immutable Map`);
   }
 
-  if (!handler || !isFunction(handler)) {
-    throw new Error(`Signal handlers must be functions. Received "${handler}" for signal "${name}"`);
+  if (!isUndefined(updates.get('recordId'))) {
+    throw new Error(`Updates object "${updates}" should not contain a "recordId" property`);
   }
 
   return {
-    type: ADD_SIGNAL_HANDLER,
-    name,
-    handler
+    type: UPDATE_RECORD,
+    record,
+    updates
   };
+}
+
+function _validateRecord(record) {
+  if (!imm.Map.isMap(record)) {
+    throw new Error(`Record "${record}" is not an immutable Map`);
+  }
+
+  if (!record.has('recordId')) {
+    throw new Error(`Record "${record}" does not have a "recordId" property defined`);
+  }
 }
