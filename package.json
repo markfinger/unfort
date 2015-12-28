@@ -25,6 +25,7 @@
     "immutable": "^3.7.5",
     "lodash": "^3.10.1",
     "mocha": "^2.2.5",
+    "postcss": "^5.0.12",
     "redux": "^3.0.4",
     "source-map-support": "^0.3.3"
   },
