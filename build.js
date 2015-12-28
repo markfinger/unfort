@@ -37,7 +37,7 @@ _.forEach(SOURCE_DIRS, (dirs) => {
 
   const babel = child_process.spawn(
     path.join(PROJECT_ROOT, 'node_modules', '.bin', 'babel'),
-    [sourceDir, '--out-dir', outputDir, '--source-maps', 'inline', '--watch']
+    [sourceDir, '--out-dir', outputDir, '--source-maps', 'inline', '--watch', '--copy-files']
   );
 
   babel.stderr.on('data', (data) => {
