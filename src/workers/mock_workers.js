@@ -3,6 +3,10 @@ import {isUndefined, isFunction, isArray} from 'lodash/lang';
 export function createMockWorkers() {
   return {
     callFunction({filename, name, args}, cb) {
+      if (isUndefined(filename)) {
+        return cb(new Error('The `filename` property has not been defined'));
+      }
+
       let mod;
       try {
         mod = require(filename);
