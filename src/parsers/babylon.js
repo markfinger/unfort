@@ -1,11 +1,25 @@
 import {parse as babylonParse} from 'babylon';
-import {isString, isObject} from 'lodash/lang';
+import {isUndefined, isString, isObject} from 'lodash/lang';
 
-export function buildBabylonAST(text, cb) {
+export function createBabylonOptions(options) {
+  if (!isObject(options)) {
+    options = {}
+  }
+
+  if (isUndefined(options.sourceType)) {
+    options.sourceType = 'module';
+  }
+
+  return options;
+}
+
+export function buildBabylonAST(text, options, cb) {
   let ast;
 
+  options = createBabylonOptions(options);
+
   try {
-    ast = babylonParse(text);
+    ast = babylonParse(text, options);
   } catch(err) {
     return cb(err);
   }
@@ -13,15 +27,15 @@ export function buildBabylonAST(text, cb) {
   cb(null, ast);
 }
 
-export function buildBabylonASTWithWorkers(text, workers, cb) {
+export function buildBabylonASTWithWorkers(text, options, workers, cb) {
   workers.callFunction({
     filename: __filename,
     name: buildBabylonAST.name,
-    args: [text]
+    args: [text, options]
   }, cb);
 }
 
-export function createBabylonParser() {
+export function createBabylonParser(options) {
   return function babylonParser(pipeline, cb) {
     const {record, workers, cache} = pipeline;
 
@@ -40,7 +54,7 @@ export function createBabylonParser() {
         return cb(null, ast);
       }
 
-      buildBabylonASTWithWorkers(text, workers, (err, ast) => {
+      buildBabylonASTWithWorkers(text, options, workers, (err, ast) => {
         if (err) {
           err.message = `Error parsing record: ${record.get('filename')}\n\n${err.message}`;
           return cb(err);
