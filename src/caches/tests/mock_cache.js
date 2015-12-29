@@ -25,7 +25,8 @@ describe('caches/mock_cache', () => {
       const cache = createMockCache();
 
       cache.set(
-        {key: 'test', value:{}},
+        {key: 'test'},
+        {},
         (err) => {
           assert.isNull(err);
           done();
@@ -35,7 +36,7 @@ describe('caches/mock_cache', () => {
     it('should not persist any data', (done) => {
       const cache = createMockCache();
 
-      cache.set({key: 'test', value: {}}, (err) => {
+      cache.set({key: 'test'}, {}, (err) => {
         assert.isNull(err);
 
         cache.get({key: 'test'}, (err, value) => {

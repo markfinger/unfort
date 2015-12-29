@@ -4,7 +4,7 @@ import {parse as babylonParse} from 'babylon';
 import {assert} from '../../utils/assert';
 import {createMockWorkers} from '../../workers/mock_workers';
 import {createPipeline} from '../../pipeline/pipeline';
-import {buildBabylonAST, buildBabylonASTWithWorkers, createBabylonParser, createBabylonOptions} from '../babylon';
+import {buildBabylonAst, buildBabylonAstWithWorkers, createBabylonParser, createBabylonOptions} from '../babylon';
 
 describe('parsers/babylon', () => {
   describe('#createBabylonOptions', () => {
@@ -15,14 +15,14 @@ describe('parsers/babylon', () => {
       );
     })
   });
-  describe('#buildBabylonAST', () => {
+  describe('#buildBabylonAst', () => {
     it('should return a babylon AST', (done) => {
       const testText = `
         var foo = 'bar';
         let blah = () => {};
       `;
 
-      buildBabylonAST(testText, null, (err, ast) => {
+      buildBabylonAst(testText, null, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
         done();
@@ -34,14 +34,14 @@ describe('parsers/babylon', () => {
         import {woz} from 'qux';
       `;
 
-      buildBabylonAST(testText, null, (err, ast) => {
+      buildBabylonAst(testText, null, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
         done();
       });
     });
   });
-  describe('#buildBabylonASTWithWorkers', () => {
+  describe('#buildBabylonAstWithWorkers', () => {
     it('should return a babylon AST', (done) => {
       const workers = createMockWorkers();
 
@@ -50,7 +50,7 @@ describe('parsers/babylon', () => {
         let blah = () => {};
       `;
 
-      buildBabylonASTWithWorkers(testText, null, workers, (err, ast) => {
+      buildBabylonAstWithWorkers(testText, null, workers, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
         done();

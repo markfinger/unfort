@@ -3,7 +3,7 @@ export function createMockCache() {
     get(options, cb) {
       cb(null, null);
     },
-    set(options, cb) {
+    set(options, value, cb) {
       cb(null);
     }
   }

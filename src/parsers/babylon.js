@@ -13,7 +13,7 @@ export function createBabylonOptions(options) {
   return options;
 }
 
-export function buildBabylonAST(text, options, cb) {
+export function buildBabylonAst(text, options, cb) {
   let ast;
 
   options = createBabylonOptions(options);
@@ -27,12 +27,20 @@ export function buildBabylonAST(text, options, cb) {
   cb(null, ast);
 }
 
-export function buildBabylonASTWithWorkers(text, options, workers, cb) {
+export function buildBabylonAstWithWorkers(text, options, workers, cb) {
   workers.callFunction({
     filename: __filename,
-    name: buildBabylonAST.name,
+    name: buildBabylonAst.name,
     args: [text, options]
   }, cb);
+}
+
+export function generateBabylonParserCacheKey(text) {
+  return {
+    namespace: 'parsers__babylon',
+    key: text,
+    packageDependencies: ['babylon']
+  }
 }
 
 export function createBabylonParser(options) {
@@ -44,26 +52,21 @@ export function createBabylonParser(options) {
       return cb(new Error(`Record does not have a string defined as the \`content\` property: ${record}`));
     }
 
-    cache.get({
-      key: text,
-      packageDependencies: ['babylon']
-    }, (err, ast) => {
+    const cacheKey = generateBabylonParserCacheKey(text);
+    cache.get(cacheKey, (err, ast) => {
       if (err) return cb(err);
 
       if (isObject(ast)) {
         return cb(null, ast);
       }
 
-      buildBabylonASTWithWorkers(text, options, workers, (err, ast) => {
+      buildBabylonAstWithWorkers(text, options, workers, (err, ast) => {
         if (err) {
           err.message = `Error parsing record: ${record.get('filename')}\n\n${err.message}`;
           return cb(err);
         }
 
-        cache.set({
-          key: text,
-          packageDependencies: ['babylon']
-        }, (err) => {
+        cache.set(cacheKey, ast, (err) => {
           if (err) return cb(err);
 
           cb(null, ast);
