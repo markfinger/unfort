@@ -3,9 +3,10 @@ import path from 'path';
 import fs from 'fs';
 import {transformFromAst as babelTransformFromAst} from 'babel-core';
 import {isUndefined, isString, isObject} from 'lodash/lang';
-import {cloneWithoutUnderscoreProps} from './utils';
+import {cloneDeepOmitPrivateProps} from '../utils/clone';
 
-// Note: this will mutate the ast object
+// Be aware that babel will mutate the provided object.
+// You'll probably want to clone it at a higher level
 export function transformBabylonAst(ast, options, cb) {
   let file;
 
@@ -19,13 +20,14 @@ export function transformBabylonAst(ast, options, cb) {
 }
 
 // Babel adds a bunch of circular references which are generally
-// bound in `_...` props, so we need to remove them before any
-// serialization should occur
+// bound in `_...` props. So that the structure can be serialized,
+// this function wraps `transformBabylonAst` and then removes the
+// props that are likely to cause issues
 export function _transformBabylonAstWorkerEntry(ast, options, cb) {
   transformBabylonAst(ast, options, (err, file) => {
     if (err) return cb(err);
 
-    cb(null, cloneWithoutUnderscoreProps(file));
+    cb(null, cloneDeepOmitPrivateProps(file));
   });
 }
 
@@ -65,7 +67,6 @@ export function createBabelTransformer(options) {
     }
 
     const cacheKey = generateBabelTransformCacheKey(options, babylonAst);
-
     cache.get(cacheKey, (err, file) => {
       if (err) return cb(err);
 
@@ -80,14 +81,10 @@ export function createBabelTransformer(options) {
           return cb(err);
         }
 
-        cache.set({
-
-          key: text,
-          packageDependencies: ['babylon']
-        }, (err) => {
+        cache.set(cacheKey, file, (err) => {
           if (err) return cb(err);
 
-          cb(null, ast);
+          cb(null, file);
         })
       });
     });

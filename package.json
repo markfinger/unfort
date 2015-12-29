@@ -20,6 +20,7 @@
   "dependencies": {
     "babel-core": "^6.3.13",
     "babel-plugin-transform-object-rest-spread": "^6.3.13",
+    "babylon": "^6.3.26",
     "browser-resolve": "^1.11.0",
     "chai": "^3.2.0",
     "chai-immutable": "^1.5.3",

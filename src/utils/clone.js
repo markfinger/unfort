@@ -2,7 +2,7 @@ import {isUndefined, isString, isObject, isArray} from 'lodash/lang';
 import {forEach} from 'lodash/collection';
 import {startsWith} from 'lodash/string';
 
-export function cloneWithoutUnderscoreProps(node) {
+export function cloneDeepOmitPrivateProps(node) {
   var accumulator;
   if (isArray(node)) {
     accumulator = [];
@@ -13,7 +13,7 @@ export function cloneWithoutUnderscoreProps(node) {
   forEach(node, function(value, key) {
     if (!startsWith(key, '_')) {
       if (isObject(value)) {
-        accumulator[key] = cloneWithoutUnderscoreProps(value);
+        accumulator[key] = cloneDeepOmitPrivateProps(value);
       } else {
         accumulator[key] = value;
       }

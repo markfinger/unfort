@@ -1,4 +1,4 @@
-import {isUndefined, isFunction, isArray} from 'lodash/lang';
+import {cloneDeep, isUndefined, isFunction, isArray} from 'lodash/lang';
 
 export function createMockWorkers() {
   return {
@@ -22,7 +22,11 @@ export function createMockWorkers() {
         return cb(new Error(`\`args\` option ${args} must be an array`));
       }
 
-      mod[name].apply(global, args.concat([cb]));
+      // Prevent mutations of shared memory
+      args = cloneDeep(args);
+      args.push(cb);
+
+      mod[name].apply(global, args);
     }
   }
 }

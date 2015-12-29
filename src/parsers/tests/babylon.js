@@ -2,6 +2,7 @@ import path from 'path';
 import imm from 'immutable';
 import {parse as babylonParse} from 'babylon';
 import {assert} from '../../utils/assert';
+import {cloneDeepOmitPrivateProps} from '../../utils/clone';
 import {createMockWorkers} from '../../workers/mock_workers';
 import {createPipeline} from '../../pipeline/pipeline';
 import {buildBabylonAst, buildBabylonAstWithWorkers, createBabylonParser, createBabylonOptions} from '../babylon';
@@ -24,7 +25,10 @@ describe('parsers/babylon', () => {
 
       buildBabylonAst(testText, null, (err, ast) => {
         assert.isNull(err);
-        assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
+        assert.deepEqual(
+          ast,
+          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+        );
         done();
       });
     });
@@ -36,7 +40,10 @@ describe('parsers/babylon', () => {
 
       buildBabylonAst(testText, null, (err, ast) => {
         assert.isNull(err);
-        assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
+        assert.deepEqual(
+          ast,
+          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+        );
         done();
       });
     });
@@ -52,7 +59,10 @@ describe('parsers/babylon', () => {
 
       buildBabylonAstWithWorkers(testText, null, workers, (err, ast) => {
         assert.isNull(err);
-        assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
+        assert.deepEqual(
+          ast,
+          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+        );
         done();
       });
     });
@@ -80,7 +90,10 @@ describe('parsers/babylon', () => {
 
       parser(recordPipeline, (err, ast) => {
         assert.isNull(err);
-        assert.deepEqual(ast, babylonParse(testText, createBabylonOptions()));
+        assert.deepEqual(
+          ast,
+          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+        );
         done();
       });
     });
