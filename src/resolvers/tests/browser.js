@@ -23,7 +23,7 @@ describe('resolvers/browser', () => {
       });
     });
     it('should provide helpful error messages for failed lookups', (done) => {
-      browserResolver('__non_existent_package__', __filename, (err, resolved) => {
+      browserResolver('__non_existent_package__', __filename, (err) => {
         assert.instanceOf(err, Error);
         assert.include(err.message, '__non_existent_package');
         assert.include(err.message, __dirname);
