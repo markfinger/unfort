@@ -5,6 +5,11 @@ import {createMockWorkers} from '../../workers/mock_workers';
 import {buildBabylonAst} from '../../parsers/babylon';
 import {transformBabylonAst, transformBabylonAstWithWorkers, createBabelTransformer} from '../babel';
 
+// Babel lazily loads presets, which skews test times significantly. So we
+// warm up Node's module cache by importing the test preset before the test
+// suite begins
+import 'babel-preset-es2015';
+
 describe('transformers/babel', () => {
   describe('#transformBabylonAst', () => {
     it('should accept an ast and an options object, then provide a babel file', (done) => {
