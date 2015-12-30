@@ -2,15 +2,17 @@ import {isUndefined, isString, isObject, isArray} from 'lodash/lang';
 import {forEach} from 'lodash/collection';
 import {startsWith} from 'lodash/string';
 
-export function cloneDeepOmitPrivateProps(node) {
+// Deeply clones an object, but omits any properties
+// that begin with an underscore
+export function cloneDeepOmitPrivateProps(obj) {
   var accumulator;
-  if (isArray(node)) {
+  if (isArray(obj)) {
     accumulator = [];
   } else {
     accumulator = {};
   }
 
-  forEach(node, function(value, key) {
+  forEach(obj, function(value, key) {
     if (!startsWith(key, '_')) {
       if (isObject(value)) {
         accumulator[key] = cloneDeepOmitPrivateProps(value);
