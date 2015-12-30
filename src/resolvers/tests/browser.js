@@ -1,5 +1,5 @@
-import path from 'path';
-import imm from 'immutable';
+import * as path from 'path';
+import * as imm from 'immutable';
 import {assert} from '../../utils/assert';
 import {browserResolver, nodeLibs} from '../browser';
 

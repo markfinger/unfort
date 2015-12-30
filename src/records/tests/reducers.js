@@ -1,4 +1,4 @@
-import imm from 'immutable';
+import * as imm from 'immutable';
 import {assert} from '../../utils/assert';
 import {addRecord, updateRecord} from '../actions';
 import {recordsReducer} from '../reducers';

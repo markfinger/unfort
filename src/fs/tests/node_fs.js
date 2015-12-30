@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs';
-import imm from 'immutable';
 import {assert} from '../../utils/assert';
 import {createNodeFS} from '../node_fs';
 

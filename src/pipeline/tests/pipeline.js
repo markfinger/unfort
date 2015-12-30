@@ -1,5 +1,3 @@
-import path from 'path';
-import imm from 'immutable';
 import {parse as babylonParse} from 'babylon';
 import {assert} from '../../utils/assert';
 import {createPipeline} from '../pipeline';

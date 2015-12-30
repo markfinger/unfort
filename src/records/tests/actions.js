@@ -1,8 +1,6 @@
-import imm from 'immutable';
+import * as imm from 'immutable';
 import {assert} from '../../utils/assert';
-import {
-  addRecord, ADD_RECORD, updateRecord, UPDATE_RECORD
-} from '../actions';
+import {addRecord, ADD_RECORD, updateRecord, UPDATE_RECORD} from '../actions';
 
 describe('records/actions', () => {
   describe('#addRecord', () => {

@@ -1,7 +1,5 @@
-import imm from 'immutable';
-import path from 'path';
-import fs from 'fs';
-import {transformFromAst as babelTransformFromAst} from 'babel-core';
+import * as imm from 'immutable';
+import * as babel from 'babel-core';
 import {isUndefined, isString, isObject} from 'lodash/lang';
 import {cloneDeepOmitPrivateProps} from '../utils/clone';
 
@@ -11,7 +9,7 @@ export function transformBabylonAst(ast, options, cb) {
   let file;
 
   try {
-    file = babelTransformFromAst(ast, null, options);
+    file = babel.transformFromAst(ast, null, options);
   } catch(err) {
     cb(err);
   }

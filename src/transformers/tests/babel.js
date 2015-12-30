@@ -1,4 +1,4 @@
-import imm from 'immutable';
+import * as imm from 'immutable';
 import {assert} from '../../utils/assert';
 import {createPipeline} from '../../pipeline/pipeline';
 import {createMockWorkers} from '../../workers/mock_workers';

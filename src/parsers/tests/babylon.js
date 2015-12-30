@@ -1,6 +1,6 @@
-import path from 'path';
-import imm from 'immutable';
-import {parse as babylonParse} from 'babylon';
+import * as path from 'path';
+import * as imm from 'immutable';
+import * as babylon from 'babylon';
 import {assert} from '../../utils/assert';
 import {cloneDeepOmitPrivateProps} from '../../utils/clone';
 import {createMockWorkers} from '../../workers/mock_workers';
@@ -27,7 +27,7 @@ describe('parsers/babylon', () => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
         );
         done();
       });
@@ -42,7 +42,7 @@ describe('parsers/babylon', () => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
         );
         done();
       });
@@ -61,7 +61,7 @@ describe('parsers/babylon', () => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
         );
         done();
       });
@@ -92,7 +92,7 @@ describe('parsers/babylon', () => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylonParse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
         );
         done();
       });

@@ -1,4 +1,4 @@
-import imm from 'immutable';
+import * as imm from 'immutable';
 import {ADD_RECORD, UPDATE_RECORD} from './actions';
 
 const initialState = imm.fromJS({

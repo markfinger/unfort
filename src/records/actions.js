@@ -1,5 +1,5 @@
 import {isObject, isUndefined} from 'lodash/lang';
-import imm from 'immutable';
+import * as imm from 'immutable';
 
 export const ADD_RECORD = 'ADD_RECORD';
 export const UPDATE_RECORD = 'UPDATE_RECORD';
