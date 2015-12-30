@@ -5,7 +5,7 @@ import {startsWith} from 'lodash/string';
 // Deeply clones an object, but omits any properties
 // that begin with an underscore
 export function cloneDeepOmitPrivateProps(obj) {
-  var accumulator;
+  let accumulator;
   if (isArray(obj)) {
     accumulator = [];
   } else {
