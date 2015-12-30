@@ -14,7 +14,7 @@ export function createMockWorkers() {
         return cb(err);
       }
 
-      if (isUndefined(mod[name]) || !isFunction(mod[name])) {
+      if (!isFunction(mod[name])) {
         return cb(new Error(`Module ${filename} does not export a function named ${name}`));
       }
 
@@ -26,7 +26,10 @@ export function createMockWorkers() {
       args = cloneDeep(args);
       args.push(cb);
 
-      mod[name].apply(global, args);
+      // Ensure consistent behaviour by suspending the execution
+      process.nextTick(() => {
+        mod[name].apply(global, args);
+      });
     }
   }
 }
