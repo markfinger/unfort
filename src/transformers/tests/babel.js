@@ -6,8 +6,8 @@ import {buildBabylonAst} from '../../parsers/babylon';
 import {transformBabylonAst, transformBabylonAstWithWorkers, createBabelTransformer} from '../babel';
 
 // Babel lazily loads presets, which skews test times significantly. So we
-// warm up Node's module cache by importing the test preset before the test
-// suite begins
+// warm up Node's module cache by importing the test preset before any tests
+// are run
 import 'babel-preset-es2015';
 
 describe('transformers/babel', () => {
