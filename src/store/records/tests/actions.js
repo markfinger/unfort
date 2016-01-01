@@ -1,8 +1,8 @@
 import * as imm from 'immutable';
-import {assert} from '../../utils/assert';
+import {assert} from '../../../utils/assert';
 import {addRecord, ADD_RECORD, updateRecord, UPDATE_RECORD} from '../actions';
 
-describe('records/actions', () => {
+describe('store/records/actions', () => {
   describe('#addRecord', () => {
     it('should accept a record and return an action', () => {
       const record = imm.Map({recordId: 'test'});

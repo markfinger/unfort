@@ -1,9 +1,9 @@
 import * as imm from 'immutable';
-import {assert} from '../../utils/assert';
+import {assert} from '../../../utils/assert';
 import {addRecord, updateRecord} from '../actions';
 import {recordsReducer} from '../reducers';
 
-describe('records/reducers', () => {
+describe('store/records/reducers', () => {
   describe('#signalsReducer', () => {
     it('should initialize state correctly', () => {
       const initialState = recordsReducer(undefined, {});

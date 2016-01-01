@@ -1,9 +1,9 @@
 import * as babylon from 'babylon';
 import {cloneDeep} from 'lodash/lang';
 import {assert} from '../../utils/assert';
-import {discoverDependenciesInBabylonAst} from '../babylon_dependencies';
+import {discoverDependenciesInBabylonAst} from '../babylon_ast_dependencies';
 
-describe('dependencies/babylon_dependencies', () => {
+describe('dependencies/babylon_ast_dependencies', () => {
   describe('#discoverDependenciesInBabylonAst', () => {
     it('should accept an AST and provide a list of dependencies specified in `require` calls', (done) => {
       const ast = babylon.parse(`

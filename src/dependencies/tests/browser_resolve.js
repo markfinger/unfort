@@ -1,9 +1,9 @@
 import * as path from 'path';
 import * as imm from 'immutable';
 import {assert} from '../../utils/assert';
-import {browserResolver, nodeLibs} from '../browser';
+import {browserResolver, nodeLibs} from '../browser_resolve';
 
-describe('resolvers/browser', () => {
+describe('dependencies/browser_resolve', () => {
   describe('#browserResolver', () => {
     it('should correctly resolve `browser` dependencies', (done) => {
       browserResolver('__resolve_test_case__', __filename, (err, resolved) => {
