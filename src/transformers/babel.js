@@ -40,51 +40,15 @@ export function transformBabylonAstWithWorkers(ast, options, workers, cb) {
   }, cb);
 }
 
-export function generateBabelTransformCacheKey(options, babylonAst) {
-  let optionsHashCode;
-  if (!isObject(options)) {
-    optionsHashCode = null;
-  } else {
-    optionsHashCode = imm.fromJS(options).hashCode();
-  }
+export function createBabelAstTransformer(babelOptions) {
+  return function babelAstTransformer(options, pipeline, cb) {
+    const {ast} = options;
+    const {workers} = pipeline;
 
-  return {
-    namespace: 'transformers__babel',
-    key: `${babylonAst.hashCode()}__${optionsHashCode}`,
-    packageDependencies: ['babel']
-  };
-}
-
-export function createBabelTransformer(options) {
-  return function babelTransformer(pipeline, cb) {
-    const {record, workers, cache} = pipeline;
-
-    const babylonAst = record.get('babylonAst');
-    if (isUndefined(babylonAst)) {
-      return cb(new Error(`Record does have a \`babylonAst\` property defined: ${record}`));
+    if (!isObject(ast)) {
+      return cb(new Error(`An \`ast\` option must be provided: ${JSON.stringify(options)}`))
     }
 
-    const cacheKey = generateBabelTransformCacheKey(options, babylonAst);
-    cache.get(cacheKey, (err, file) => {
-      if (err) return cb(err);
-
-      if (isObject(file)) {
-        return cb(null, file);
-      }
-
-      const ast = babylonAst.toJS();
-      transformBabylonAstWithWorkers(ast, options, workers, (err, file) => {
-        if (err) {
-          err.message = `Error applying babel transform to record: ${record.get('filename')}\n\n${err.message}`;
-          return cb(err);
-        }
-
-        cache.set(cacheKey, file, (err) => {
-          if (err) return cb(err);
-
-          cb(null, file);
-        })
-      });
-    });
+    transformBabylonAstWithWorkers(ast, babelOptions, workers, cb);
   };
 }

@@ -1,4 +1,4 @@
-import {parse as babylonParse} from 'babylon';
+import * as babylon from 'babylon';
 import {isUndefined, isString, isObject} from 'lodash/lang';
 import {cloneDeepOmitPrivateProps} from '../utils/clone';
 
@@ -20,7 +20,7 @@ export function buildBabylonAst(text, options, cb) {
   options = createBabylonOptions(options);
 
   try {
-    ast = babylonParse(text, options);
+    ast = babylon.parse(text, options);
   } catch(err) {
     return cb(err);
   }
@@ -49,13 +49,13 @@ export function generateBabylonParserCacheKey(text) {
   }
 }
 
-export function createBabylonParser(options) {
-  return function babylonParser(pipeline, cb) {
-    const {record, workers, cache} = pipeline;
+export function createBabylonParser(babylonOptions) {
+  return function babylonParser(options, pipeline, cb) {
+    const {text} = options;
+    const {workers, cache} = pipeline;
 
-    const text = record.get('content');
     if (!isString(text)) {
-      return cb(new Error(`Record does not have a string defined as the \`content\` property: ${record}`));
+      return cb(new Error(`A \`text\` option must be provided: ${JSON.stringify(options)}`))
     }
 
     const cacheKey = generateBabylonParserCacheKey(text);
@@ -66,11 +66,8 @@ export function createBabylonParser(options) {
         return cb(null, ast);
       }
 
-      buildBabylonAstWithWorkers(text, options, workers, (err, ast) => {
-        if (err) {
-          err.message = `Error parsing record: ${record.get('filename')}\n\n${err.message}`;
-          return cb(err);
-        }
+      buildBabylonAstWithWorkers(text, babylonOptions, workers, (err, ast) => {
+        if (err) return cb(err);
 
         cache.set(cacheKey, ast, (err) => {
           if (err) return cb(err);

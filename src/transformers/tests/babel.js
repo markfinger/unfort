@@ -3,7 +3,7 @@ import {assert} from '../../utils/assert';
 import {createPipeline} from '../../pipeline/pipeline';
 import {createMockWorkers} from '../../workers/mock_workers';
 import {buildBabylonAst} from '../../parsers/babylon';
-import {transformBabylonAst, transformBabylonAstWithWorkers, createBabelTransformer} from '../babel';
+import {transformBabylonAst, transformBabylonAstWithWorkers, createBabelAstTransformer} from '../babel';
 
 // Babel lazily loads presets, which skews test times significantly. So we
 // warm up Node's module cache by importing the test preset before any tests
@@ -40,13 +40,13 @@ describe('transformers/babel', () => {
       });
     });
   });
-  describe('#createBabelTransformer', () => {
+  describe('#createBabelAstTransformer', () => {
     it('should return a function', () => {
-      const ret = createBabelTransformer();
+      const ret = createBabelAstTransformer();
       assert.isFunction(ret);
     });
     it('should accept a record pipeline and return an AST', (done) => {
-      const transformer = createBabelTransformer({
+      const babelAstTransformer = createBabelAstTransformer({
         presets: ['es2015']
       });
       const pipeline = createPipeline();
@@ -59,14 +59,7 @@ describe('transformers/babel', () => {
       buildBabylonAst(testText, null, (err, ast) => {
         assert.isNull(err);
 
-        const recordPipeline = {
-          ...pipeline,
-          record: imm.fromJS({
-            babylonAst: ast
-          })
-        };
-
-        transformer(recordPipeline, (err, file) => {
+        babelAstTransformer({ast}, pipeline, (err, file) => {
           assert.isNull(err);
           assert.equal(file.code, '"use strict";\n\nvar foo = \'bar\';\nvar blah = function blah() {};');
           done();

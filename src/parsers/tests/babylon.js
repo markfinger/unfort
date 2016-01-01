@@ -18,31 +18,31 @@ describe('parsers/babylon', () => {
   });
   describe('#buildBabylonAst', () => {
     it('should return a babylon AST', (done) => {
-      const testText = `
+      const text = `
         var foo = 'bar';
         let blah = () => {};
       `;
 
-      buildBabylonAst(testText, null, (err, ast) => {
+      buildBabylonAst(text, null, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(text, createBabylonOptions()))
         );
         done();
       });
     });
     it('should be able to parse an es6 module', (done) => {
-      const testText = `
+      const text = `
         import foo from 'bar';
         import {woz} from 'qux';
       `;
 
-      buildBabylonAst(testText, null, (err, ast) => {
+      buildBabylonAst(text, null, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(text, createBabylonOptions()))
         );
         done();
       });
@@ -52,16 +52,16 @@ describe('parsers/babylon', () => {
     it('should return a babylon AST', (done) => {
       const workers = createMockWorkers();
 
-      const testText = `
+      const text = `
         var foo = 'bar';
         let blah = () => {};
       `;
 
-      buildBabylonAstWithWorkers(testText, null, workers, (err, ast) => {
+      buildBabylonAstWithWorkers(text, null, workers, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(text, createBabylonOptions()))
         );
         done();
       });
@@ -76,23 +76,16 @@ describe('parsers/babylon', () => {
       const parser = createBabylonParser();
       const pipeline = createPipeline();
 
-      const testText = `
+      const text = `
         var foo = 'bar';
         let blah = () => {};
       `;
 
-      const recordPipeline = {
-        ...pipeline,
-        record: imm.Map({
-          content: testText
-        })
-      };
-
-      parser(recordPipeline, (err, ast) => {
+      parser({text}, pipeline, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
-          cloneDeepOmitPrivateProps(babylon.parse(testText, createBabylonOptions()))
+          cloneDeepOmitPrivateProps(babylon.parse(text, createBabylonOptions()))
         );
         done();
       });
