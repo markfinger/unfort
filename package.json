@@ -1,22 +1,22 @@
 {
-  "name": "alas",
+  "name": "unfort",
   "version": "0.0.0",
-  "description": "alas",
+  "description": "unfort",
   "main": "TODO",
   "scripts": {
     "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
-    "_test": "mocha --reporter spec 'lib/**/tests/*.js'"
+    "test_no_maps": "mocha --reporter spec 'lib/**/tests/*.js'"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/markfinger/alas.git"
+    "url": "git+https://github.com/markfinger/unfort.git"
   },
   "author": "Mark Finger",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/markfinger/alas/issues"
+    "url": "https://github.com/unfort/unfort/issues"
   },
-  "homepage": "https://github.com/markfinger/alas#readme",
+  "homepage": "https://github.com/unfort/unfort",
   "dependencies": {
     "babel-core": "^6.3.13",
     "babel-traverse": "^6.3.26",
