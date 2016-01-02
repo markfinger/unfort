@@ -90,7 +90,18 @@ describe('tests/tree_resolution', () => {
         }),
         (err, records) => {
           assert.isNull(err);
-          console.log(store.getState().getIn(['records', 'records']).map(record => record.get('file')));
+
+          const files = store.getState().getIn(['records', 'records']).map(record => record.get('file')).toArray();
+          assert.equal(files.length, 4);
+
+          const expected = [
+            require.resolve('./tree_resolution/entry'),
+            require.resolve('./tree_resolution/commonjs_dependency'),
+            require.resolve('./tree_resolution/es6_dependency'),
+            require.resolve('./tree_resolution/node_modules/package_dependency/index')
+          ];
+          files.forEach(file => assert.include(expected, file));
+
           done();
         }
       );
