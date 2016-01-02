@@ -12,7 +12,7 @@ import {createRecord, patchRecord} from '../store/utils';
 import {addRecord, updateRecord} from '../store/records/actions';
 
 describe('tests/tree_resolution', () => {
-  it('build a tree from a simple set of files', function(done) {
+  it('should build a tree from a simple set of files', function(done) {
     const store = createStore();
 
     const entryRecord = createRecord(store, {
