@@ -1,6 +1,5 @@
 import * as babylon from 'babylon';
 import {isUndefined, isString, isObject} from 'lodash/lang';
-import {cloneDeepOmitPrivateProps} from '../utils/clone';
 
 export function createBabylonOptions(options) {
   if (!isObject(options)) {
@@ -24,11 +23,6 @@ export function buildBabylonAst(text, options, cb) {
   } catch(err) {
     return cb(err);
   }
-
-  // immutable doesn't like that the AST comes from a constructor with a
-  // prototype. Cloning the object ensures that higher levels can treat it
-  // as a normal object
-  ast = cloneDeepOmitPrivateProps(ast);
 
   cb(null, ast);
 }
