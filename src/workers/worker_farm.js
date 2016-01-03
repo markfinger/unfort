@@ -8,7 +8,7 @@ export function callFunction() {
 }
 
 export function createWorkerFarm() {
-  const workers = workerFarm({maxConcurrentWorkers: 1}, __filename, ['callFunction']);
+  const workers = workerFarm(__filename, ['callFunction']);
 
   return {
     callFunction() {
