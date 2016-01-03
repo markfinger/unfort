@@ -43,8 +43,8 @@ export function buildBabylonAstWithWorkers(text, options, workers, cb) {
 
 export function generateBabylonParserCacheKey(text) {
   return {
-    namespace: 'parsers__babylon',
     key: text,
+    namespace: __filename,
     packageDependencies: ['babylon']
   }
 }
