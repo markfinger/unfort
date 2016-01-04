@@ -25,6 +25,7 @@
     "browser-resolve": "^1.11.0",
     "immutable": "^3.7.5",
     "lodash": "^3.10.1",
+    "mkdirp": "^0.5.1",
     "node-libs-browser": "^0.5.3",
     "redux": "^3.0.4",
     "worker-farm": "^1.3.1"
@@ -32,11 +33,12 @@
   "devDependencies": {
     "async": "^1.5.0",
     "babel-cli": "^6.3.13",
-    "babel-preset-es2015": "^6.1.18",
     "babel-plugin-transform-object-rest-spread": "^6.3.13",
+    "babel-preset-es2015": "^6.1.18",
     "chai": "^3.2.0",
     "chai-immutable": "^1.5.3",
     "mocha": "^2.2.5",
+    "rimraf": "^2.5.0",
     "source-map-support": "^0.3.3"
   }
 }

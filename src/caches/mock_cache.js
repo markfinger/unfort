@@ -1,9 +1,9 @@
 export function createMockCache() {
   return {
-    get(options, cb) {
+    get(key, cb) {
       cb(null, null);
     },
-    set(options, value, cb) {
+    set(key, value, cb) {
       cb(null);
     }
   }

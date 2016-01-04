@@ -13,7 +13,7 @@ describe('caches/mock_cache', () => {
     it('should always return nulls for gets', (done) => {
       const cache = createMockCache();
 
-      cache.get({}, (err, value) => {
+      cache.get('test', (err, value) => {
         assert.isNull(err);
         assert.isNull(value);
         done();
@@ -22,22 +22,18 @@ describe('caches/mock_cache', () => {
     it('should allow `set` calls', (done) => {
       const cache = createMockCache();
 
-      cache.set(
-        {key: 'test'},
-        {},
-        (err) => {
-          assert.isNull(err);
-          done();
-        }
-      );
+      cache.set('test', {}, (err) => {
+        assert.isNull(err);
+        done();
+      });
     });
     it('should not persist any data', (done) => {
       const cache = createMockCache();
 
-      cache.set({key: 'test'}, {}, (err) => {
+      cache.set('test', {}, (err) => {
         assert.isNull(err);
 
-        cache.get({key: 'test'}, (err, value) => {
+        cache.get('test', (err, value) => {
           assert.isNull(err);
           assert.isNull(value);
           done();
