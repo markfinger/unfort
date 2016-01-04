@@ -2,8 +2,6 @@ import {uniq} from 'lodash/array';
 import {isObject, isString} from 'lodash/lang';
 import traverse from 'babel-traverse';
 import * as types from 'babel-types';
-import {cloneDeepOmitPrivateProps} from '../utils/clone';
-
 
 export function createBabelAstDependencyAnalyzer() {
   return function babelAstDependencyAnalyzer(options, pipeline, cb) {
@@ -28,11 +26,7 @@ export function createBabelAstDependencyAnalyzer() {
       const dependencies = [];
       const errors = [];
 
-      // Ensure that any mutations to the traversed AST are not applied
-      // to the provided AST
-      const clonedAst = cloneDeepOmitPrivateProps(ast);
-
-      traverse(clonedAst, {
+      traverse(ast, {
         ImportDeclaration(node) {
           dependencies.push(node.node.source.value);
         },
