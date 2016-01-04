@@ -1,8 +1,10 @@
-import {cloneDeep, isUndefined, isFunction, isArray} from 'lodash/lang';
+import {isUndefined, isFunction, isArray} from 'lodash/lang';
 
 export function createMockWorkers() {
   return {
-    callFunction({filename, name, args}, cb) {
+    callFunction(options, cb) {
+      const {filename, name, args} = options;
+
       if (isUndefined(filename)) {
         return cb(new Error('The `filename` property has not been defined'));
       }
@@ -22,14 +24,9 @@ export function createMockWorkers() {
         return cb(new Error(`\`args\` option ${args} must be an array`));
       }
 
-      // Prevent mutations of shared memory
-      args = cloneDeep(args);
       args.push(cb);
 
-      // Ensure consistent behaviour by suspending the execution
-      process.nextTick(() => {
-        mod[name].apply(global, args);
-      });
+      mod[name].apply(global, args);
     }
   }
 }
