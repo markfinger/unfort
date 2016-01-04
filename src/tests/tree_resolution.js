@@ -38,7 +38,7 @@ describe('tests/tree_resolution', () => {
 
           record = patchRecord(store, record, {babylonAst});
 
-          babelAstDependencyAnalyzer({ast: babylonAst}, pipeline, (err, dependencies) => {
+          babelAstDependencyAnalyzer({ast: babylonAst, file: record.get('file')}, pipeline, (err, dependencies) => {
             if (err) return cb(err);
 
             record = patchRecord(store, record, {dependencies});
