@@ -1,16 +1,9 @@
 import {uniq} from 'lodash/array';
-import {isObject} from 'lodash/lang';
+import {isObject, isString} from 'lodash/lang';
 import traverse from 'babel-traverse';
 import * as types from 'babel-types';
 import {cloneDeepOmitPrivateProps} from '../utils/clone';
 
-export function generateBabelAstDependencyAnalyzerCacheKey(file) {
-  return {
-    key: file,
-    namespace: __filename,
-    packageDependencies: ['babel-traverse']
-  }
-}
 
 export function createBabelAstDependencyAnalyzer() {
   return function babelAstDependencyAnalyzer(options, pipeline, cb) {
@@ -21,15 +14,15 @@ export function createBabelAstDependencyAnalyzer() {
       return cb(new Error(`A \`file\` option must be provided`))
     }
 
-    // TODO: add `file` type check as well
-
-    const cacheKey = generateBabelAstDependencyAnalyzerCacheKey(file);
-
-    cache.get(cacheKey, (err, cachedDeps) => {
+    cache.get(file, (err, cachedDeps) => {
       if (err) return cb(err);
 
       if (isObject(cachedDeps)) {
         return cb(null, cachedDeps);
+      }
+
+      if (!isObject(ast)) {
+        return cb(new Error(`An \`ast\` option must be provided`))
       }
 
       const dependencies = [];
@@ -67,7 +60,7 @@ export function createBabelAstDependencyAnalyzer() {
       // Ensure that dependencies are only identified once
       const uniqueDependencies = uniq(dependencies);
 
-      cache.set(cacheKey, uniqueDependencies, (err) => {
+      cache.set(file, uniqueDependencies, (err) => {
         if (err) return cb(err);
 
         cb(null, uniqueDependencies);
