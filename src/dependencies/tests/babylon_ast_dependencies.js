@@ -16,7 +16,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
       const pipeline = createPipeline();
       const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
 
-      babelAstDependencyAnalyzer({ast}, pipeline, (err, dependencies) => {
+      babelAstDependencyAnalyzer({ast, file: 'test'}, pipeline, (err, dependencies) => {
         assert.isNull(err);
         assert.deepEqual(dependencies, ['foo', 'bar']);
         done();
@@ -31,7 +31,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
       const pipeline = createPipeline();
       const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
 
-      babelAstDependencyAnalyzer({ast}, pipeline, (err) => {
+      babelAstDependencyAnalyzer({ast, file: 'test'}, pipeline, (err) => {
         assert.instanceOf(err, Error);
         assert.equal(
           err.message,
@@ -49,7 +49,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
       const pipeline = createPipeline();
       const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
       
-      babelAstDependencyAnalyzer({ast}, pipeline, (err) => {
+      babelAstDependencyAnalyzer({ast, file: 'test'}, pipeline, (err) => {
         assert.instanceOf(err, Error);
         assert.equal(
           err.message,
@@ -67,7 +67,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
       const pipeline = createPipeline();
       const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
 
-      babelAstDependencyAnalyzer({ast}, pipeline, (err, dependencies) => {
+      babelAstDependencyAnalyzer({ast, file: 'test'}, pipeline, (err, dependencies) => {
         assert.deepEqual(dependencies, []);
         done();
       });
@@ -81,45 +81,8 @@ describe('dependencies/babylon_ast_dependencies', () => {
       const pipeline = createPipeline();
       const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
 
-      babelAstDependencyAnalyzer({ast}, pipeline, (err, dependencies) => {
+      babelAstDependencyAnalyzer({ast, file: 'test'}, pipeline, (err, dependencies) => {
         assert.deepEqual(dependencies, ['foo', 'bar']);
-        done();
-      });
-    });
-    it('should not mutate the ast when resolving dependencies', (done) => {
-      const testText = `
-        import foo from 'foo';
-        import {bar} from 'bar';
-        const woz = require('woz');
-
-        const test = (qux) => {
-          const testy = 'foo';
-          return testy + qux();
-        };
-
-        test(foo);
-
-        export default foo;
-      `;
-
-      const ast = cloneDeep(
-        babylon.parse(
-          testText,
-          {sourceType: 'module'}
-        )
-      );
-
-      const clonedAst = cloneDeep(ast);
-
-      assert.notStrictEqual(ast, clonedAst);
-      assert.deepEqual(ast, clonedAst);
-
-      const pipeline = createPipeline();
-      const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
-
-      babelAstDependencyAnalyzer({ast}, pipeline, (err, dependencies) => {
-        assert.deepEqual(dependencies, ['foo', 'bar', 'woz']);
-        assert.deepEqual(ast, clonedAst);
         done();
       });
     });
@@ -132,7 +95,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
       const pipeline = createPipeline();
       const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
 
-      babelAstDependencyAnalyzer({ast}, pipeline, (err, dependencies) => {
+      babelAstDependencyAnalyzer({ast, file: 'test'}, pipeline, (err, dependencies) => {
         assert.deepEqual(dependencies, ['foo']);
         done();
       });
