@@ -35,17 +35,9 @@ export function buildBabylonAstWithWorkers(text, options, workers, cb) {
   }, cb);
 }
 
-export function generateBabylonParserCacheKey(text) {
-  return {
-    key: text,
-    namespace: __filename,
-    packageDependencies: ['babylon']
-  }
-}
-
 export function createBabylonParser(babylonOptions) {
   return function babylonParser(options, pipeline, cb) {
-    const {text} = options;
+    const {text, file} = options;
     const {workers, cache} = pipeline;
 
     if (!isString(text)) {
@@ -64,7 +56,7 @@ export function createBabylonParser(babylonOptions) {
       buildBabylonAstWithWorkers(text, babylonOptions, workers, (err, ast) => {
         if (err) return cb(err);
 
-        cache.set(cacheKey, ast, (err) => {
+        cache.set(text, ast, (err) => {
           if (err) return cb(err);
 
           cb(null, ast);
