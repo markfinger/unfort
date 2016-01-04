@@ -17,8 +17,8 @@ export function createBabelAstDependencyAnalyzer() {
     const {ast, file} = options;
     const {cache} = pipeline;
 
-    if (!isObject(ast)) {
-      return cb(new Error(`An \`ast\` option must be provided: ${JSON.stringify(options)}`))
+    if (!isString(file)) {
+      return cb(new Error(`A \`file\` option must be provided`))
     }
 
     // TODO: add `file` type check as well

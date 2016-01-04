@@ -46,7 +46,7 @@ export function createBabelAstTransformer(babelOptions) {
     const {workers} = pipeline;
 
     if (!isObject(ast)) {
-      return cb(new Error(`An \`ast\` option must be provided: ${JSON.stringify(options)}`))
+      return cb(new Error(`An \`ast\` option must be provided`))
     }
 
     transformBabylonAstWithWorkers(ast, babelOptions, workers, cb);

@@ -23,10 +23,10 @@ export function createBrowserResolver() {
     const {fs} = pipeline;
 
     if (!isString(dependency)) {
-      return cb(new Error(`A \`dependency\` option must be provided: ${JSON.stringify(options)}`))
+      return cb(new Error(`A \`dependency\` option must be provided`))
     }
     if (!isString(basedir)) {
-      return cb(new Error(`A \`basedir\` option must be provided: ${JSON.stringify(options)}`))
+      return cb(new Error(`A \`basedir\` option must be provided`))
     }
 
     const resolveOptions = {

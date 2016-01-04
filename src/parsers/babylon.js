@@ -52,8 +52,9 @@ export function createBabylonParser(babylonOptions) {
       return cb(new Error(`A \`text\` option must be provided: ${JSON.stringify(options)}`))
     }
 
-    const cacheKey = generateBabylonParserCacheKey(text);
-    cache.get(cacheKey, (err, ast) => {
+    // TODO replace `text` with `file` (need to ensure that perf tests pass separate caches
+
+    cache.get(text, (err, ast) => {
       if (err) return cb(err);
 
       if (isObject(ast)) {

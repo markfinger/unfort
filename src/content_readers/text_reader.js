@@ -6,7 +6,7 @@ export function createTextReader() {
     const {fs} = pipeline;
 
     if (!isString(file)) {
-      return cb(new Error(`A \`file\` option must be provided: ${JSON.stringify(options)}`))
+      return cb(new Error(`A \`file\` option must be provided`))
     }
 
     fs.isFile(file, (err, isFile) => {
