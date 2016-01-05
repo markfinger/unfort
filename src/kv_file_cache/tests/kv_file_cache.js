@@ -5,7 +5,7 @@ import mkdirp from 'mkdirp';
 import {assert} from '../../utils/assert';
 import {createKVFileCache, generateFilenameFromCacheKey} from '../kv_file_cache';
 
-describe('caches/persistent_cache', () => {
+describe('kv_file_cache', () => {
   describe('#generateFilenameFromCacheKey', () => {
     it('should accept a string and return a file named after a hex digest', () => {
       assert.equal(
@@ -16,6 +16,7 @@ describe('caches/persistent_cache', () => {
   });
   describe('#createKVFileCache', () => {
     const dirname = path.join(__dirname, 'cache_test_dir');
+    const TEST_KEY_FILENAME = path.join(dirname, generateFilenameFromCacheKey('test'));
 
     // Ensure that data does not persist across tests
     function removeDirname(cb) {
@@ -39,7 +40,7 @@ describe('caches/persistent_cache', () => {
       mkdirp.sync(dirname);
 
       fs.writeFileSync(
-        path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'),
+        TEST_KEY_FILENAME,
         JSON.stringify({foo: 'bar'})
       );
 
@@ -63,7 +64,7 @@ describe('caches/persistent_cache', () => {
         assert.isNull(err);
 
         assert.equal(
-          fs.readFileSync(path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'), 'utf8'),
+          fs.readFileSync(TEST_KEY_FILENAME, 'utf8'),
           JSON.stringify({bar: 'foo'})
         );
 
@@ -111,18 +112,53 @@ describe('caches/persistent_cache', () => {
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
 
-        const stat = fs.statSync(path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'));
+        const stat = fs.statSync(TEST_KEY_FILENAME);
         assert.isTrue(stat.isFile());
 
         cache.invalidate('test', (err) => {
           assert.isNull(err);
 
-          fs.stat(path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'), (err) => {
+          fs.stat(TEST_KEY_FILENAME, (err) => {
             assert.instanceOf(err, Error);
             assert.equal(err.code, 'ENOENT');
             done();
           });
         });
+      });
+    });
+    it('should populate an in-memory cache when setting entries', (done) => {
+      const cache = createKVFileCache({dirname});
+
+      cache.set('test', {foo: 'bar'}, (err) => {
+        assert.isNull(err);
+
+        assert.equal(
+          cache.cache[TEST_KEY_FILENAME],
+          JSON.stringify({foo: 'bar'})
+        );
+        done();
+      });
+    });
+    it('should fetch from the in-memory cache before hitting the FS', (done) => {
+      const cache = createKVFileCache({dirname});
+
+      cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
+
+      cache.get('test', (err, data) => {
+        assert.isNull(err);
+        assert.deepEqual(data, {test: 1});
+        done();
+      });
+    });
+    it('should remove entries from the in-memory cache when they are invalidated', (done) => {
+      const cache = createKVFileCache({dirname});
+
+      cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
+
+      cache.invalidate('test', (err) => {
+        assert.isNull(err);
+        assert.isUndefined(cache.cache[TEST_KEY_FILENAME]);
+        done();
       });
     });
   });
