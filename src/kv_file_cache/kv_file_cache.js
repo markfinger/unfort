@@ -13,13 +13,18 @@ export function generateFilenameFromCacheKey(cacheKey) {
 export function createKVFileCache(options={}) {
   const {dirname} = options;
   if (!isString(dirname)) {
-    throw new Error(`A \`dirname\` option must be provided`);
+    throw new Error('A `dirname` option must be provided');
   }
 
+  // We create the cache dir in a *synchronous* call so that we don't have
+  // to add any ready-state detection to the `set` function
   mkdirp.sync(dirname);
 
-  const emitter = new EventEmitter();
+  // An in-memory cache that helps avoid some of the overhead involved
+  // with the file system
   const cache = Object.create(null);
+
+  const emitter = new EventEmitter();
 
   return {
     cache,
@@ -64,7 +69,10 @@ export function createKVFileCache(options={}) {
     set(key, value, cb) {
       const filename = path.join(dirname, generateFilenameFromCacheKey(key));
 
-      // We serialize the data as late as possible to avoid blocking the event loop
+      // Note: serializing large JSON structures can block the event loop. Might be worth
+      // investigating deferring this. One issue with deferring is that it may open up the
+      // possibility for race conditions to emerge as `get` and `invalidate` assume that
+      // the in-memory cache (backed up by the FS) is a canonical source of truth
       let json;
       try {
         json = JSON.stringify(value);
@@ -77,6 +85,7 @@ export function createKVFileCache(options={}) {
         }
       }
 
+      // Ensure that the in-memory cache is fresh
       cache[filename] = json;
 
       fs.writeFile(filename, json, (err) => {
@@ -91,11 +100,15 @@ export function createKVFileCache(options={}) {
     },
     invalidate(key, cb) {
       const filename = path.join(dirname, generateFilenameFromCacheKey(key));
+
+      // Ensure that the in-memory cache is fresh
       cache[filename] = undefined;
 
+      // Remove the entry's file
       fs.unlink(filename, (err) => {
         if (err) {
-          // Cache misses are represented by missing files, so we can ignore this
+          // We can ignore missing files, as it indicates that the entry
+          // wasn't in the cache
           if (err.code === 'ENOENT') {
             if (cb) {
               return cb(null);
