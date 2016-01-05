@@ -8,8 +8,9 @@ import {createBabelAstDependencyAnalyzer} from '../dependencies/babel_ast_depend
 import {createBabylonParser} from '../parsers/babylon';
 import {createTextReader} from '../content_readers/text_reader';
 import {createWorkerFarm} from '../workers/worker_farm';
+import {createPersistentCache} from '../caches/persistent_cache';
 
-function createPersistentCache() {
+function createBlobCache() {
   const cacheFile = path.join(__dirname, 'cache.json');
   let cache = Object.create(null);
 
@@ -81,6 +82,7 @@ function trace(pipeline, cb) {
       )
     ], (err, resolved) => {
       if (err) {
+        err.message = `File: ${file}\n\n${err.message}`;
         return cb(err);
       }
 
@@ -99,6 +101,7 @@ function trace(pipeline, cb) {
   }
 
   async.parallel([
+    (cb) => traceFile(require.resolve('redux'), cb),
     (cb) => traceFile(require.resolve('react'), cb),
     (cb) => traceFile(require.resolve('babylon'), cb)
   ], (err) => {
@@ -121,12 +124,29 @@ module.exports = function tracerPerf(cb) {
   //  cb();
   //});
 
-  //
+
   //// worker farm
+  //const workers = createWorkerFarm();
   //const workerPipeline = createPipeline({
-  //  workers: createWorkerFarm()
+  //  workers
   //});
   //trace(workerPipeline, (err, tree) => {
+  //  assert.isNull(err);
+  //  assert.isObject(tree);
+  //
+  //  const end = (new Date).getTime() - start;
+  //  console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms`);
+  //
+  //  workers.killWorkers();
+  //
+  //  cb();
+  //});
+
+  //// persistent cache
+  //const cachePipeline = createPipeline({
+  //  cache: createPersistentCache({dirname: __dirname + '/test-cache'})
+  //});
+  //trace(cachePipeline, (err, tree) => {
   //  assert.isNull(err);
   //  assert.isObject(tree);
   //
@@ -136,17 +156,17 @@ module.exports = function tracerPerf(cb) {
   //  cb();
   //});
 
-  // persistent cache
-  const cachePipeline = createPipeline({
-    cache: createPersistentCache()
-  });
-  trace(cachePipeline, (err, tree) => {
-    assert.isNull(err);
-    assert.isObject(tree);
-
-    const end = (new Date).getTime() - start;
-    console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms`);
-
-    cb();
-  });
+  // blob cache
+  //const cachePipeline = createPipeline({
+  //  cache: createBlobCache()
+  //});
+  //trace(cachePipeline, (err, tree) => {
+  //  assert.isNull(err);
+  //  assert.isObject(tree);
+  //
+  //  const end = (new Date).getTime() - start;
+  //  console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms`);
+  //
+  //  cb();
+  //});
 };
