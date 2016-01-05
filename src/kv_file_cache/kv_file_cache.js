@@ -102,11 +102,15 @@ export function createKVFileCache(options={}) {
             }
             return;
           }
+
           emitter.emit('error', err);
+          if (cb) {
+            return cb(err);
+          }
         }
 
         if (cb) {
-          cb(err);
+          cb(null);
         }
       });
     },
