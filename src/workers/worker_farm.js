@@ -14,7 +14,7 @@ export function createWorkerFarm() {
     callFunction() {
       workers.callFunction.apply(this, arguments);
     },
-    end() {
+    killWorkers() {
       workerFarm.end(workers);
     },
     _workers: workers
