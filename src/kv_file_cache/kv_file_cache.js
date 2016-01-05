@@ -18,62 +18,55 @@ export function createKVFileCache(options={}) {
 
   const emitter = new EventEmitter();
 
-  let isReady = false;
-  let _onceReady = [];
-
-  mkdirp(dirname, (err) => {
-    isReady = true;
-
-    emitter.emit('ready');
-
-    if (err) {
-      emitter.emit('error', err);
-    } else {
-      _onceReady.forEach(cb => cb());
-    }
-  });
-
-  function onceReady(cb) {
-    if (isReady) {
-      cb();
-    } else {
-      _onceReady.push(cb);
-    }
-  }
-
   return {
     get(key, cb) {
       const filename = path.join(dirname, generateFilenameFromCacheKey(key));
 
-      onceReady(() => {
-        fs.readFile(filename, 'utf8', (err, json) => {
-          if (err) {
-            // Cache misses are represented by missing files
-            if (err.code === 'ENOENT') {
-              return cb(null, null);
-            }
-
-            emitter.emit('error', err);
-            return cb(err);
+      fs.readFile(filename, 'utf8', (err, json) => {
+        if (err) {
+          // Cache misses are represented by missing files
+          if (err.code === 'ENOENT') {
+            return cb(null, null);
           }
 
-          let data;
-          try {
-            data = JSON.parse(json);
-          } catch(err) {
-            emitter.emit('error', err);
-            return cb(err);
-          }
+          emitter.emit('error', err);
+          return cb(err);
+        }
 
-          cb(null, data);
-        });
+        let data;
+        try {
+          data = JSON.parse(json);
+        } catch(err) {
+          emitter.emit('error', err);
+          return cb(err);
+        }
+
+        cb(null, data);
       });
     },
     set(key, value, cb) {
-      const filename = path.join(dirname, generateFilenameFromCacheKey(key));
-      const data = JSON.stringify(value);
+      mkdirp(dirname, (err) => {
+        if (err) {
+          emitter.emit('error', err);
+          return cb(err);
+        }
 
-      onceReady(() => {
+        const filename = path.join(dirname, generateFilenameFromCacheKey(key));
+
+        // We serialize the data as late as possible to avoid blocking the event loop
+        let data;
+        try {
+          data = JSON.stringify(value);
+        } catch(err) {
+          emitter.emit('error', err);
+
+          if (cb) {
+            return cb(err);
+          } else {
+            return;
+          }
+        }
+
         fs.writeFile(filename, data, (err) => {
           if (err) {
             emitter.emit('error', err);
@@ -88,23 +81,21 @@ export function createKVFileCache(options={}) {
     invalidate(key, cb) {
       const filename = path.join(dirname, generateFilenameFromCacheKey(key));
 
-      onceReady(() => {
-        fs.unlink(filename, (err) => {
-          if (err) {
-            // Cache misses are represented by missing files, so we can ignore this
-            if (err.code === 'ENOENT') {
-              if (cb) {
-                return cb(null)
-              }
-              return;
+      fs.unlink(filename, (err) => {
+        if (err) {
+          // Cache misses are represented by missing files, so we can ignore this
+          if (err.code === 'ENOENT') {
+            if (cb) {
+              return cb(null)
             }
-            emitter.emit('error', err);
+            return;
           }
+          emitter.emit('error', err);
+        }
 
-          if (cb) {
-            cb(err);
-          }
-        });
+        if (cb) {
+          cb(err);
+        }
       });
     },
     on: emitter.on.bind(emitter),

@@ -34,16 +34,7 @@ describe('caches/persistent_cache', () => {
         assert.equal(err.message, 'A `dirname` option must be provided')
       }
     });
-    it('should create a cache directory if it does not exist', (done) => {
-      const cache = createKVFileCache({dirname});
 
-      cache.on('ready', () => {
-        fs.stat(dirname, (err, stat) => {
-          assert.isTrue(stat.isDirectory());
-          done();
-        });
-      });
-    });
     it('should be able to read from a cache directory', (done) => {
       mkdirp.sync(dirname);
 
@@ -63,20 +54,6 @@ describe('caches/persistent_cache', () => {
           assert.isNull(data);
           done();
         });
-      });
-    });
-    it('should be able to write to a cache directory', (done) => {
-      const cache = createKVFileCache({dirname});
-
-      cache.set('test', {bar: 'foo'}, (err) => {
-        assert.isNull(err);
-
-        assert.equal(
-          fs.readFileSync(path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'), 'utf8'),
-          JSON.stringify({bar: 'foo'})
-        );
-
-        done();
       });
     });
     it('should be able to write to a cache directory', (done) => {
@@ -123,6 +100,26 @@ describe('caches/persistent_cache', () => {
           cache.get('test', (err, data) => {
             assert.isNull(err);
             assert.isNull(data);
+            done();
+          });
+        });
+      });
+    });
+    it('should remove the cache file when invalidating an entry', (done) => {
+      const cache = createKVFileCache({dirname});
+
+      cache.set('test', {foo: 'bar'}, (err) => {
+        assert.isNull(err);
+
+        const stat = fs.statSync(path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'));
+        assert.isTrue(stat.isFile());
+
+        cache.invalidate('test', (err) => {
+          assert.isNull(err);
+
+          fs.stat(path.join(dirname, '098f6bcd4621d373cade4e832627b4f6.json'), (err) => {
+            assert.instanceOf(err, Error);
+            assert.equal(err.code, 'ENOENT');
             done();
           });
         });
