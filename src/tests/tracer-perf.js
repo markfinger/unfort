@@ -1,12 +1,19 @@
-import * as path from 'path';
-import * as async from 'async';
-import * as fs from 'fs';
+import path from 'path';
+import async from 'async';
+import fs from 'fs';
 import * as babylon from 'babylon';
+import crypto from 'crypto';
+import browserResolve from 'browser-resolve';
 import {assert} from '../utils/assert';
-import {browserResolver} from '../dependencies/browser_resolve';
+import {nodeLibs} from '../dependencies/browser_resolve';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createWorkerFarm} from '../workers/worker_farm';
 import {createFileCache, createMockCache} from '../kv-file-cache';
+
+const sourceRoot = process.cwd();
+const rootPackage = path.join(sourceRoot, 'package.json');
+const packageHash = fs.readFileSync(rootPackage);
+const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
 function trace(caches, cb) {
   const tree = Object.create(null);
@@ -61,7 +68,14 @@ function trace(caches, cb) {
         async.map(
           deps,
           (dependency, cb) => {
-            browserResolver({dependency, basedir: path.dirname(file)}, cb);
+            browserResolve(
+              dependency,
+              {
+                basedir: path.dirname(file),
+                modules: nodeLibs
+              },
+              cb
+            );
           },
           (err, resolved) => {
             if (err) return cb(err);
@@ -85,9 +99,15 @@ function trace(caches, cb) {
       tree[file] = resolved;
 
       const untracedFiles = resolved.filter(file => !tree[file]);
+
       if (untracedFiles.length) {
-        async.parallel(
-          untracedFiles.map(file => (cb) => traceFile(file, cb)),
+        untracedFiles.forEach(file => {
+          tree[file] = Object.create(null)
+        });
+
+        async.map(
+          untracedFiles,
+          (file, cb) => traceFile(file, cb),
           cb
         );
       } else {
@@ -125,24 +145,24 @@ function createFileCaches() {
 module.exports = function tracerPerf(cb) {
   const start = (new Date).getTime();
 
-  //trace(createMockCaches(), (err, tree) => {
-  //  assert.isNull(err);
-  //  assert.isObject(tree);
-  //
-  //  const end = (new Date).getTime() - start;
-  //  console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms with mock caches`);
-  //
-  //  cb();
-  //});
-
-
-  trace(createFileCaches(), (err, tree) => {
+  trace(createMockCaches(), (err, tree) => {
     assert.isNull(err);
     assert.isObject(tree);
 
     const end = (new Date).getTime() - start;
-    console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms with file caches`);
+    console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms with mock caches`);
 
     cb();
   });
+
+
+  //trace(createFileCaches(), (err, tree) => {
+  //  assert.isNull(err);
+  //  assert.isObject(tree);
+  //
+  //  const end = (new Date).getTime() - start;
+  //  console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms with file caches`);
+  //
+  //  cb();
+  //});
 };
