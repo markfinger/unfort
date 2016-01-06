@@ -1,4 +1,7 @@
+import path from 'path';
+import rimraf from 'rimraf';
 import {assert} from '../../utils/assert';
+import {createFileCache} from '../file_cache';
 import {createMockCache} from '../mock_cache';
 
 describe('mock_cache', () => {
@@ -39,6 +42,24 @@ describe('mock_cache', () => {
           done();
         });
       });
+    });
+    it('should mimic the file cache\'s API', () => {
+      const dirname = path.join(__dirname, 'cache_test_dir');
+
+      const mockCache = createMockCache({dirname});
+      const fileCache = createFileCache({dirname});
+
+      for (let prop in fileCache) {
+        if (fileCache.hasOwnProperty(prop)) {
+          assert.equal(
+            typeof fileCache[prop],
+            typeof mockCache[prop],
+            `mock caches should mimic the file cache api by providing a ${typeof fileCache[prop]} as "${prop}"`
+          );
+        }
+      }
+
+      rimraf.sync(dirname);
     });
   });
 });

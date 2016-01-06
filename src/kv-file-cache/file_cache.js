@@ -28,6 +28,7 @@ export function createFileCache(options={}) {
   const emitter = new EventEmitter();
 
   return {
+    dirname,
     cache,
     get(key, cb) {
       const filename = path.join(dirname, generateFilenameFromCacheKey(key));
