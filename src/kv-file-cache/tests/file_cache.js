@@ -3,9 +3,9 @@ import path from 'path';
 import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import {assert} from '../../utils/assert';
-import {createKVFileCache, generateFilenameFromCacheKey} from '../kv_file_cache';
+import {createFileCache, generateFilenameFromCacheKey} from '../file_cache';
 
-describe('kv_file_cache', () => {
+describe('file_cache', () => {
   describe('#generateFilenameFromCacheKey', () => {
     it('should accept a string and return a file named after a hex digest', () => {
       assert.equal(
@@ -14,7 +14,7 @@ describe('kv_file_cache', () => {
       );
     });
   });
-  describe('#createKVFileCache', () => {
+  describe('#createFileCache', () => {
     const dirname = path.join(__dirname, 'cache_test_dir');
     const TEST_KEY_FILENAME = path.join(dirname, generateFilenameFromCacheKey('test'));
 
@@ -30,7 +30,7 @@ describe('kv_file_cache', () => {
 
     it('should should throw if `dirname` is not specified', () => {
       try {
-        createKVFileCache();
+        createFileCache();
       } catch(err) {
         assert.equal(err.message, 'A `dirname` option must be provided')
       }
@@ -44,7 +44,7 @@ describe('kv_file_cache', () => {
         JSON.stringify({foo: 'bar'})
       );
 
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.get('test', (err, data) => {
         assert.isNull(err);
@@ -58,7 +58,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should be able to write to a cache directory', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.set('test', {bar: 'foo'}, (err) => {
         assert.isNull(err);
@@ -72,7 +72,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should be able to read and write from the cache', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.get('test', (err, data) => {
         assert.isNull(err);
@@ -90,7 +90,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should be able to invalidate an entry in the cache', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
@@ -107,7 +107,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should remove the cache file when invalidating an entry', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
@@ -127,7 +127,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should populate an in-memory cache when setting entries', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
@@ -140,7 +140,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should fetch from the in-memory cache before hitting the FS', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
 
@@ -151,7 +151,7 @@ describe('kv_file_cache', () => {
       });
     });
     it('should remove entries from the in-memory cache when they are invalidated', (done) => {
-      const cache = createKVFileCache({dirname});
+      const cache = createFileCache({dirname});
 
       cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
 

@@ -10,7 +10,7 @@ export function generateFilenameFromCacheKey(cacheKey) {
   return hash + '.json';
 }
 
-export function createKVFileCache(options={}) {
+export function createFileCache(options={}) {
   const {dirname} = options;
   if (!isString(dirname)) {
     throw new Error('A `dirname` option must be provided');
