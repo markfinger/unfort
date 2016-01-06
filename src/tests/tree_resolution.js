@@ -2,26 +2,24 @@ import path from 'path';
 import fs from 'fs';
 import async from 'async';
 import imm from 'immutable';
+import {values} from 'lodash/object';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
 import {browserResolver} from '../dependencies/browser_resolve';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
-import {createStore} from '../store/store';
-import {createRecord, patchRecord} from '../store/utils';
-import {addRecord, updateRecord} from '../store/records/actions';
 
 describe('tests/tree_resolution', () => {
   it('should build a tree from a simple set of files', function(done) {
-    const store = createStore();
+    const store = Object.create(null);
 
-    const entryRecord = createRecord(store, {
+    const entryRecord = {
       file: require.resolve('./tree_resolution/entry')
-    });
+    };
 
-    store.dispatch(addRecord(entryRecord));
+    store[entryRecord.file] = entryRecord;
 
     function processRecord(record, cb) {
-      fs.readFile(record.get('file'), 'utf8', (err, content) => {
+      fs.readFile(record.file, 'utf8', (err, content) => {
         if (err) return cb(err);
 
         const ast = babylon.parse(content, {sourceType: 'module'});
@@ -33,7 +31,7 @@ describe('tests/tree_resolution', () => {
             browserResolver(
               {
                 dependency,
-                basedir: path.dirname(record.get('file'))
+                basedir: path.dirname(record.file)
               },
               cb
             );
@@ -46,7 +44,7 @@ describe('tests/tree_resolution', () => {
               resolvedDependencies[dependencies[i]] = dep;
             });
 
-            record = patchRecord(store, record, {resolvedDependencies});
+            record.resolvedDependencies = resolvedDependencies;
 
             cb(null, record);
           }
@@ -57,22 +55,22 @@ describe('tests/tree_resolution', () => {
     processRecord(entryRecord, (err, record) => {
       assert.isNull(err);
 
-      const deps = record.get('resolvedDependencies').toArray();
+      const deps = values(record.resolvedDependencies);
 
       async.parallel(
         deps.map(file => (cb) => {
-          const record = createRecord(store, {
+          const record = {
             file: file
-          });
+          };
 
-          store.dispatch(addRecord(record));
+          store[record.file] = record;
 
           processRecord(record, cb);
         }),
-        (err, records) => {
+        (err) => {
           assert.isNull(err);
 
-          const files = store.getState().getIn(['records', 'records']).map(record => record.get('file')).toArray();
+          const files = Object.keys(store).map(file => store[file].file);
           assert.equal(files.length, 4);
 
           const expected = [

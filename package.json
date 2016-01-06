@@ -5,7 +5,7 @@
   "main": "TODO",
   "scripts": {
     "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
-    "test_no_maps": "mocha --reporter spec 'lib/**/tests/*.js'"
+    "_test": "mocha --reporter spec 'lib/**/tests/*.js'"
   },
   "repository": {
     "type": "git",
@@ -23,12 +23,10 @@
     "babel-types": "^6.3.24",
     "babylon": "^6.3.26",
     "browser-resolve": "^1.11.0",
-    "immutable": "^3.7.5",
     "imurmurhash": "^0.1.4",
     "lodash": "^3.10.1",
     "mkdirp": "^0.5.1",
     "node-libs-browser": "^0.5.3",
-    "redux": "^3.0.4",
     "worker-farm": "^1.3.1"
   },
   "devDependencies": {
@@ -37,7 +35,6 @@
     "babel-plugin-transform-object-rest-spread": "^6.3.13",
     "babel-preset-es2015": "^6.1.18",
     "chai": "^3.2.0",
-    "chai-immutable": "^1.5.3",
     "mocha": "^2.2.5",
     "rimraf": "^2.5.0",
     "source-map-support": "^0.3.3"
