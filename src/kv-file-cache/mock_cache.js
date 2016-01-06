@@ -1,7 +1,10 @@
+import {murmurFilename} from './utils';
+
 export function createMockCache({dirname}={}) {
   return {
     dirname,
     cache: Object.create(null),
+    generateFilename: murmurFilename,
     get(key, cb) {
       cb(null, null);
     },

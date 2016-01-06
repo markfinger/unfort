@@ -51,11 +51,11 @@ describe('mock_cache', () => {
 
       for (let prop in fileCache) {
         if (fileCache.hasOwnProperty(prop)) {
-          assert.equal(
-            typeof fileCache[prop],
-            typeof mockCache[prop],
-            `mock caches should mimic the file cache api by providing a ${typeof fileCache[prop]} as "${prop}"`
-          );
+          if (typeof fileCache[prop] !== typeof mockCache[prop]) {
+            throw new Error(
+              `mock caches should mimic the file cache api by providing a ${typeof fileCache[prop]} as "${prop}"`
+            );
+          }
         }
       }
 

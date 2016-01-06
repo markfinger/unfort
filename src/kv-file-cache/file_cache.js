@@ -1,17 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 import EventEmitter from 'events';
-import {createHash} from 'crypto';
 import mkdirp from 'mkdirp';
 import {isString, isObject} from 'lodash/lang';
-
-export function generateFilenameFromCacheKey(cacheKey) {
-  const hash = createHash('md5').update(cacheKey).digest('hex');
-  return hash + '.json';
-}
+import {murmurFilename} from './utils';
 
 export function createFileCache(options={}) {
-  const {dirname} = options;
+  const {
+    dirname,
+    generateFilename=murmurFilename
+  } = options;
+
   if (!isString(dirname)) {
     throw new Error('A `dirname` option must be provided');
   }
@@ -29,9 +28,10 @@ export function createFileCache(options={}) {
 
   return {
     dirname,
+    generateFilename,
     cache,
     get(key, cb) {
-      const filename = path.join(dirname, generateFilenameFromCacheKey(key));
+      const filename = path.join(dirname, generateFilename(key));
 
       if (cache[filename]) {
         let data;
@@ -69,7 +69,7 @@ export function createFileCache(options={}) {
       });
     },
     set(key, value, cb) {
-      const filename = path.join(dirname, generateFilenameFromCacheKey(key));
+      const filename = path.join(dirname, generateFilename(key));
 
       // Note: serializing large JSON structures can block the event loop. Might be worth
       // investigating deferring this. One issue with deferring is that it may open up the
@@ -101,7 +101,7 @@ export function createFileCache(options={}) {
       });
     },
     invalidate(key, cb) {
-      const filename = path.join(dirname, generateFilenameFromCacheKey(key));
+      const filename = path.join(dirname, generateFilename(key));
 
       // Ensure that the in-memory cache is fresh
       cache[filename] = undefined;

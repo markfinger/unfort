@@ -3,20 +3,13 @@ import path from 'path';
 import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import {assert} from '../../utils/assert';
-import {createFileCache, generateFilenameFromCacheKey} from '../file_cache';
+import {createFileCache} from '../file_cache';
+import {murmurFilename} from '../utils';
 
 describe('file_cache', () => {
-  describe('#generateFilenameFromCacheKey', () => {
-    it('should accept a string and return a file named after a hex digest', () => {
-      assert.equal(
-        generateFilenameFromCacheKey('test'),
-        '098f6bcd4621d373cade4e832627b4f6.json'
-      );
-    });
-  });
   describe('#createFileCache', () => {
     const dirname = path.join(__dirname, 'cache_test_dir');
-    const TEST_KEY_FILENAME = path.join(dirname, generateFilenameFromCacheKey('test'));
+    const TEST_KEY_FILENAME = path.join(dirname, murmurFilename('test'));
 
     // Ensure that data does not persist across tests
     function removeDirname(cb) {
@@ -45,6 +38,8 @@ describe('file_cache', () => {
       );
 
       const cache = createFileCache({dirname});
+
+      assert.equal(cache.dirname, dirname);
 
       cache.get('test', (err, data) => {
         assert.isNull(err);
@@ -158,6 +153,25 @@ describe('file_cache', () => {
       cache.invalidate('test', (err) => {
         assert.isNull(err);
         assert.isUndefined(cache.cache[TEST_KEY_FILENAME]);
+        done();
+      });
+    });
+    it('should accept a `generateFilename` option', (done) => {
+      const generateFilename = () => {
+        return 'test.json'
+      };
+
+      const cache = createFileCache({dirname, generateFilename});
+
+      assert.equal(cache.generateFilename, generateFilename);
+
+      cache.set('foo', 'bar', (err) => {
+        assert.isNull(err);
+
+        assert.equal(
+          fs.readFileSync(path.join(dirname, 'test.json'), 'utf8'),
+          '"bar"'
+        );
         done();
       });
     });
