@@ -184,16 +184,6 @@ function trace(caches, cb) {
   });
 }
 
-function createMockCaches() {
-  const mockCache = createMockCache();
-  return {
-    ast: mockCache,
-    dependencies: mockCache,
-    packageResolver: mockCache,
-    moduleResolver: mockCache
-  }
-}
-
 function createFileCaches() {
   const packageJson = fs.readFileSync(rootPackageJson);
   const moduleDirs = fs.readdirSync(rootNodeModules);
@@ -203,10 +193,25 @@ function createFileCaches() {
   const packageHash = hash.result();
 
   return {
+    // Used for ASTs parsed from text files
     ast: createFileCache(path.join(__dirname, 'ast_cache')),
+    // Used for dependency identifiers extracted form ASTs
     dependencies: createFileCache(path.join(__dirname, 'dependency_cache')),
+    // Used for resolving package dependencies
     packageResolver: createFileCache(path.join(__dirname, packageHash + '_package_resolver_cache')),
+    // Used for resolving path-based dependencies for files within `rootNodeModules`.
+    // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
     moduleResolver: createFileCache(path.join(__dirname, packageHash + '_module_resolver_cache'))
+  }
+}
+
+function createMockCaches() {
+  const mockCache = createMockCache();
+  return {
+    ast: mockCache,
+    dependencies: mockCache,
+    packageResolver: mockCache,
+    moduleResolver: mockCache
   }
 }
 
