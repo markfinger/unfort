@@ -26,111 +26,153 @@ export function createFileCache(options={}) {
 
   const emitter = new EventEmitter();
 
-  return {
-    dirname,
-    generateFilename,
-    cache,
-    get(key, cb) {
-      const filename = path.join(dirname, generateFilename(key));
+  /**
+   * Given a key and a callback, the value (if any) will be provided to the
+   * callback.
+   *
+   * If no value is associated with the key, null is provided.
+   *
+   * @param {String} key
+   * @param {Function} cb - a callback function accepting err & data args
+   */
+  function get(key, cb) {
+    const filename = path.join(dirname, generateFilename(key));
 
-      if (cache[filename]) {
-        let data;
-        try {
-          data = JSON.parse(cache[filename]);
-        } catch(err) {
-          emitter.emit('error', err);
-          return cb(err);
+    if (cache[filename]) {
+      let data;
+      try {
+        data = JSON.parse(cache[filename]);
+      } catch(err) {
+        emitter.emit('error', err);
+        return cb(err);
+      }
+      return cb(null, data);
+    }
+
+    fs.readFile(filename, 'utf8', (err, json) => {
+      if (err) {
+        // Cache misses are represented by missing files
+        if (err.code === 'ENOENT') {
+          return cb(null, null);
         }
-        return cb(null, data);
+
+        emitter.emit('error', err);
+        return cb(err);
       }
 
-      fs.readFile(filename, 'utf8', (err, json) => {
-        if (err) {
-          // Cache misses are represented by missing files
-          if (err.code === 'ENOENT') {
-            return cb(null, null);
-          }
+      cache[filename] = json;
 
-          emitter.emit('error', err);
-          return cb(err);
-        }
-
-        cache[filename] = json;
-
-        let data;
-        try {
-          data = JSON.parse(json);
-        } catch(err) {
-          emitter.emit('error', err);
-          return cb(err);
-        }
-
-        cb(null, data);
-      });
-    },
-    set(key, value, cb) {
-      const filename = path.join(dirname, generateFilename(key));
-
-      // Note: serializing large JSON structures can block the event loop. Might be worth
-      // investigating deferring this. One issue with deferring is that it may open up the
-      // possibility for race conditions to emerge as `get` and `invalidate` assume that
-      // the in-memory cache (backed up by the FS) is a canonical source of truth
-      let json;
+      let data;
       try {
-        json = JSON.stringify(value);
+        data = JSON.parse(json);
       } catch(err) {
+        emitter.emit('error', err);
+        return cb(err);
+      }
+
+      cb(null, data);
+    });
+  }
+
+  /**
+   * Associates a key/value combination in the cache.
+   *
+   * Accepts an optional callback which will be called either when an error
+   * is encountered, or when the changes have been been persisted to the
+   * file system.
+   *
+   * @param {String} key
+   * @param {*} value
+   * @param {Function} [cb]
+   * @returns {*}
+   */
+  function set(key, value, cb) {
+    const filename = path.join(dirname, generateFilename(key));
+
+    // Note: serializing large JSON structures can block the event loop. Might be worth
+    // investigating deferring this.
+    //
+    // One issue with deferring is that it may open up the possibility for race conditions
+    // to emerge as `get` and `invalidate` assume that the in-memory cache (backed up by
+    // the file system) is a canonical source of truth.
+    //
+    // Another issue is that it removes any guarantee that the provided value wont be
+    // mutated before we start serializing it.
+    let json;
+    try {
+      json = JSON.stringify(value);
+    } catch(err) {
+      emitter.emit('error', err);
+      if (cb) {
+        return cb(err);
+      } else {
+        return;
+      }
+    }
+
+    // Ensure that the in-memory cache is fresh
+    cache[filename] = json;
+
+    fs.writeFile(filename, json, (err) => {
+      if (err) {
+        emitter.emit('error', err);
+      }
+
+      if (cb) {
+        cb(err);
+      }
+    });
+  }
+
+  /**
+   * Removes any value associated with the provided key.
+   *
+   * Accepts an optional callback which will be called either when an error
+   * is encountered, or when the changes have been been persisted to the
+   * file system.
+   *
+   * @param {String} key
+   * @param {Function} [cb]
+   */
+  function invalidate(key, cb) {
+    const filename = path.join(dirname, generateFilename(key));
+
+    // Ensure that the in-memory cache is fresh
+    cache[filename] = undefined;
+
+    // Remove the entry's file
+    fs.unlink(filename, (err) => {
+      if (err) {
+        // We can ignore missing files, as it indicates that the entry
+        // wasn't in the cache
+        if (err.code === 'ENOENT') {
+          if (cb) {
+            return cb(null);
+          }
+          return;
+        }
+
         emitter.emit('error', err);
         if (cb) {
           return cb(err);
-        } else {
-          return;
         }
       }
 
-      // Ensure that the in-memory cache is fresh
-      cache[filename] = json;
+      if (cb) {
+        cb(null);
+      }
+    });
+  }
 
-      fs.writeFile(filename, json, (err) => {
-        if (err) {
-          emitter.emit('error', err);
-        }
-
-        if (cb) {
-          cb(err);
-        }
-      });
-    },
-    invalidate(key, cb) {
-      const filename = path.join(dirname, generateFilename(key));
-
-      // Ensure that the in-memory cache is fresh
-      cache[filename] = undefined;
-
-      // Remove the entry's file
-      fs.unlink(filename, (err) => {
-        if (err) {
-          // We can ignore missing files, as it indicates that the entry
-          // wasn't in the cache
-          if (err.code === 'ENOENT') {
-            if (cb) {
-              return cb(null);
-            }
-            return;
-          }
-
-          emitter.emit('error', err);
-          if (cb) {
-            return cb(err);
-          }
-        }
-
-        if (cb) {
-          cb(null);
-        }
-      });
-    },
+  return {
+    get,
+    set,
+    invalidate,
     on: emitter.on.bind(emitter),
     once: emitter.once.bind(emitter),
-    off: emitter.removeListener.bind(emitter)
+    off: emitter.removeListener.bind(emitter),
+    dirname,
+    generateFilename,
+    cache
   }
 }
