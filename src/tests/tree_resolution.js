@@ -1,11 +1,11 @@
 import * as path from 'path';
 import * as imm from 'immutable';
 import * as async from 'async';
+import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
 import {createPipeline} from '../pipeline/pipeline';
 import {createBrowserResolver} from '../dependencies/browser_resolve';
-import {createBabelAstDependencyAnalyzer} from '../dependencies/babel_ast_dependency_analyzer';
-import {createBabylonParser} from '../parsers/babylon';
+import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createTextReader} from '../content_readers/text_reader';
 import {createStore} from '../store/store';
 import {createRecord, patchRecord} from '../store/utils';
@@ -22,54 +22,41 @@ describe('tests/tree_resolution', () => {
     store.dispatch(addRecord(entryRecord));
 
     const pipeline = createPipeline();
-    const babylonParser = createBabylonParser();
     const browserResolver = createBrowserResolver();
-    const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
     const textReader = createTextReader();
 
     function processRecord(record, cb) {
       textReader({file: record.get('file')}, pipeline, (err, content) => {
         if (err) return cb(err);
 
-        record = patchRecord(store, record, {content});
+        const ast = babylon.parse(content, {sourceType: 'module'});
+        const dependencies = analyzeBabelAstDependencies(ast);
 
-        babylonParser({text: content}, pipeline, (err, babylonAst) => {
-          if (err) return cb(err);
-
-          record = patchRecord(store, record, {babylonAst});
-
-          babelAstDependencyAnalyzer({ast: babylonAst, file: record.get('file')}, pipeline, (err, dependencies) => {
+        async.map(
+          dependencies,
+          (dependency, cb) => {
+            browserResolver(
+              {
+                dependency,
+                basedir: path.dirname(record.get('file'))
+              },
+              pipeline,
+              cb
+            );
+          },
+          (err, resolved) => {
             if (err) return cb(err);
 
-            record = patchRecord(store, record, {dependencies});
+            const resolvedDependencies = {};
+            resolved.forEach((dep, i) => {
+              resolvedDependencies[dependencies[i]] = dep;
+            });
 
-            async.map(
-              dependencies,
-              (dependency, cb) => {
-                browserResolver(
-                  {
-                    dependency,
-                    basedir: path.dirname(record.get('file'))
-                  },
-                  pipeline,
-                  cb
-                );
-              },
-              (err, resolved) => {
-                if (err) return cb(err);
+            record = patchRecord(store, record, {resolvedDependencies});
 
-                const resolvedDependencies = {};
-                resolved.forEach((dep, i) => {
-                  resolvedDependencies[dependencies[i]] = dep;
-                });
-
-                record = patchRecord(store, record, {resolvedDependencies});
-
-                cb(null, record);
-              }
-            );
-          });
-        });
+            cb(null, record);
+          }
+        );
       });
     }
 
