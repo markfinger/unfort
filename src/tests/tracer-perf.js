@@ -71,15 +71,14 @@ function trace(caches, cb) {
     const packageResolverCache = caches.packageResolver;
     const moduleResolverCache = caches.moduleResolver;
 
-    getDependencies(file, stat, (err, deps) => {
-      if (err) return cb(err);
+    // If the file is within the root node_modules, we can aggressively
+    // cache its resolved dependencies
+    if (startsWith(file, rootNodeModules)) {
+      return moduleResolverCache.get(file, (err, data) => {
+        if (err || data) return cb(err, data);
 
-      // If the file is within the root node_modules, we can aggressively
-      // cache its resolved dependencies
-      if (startsWith(file, rootNodeModules)) {
-        return moduleResolverCache.get(file, (err, data) => {
-          if (err || data) return cb(err, data);
-          // TODO: handle missing cached deps?
+        getDependencies(file, stat, (err, deps) => {
+          if (err) return cb(err);
 
           async.map(
             deps,
@@ -93,13 +92,26 @@ function trace(caches, cb) {
             }
           );
         });
-      }
+      });
+    }
+
+    // If the file does not live in the root node_modules, we need to get the
+    // dependency identifiers first, so that we can split based on path-based
+    // and package dependencies
+    getDependencies(file, stat, (err, deps) => {
+      if (err) return cb(err);
 
       const pathDeps = deps.filter(dep => dep[0] === '.' || dep[0] === '/');
       const packageDeps = deps.filter(dep => dep[0] !== '.' && dep[0] !== '/');
 
-      // if a dependency is path based (relative or absolute), we always run the resolver
-      // if a dependency is a package, check cache and fallback to resolve
+      // If a dependency identifier is relative (./ ../) or absolute (/), there are
+      // edge-cases where caching the resolved path may produce the wrong result.
+      // The simplest example is an identifier that may resolve to either a directory
+      // or a file. Detecting these cases is problematic, so we always run the resolver
+      // for path-based dependency identifiers.
+      //
+      // If a dependency identifier is a package (does not start with a period or slash),
+      // we can aggressively cache the resolved path.
       async.parallel([
         (cb) => {
           async.map(
@@ -178,7 +190,9 @@ function trace(caches, cb) {
   async.parallel([
     (cb) => traceFile(require.resolve('redux'), cb),
     (cb) => traceFile(require.resolve('react'), cb),
-    (cb) => traceFile(require.resolve('babylon'), cb)
+    (cb) => traceFile(require.resolve('imurmurhash'), cb),
+    (cb) => traceFile(require.resolve('whatwg-fetch'), cb),
+    (cb) => traceFile(require.resolve('glob'), cb)
   ], (err) => {
     cb(err, tree);
   });
