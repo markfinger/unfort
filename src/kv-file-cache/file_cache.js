@@ -26,9 +26,21 @@ export function createFileCache(options={}) {
 
   const emitter = new EventEmitter();
 
+  return {
+    get,
+    set,
+    invalidate,
+    on: emitter.on.bind(emitter),
+    once: emitter.once.bind(emitter),
+    off: emitter.removeListener.bind(emitter),
+    dirname,
+    generateFilename,
+    cache
+  };
+
   /**
-   * Given a key and a callback, the value (if any) will be provided to the
-   * callback.
+   * Given a key and a callback, an associated value (if any) will be provided
+   * to the callback.
    *
    * If no value is associated with the key, null is provided.
    *
@@ -162,17 +174,5 @@ export function createFileCache(options={}) {
         cb(null);
       }
     });
-  }
-
-  return {
-    get,
-    set,
-    invalidate,
-    on: emitter.on.bind(emitter),
-    once: emitter.once.bind(emitter),
-    off: emitter.removeListener.bind(emitter),
-    dirname,
-    generateFilename,
-    cache
   }
 }
