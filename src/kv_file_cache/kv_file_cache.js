@@ -20,8 +20,9 @@ export function createKVFileCache(options={}) {
   // to add any ready-state detection to the `set` function
   mkdirp.sync(dirname);
 
-  // An in-memory cache that helps avoid some of the overhead involved
-  // with the file system
+  // An in-memory cache that helps avoid some of the overhead involved with
+  // the file system. Note that the cache only stores serialized state of
+  // the entries
   const cache = Object.create(null);
 
   const emitter = new EventEmitter();
