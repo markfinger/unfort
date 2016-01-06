@@ -35,7 +35,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
       assert.throws(
         () => analyzeBabelAstDependencies(ast),
         'Non-literal (BinaryExpression) passed to \`require\` call at line 3, column 26'
-      };
+      );
     });
     it('should not pull dependencies from `require` calls that are properties of an object', () => {
       const ast = babylon.parse(`

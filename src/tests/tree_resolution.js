@@ -4,7 +4,7 @@ import * as async from 'async';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
 import {createPipeline} from '../pipeline/pipeline';
-import {createBrowserResolver} from '../dependencies/browser_resolve';
+import {browserResolver} from '../dependencies/browser_resolve';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createTextReader} from '../content_readers/text_reader';
 import {createStore} from '../store/store';
@@ -22,7 +22,6 @@ describe('tests/tree_resolution', () => {
     store.dispatch(addRecord(entryRecord));
 
     const pipeline = createPipeline();
-    const browserResolver = createBrowserResolver();
     const textReader = createTextReader();
 
     function processRecord(record, cb) {
@@ -40,7 +39,6 @@ describe('tests/tree_resolution', () => {
                 dependency,
                 basedir: path.dirname(record.get('file'))
               },
-              pipeline,
               cb
             );
           },

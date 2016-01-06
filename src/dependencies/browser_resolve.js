@@ -17,25 +17,20 @@ export const nodeLibs = mapValues(nodeLibsBrowser, (filename, dep) => {
   }
 });
 
-export function createBrowserResolver() {
-  return function browserResolver(options, pipeline, cb) {
-    const {dependency, basedir} = options;
-    const {fs} = pipeline;
+export function browserResolver(options, cb) {
+  const {dependency, basedir} = options;
 
-    if (!isString(dependency)) {
-      return cb(new Error(`A \`dependency\` option must be provided`))
-    }
-    if (!isString(basedir)) {
-      return cb(new Error(`A \`basedir\` option must be provided`))
-    }
-
-    const resolveOptions = {
-      basedir: basedir,
-      modules: nodeLibs,
-      isFile: fs.isFile,
-      readFile: fs.readFile
-    };
-
-    resolve(dependency, resolveOptions, cb);
+  if (!isString(dependency)) {
+    return cb(new Error(`A \`dependency\` option must be provided`))
   }
+  if (!isString(basedir)) {
+    return cb(new Error(`A \`basedir\` option must be provided`))
+  }
+
+  const resolveOptions = {
+    basedir: basedir,
+    modules: nodeLibs
+  };
+
+  resolve(dependency, resolveOptions, cb);
 }
