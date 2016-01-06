@@ -5,15 +5,12 @@ import mkdirp from 'mkdirp';
 import {isString, isObject} from 'lodash/lang';
 import {murmurFilename} from './utils';
 
-export function createFileCache(options={}) {
-  const {
-    dirname,
-    generateFilename=murmurFilename
-  } = options;
-
+export function createFileCache(dirname, options={}) {
   if (!isString(dirname)) {
     throw new Error('A `dirname` option must be provided');
   }
+
+  const {generateFilename=murmurFilename} = options;
 
   // We create the cache dir in a *synchronous* call so that we don't have
   // to add any ready-state detection to the `set` function

@@ -37,7 +37,7 @@ describe('file_cache', () => {
         JSON.stringify({foo: 'bar'})
       );
 
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       assert.equal(cache.dirname, dirname);
 
@@ -53,7 +53,7 @@ describe('file_cache', () => {
       });
     });
     it('should be able to write to a cache directory', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.set('test', {bar: 'foo'}, (err) => {
         assert.isNull(err);
@@ -67,7 +67,7 @@ describe('file_cache', () => {
       });
     });
     it('should be able to read and write from the cache', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.get('test', (err, data) => {
         assert.isNull(err);
@@ -85,7 +85,7 @@ describe('file_cache', () => {
       });
     });
     it('should be able to invalidate an entry in the cache', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
@@ -102,7 +102,7 @@ describe('file_cache', () => {
       });
     });
     it('should remove the cache file when invalidating an entry', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
@@ -122,7 +122,7 @@ describe('file_cache', () => {
       });
     });
     it('should populate an in-memory cache when setting entries', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.set('test', {foo: 'bar'}, (err) => {
         assert.isNull(err);
@@ -135,7 +135,7 @@ describe('file_cache', () => {
       });
     });
     it('should fetch from the in-memory cache before hitting the FS', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
 
@@ -146,7 +146,7 @@ describe('file_cache', () => {
       });
     });
     it('should remove entries from the in-memory cache when they are invalidated', (done) => {
-      const cache = createFileCache({dirname});
+      const cache = createFileCache(dirname);
 
       cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
 
@@ -161,7 +161,7 @@ describe('file_cache', () => {
         return 'test.json'
       };
 
-      const cache = createFileCache({dirname, generateFilename});
+      const cache = createFileCache(dirname, {generateFilename});
 
       assert.equal(cache.generateFilename, generateFilename);
 

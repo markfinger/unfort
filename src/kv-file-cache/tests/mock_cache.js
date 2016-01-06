@@ -46,8 +46,8 @@ describe('mock_cache', () => {
     it('should mimic the file cache\'s API', () => {
       const dirname = path.join(__dirname, 'cache_test_dir');
 
-      const mockCache = createMockCache({dirname});
-      const fileCache = createFileCache({dirname});
+      const mockCache = createMockCache(dirname);
+      const fileCache = createFileCache(dirname);
 
       for (let prop in fileCache) {
         if (fileCache.hasOwnProperty(prop)) {
