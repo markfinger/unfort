@@ -1,14 +1,12 @@
 import * as path from 'path';
 import * as async from 'async';
 import * as fs from 'fs';
+import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
-import {createPipeline} from '../pipeline/pipeline';
-import {createBrowserResolver} from '../dependencies/browser_resolve';
-import {createBabelAstDependencyAnalyzer} from '../dependencies/babel_ast_dependency_analyzer';
-import {createBabylonParser} from '../parsers/babylon';
-import {createTextReader} from '../content_readers/text_reader';
+import {browserResolver} from '../dependencies/browser_resolve';
+import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createWorkerFarm} from '../workers/worker_farm';
-import {createPersistentCache} from '../caches/persistent_cache';
+import {createFileCache} from '../kv-file-cache';
 
 function createBlobCache() {
   const cacheFile = path.join(__dirname, 'cache.json');
@@ -58,25 +56,36 @@ function createBlobCache() {
   }
 }
 
-function trace(pipeline, cb) {
-  const babylonParser = createBabylonParser();
-  const browserResolver = createBrowserResolver();
-  const babelAstDependencyAnalyzer = createBabelAstDependencyAnalyzer();
-  const textReader = createTextReader();
-
+function trace(cb) {
   const tree = Object.create(null);
 
   function traceFile(file, cb) {
     tree[file] = [];
 
     async.waterfall([
-      (cb) => textReader({file: file}, pipeline, cb),
-      (text, cb) => babylonParser({text: text}, pipeline, cb),
-      (ast, cb) => babelAstDependencyAnalyzer({ast: ast, file: file}, pipeline, cb),
+      (cb) => fs.readFile(file, 'utf8', cb),
+      (text, cb) => {
+        let ast;
+        try {
+          ast = babylon.parse(text, {sourceType: 'module'})
+        } catch(err) {
+          return cb(err);
+        }
+        cb(null, ast);
+      },
+      (ast, cb) => {
+        let dependencies;
+        try {
+          dependencies = analyzeBabelAstDependencies(ast);
+        } catch(err) {
+          return cb(err);
+        }
+        cb(null, dependencies);
+      },
       (deps, cb) => async.map(
         deps,
         (dependency, cb) => {
-          browserResolver({dependency, basedir: path.dirname(file)}, pipeline, cb);
+          browserResolver({dependency, basedir: path.dirname(file)}, cb);
         },
         cb
       )
@@ -112,35 +121,17 @@ function trace(pipeline, cb) {
 module.exports = function tracerPerf(cb) {
   const start = (new Date).getTime();
 
-  //// normal
-  //const pipeline = createPipeline();
-  //trace(pipeline, (err, tree) => {
-  //  assert.isNull(err);
-  //  assert.isObject(tree);
-  //
-  //  const end = (new Date).getTime() - start;
-  //  console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms`);
-  //
-  //  cb();
-  //});
+  // normal
+  trace((err, tree) => {
+    assert.isNull(err);
+    assert.isObject(tree);
 
+    const end = (new Date).getTime() - start;
+    console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms`);
 
-  //// worker farm
-  //const workers = createWorkerFarm();
-  //const workerPipeline = createPipeline({
-  //  workers
-  //});
-  //trace(workerPipeline, (err, tree) => {
-  //  assert.isNull(err);
-  //  assert.isObject(tree);
-  //
-  //  const end = (new Date).getTime() - start;
-  //  console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms`);
-  //
-  //  workers.killWorkers();
-  //
-  //  cb();
-  //});
+    cb();
+  });
+
 
   //// persistent cache
   //const cachePipeline = createPipeline({

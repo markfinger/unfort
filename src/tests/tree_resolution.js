@@ -1,12 +1,11 @@
-import * as path from 'path';
-import * as imm from 'immutable';
-import * as async from 'async';
+import path from 'path';
+import fs from 'fs';
+import async from 'async';
+import imm from 'immutable';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
-import {createPipeline} from '../pipeline/pipeline';
 import {browserResolver} from '../dependencies/browser_resolve';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
-import {createTextReader} from '../content_readers/text_reader';
 import {createStore} from '../store/store';
 import {createRecord, patchRecord} from '../store/utils';
 import {addRecord, updateRecord} from '../store/records/actions';
@@ -21,11 +20,8 @@ describe('tests/tree_resolution', () => {
 
     store.dispatch(addRecord(entryRecord));
 
-    const pipeline = createPipeline();
-    const textReader = createTextReader();
-
     function processRecord(record, cb) {
-      textReader({file: record.get('file')}, pipeline, (err, content) => {
+      fs.readFile(record.get('file'), 'utf8', (err, content) => {
         if (err) return cb(err);
 
         const ast = babylon.parse(content, {sourceType: 'module'});
