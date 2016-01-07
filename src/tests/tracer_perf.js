@@ -126,7 +126,10 @@ function trace(caches, cb) {
           const cacheKey = 'packages';
           packageResolverCache.get(cacheKey, (err, data) => {
             if (err) return cb(err);
-            if (!data) data = {};
+
+            if (!data) {
+              data = {};
+            }
 
             const resolved = packageDeps.filter(dep => data.hasOwnProperty(dep));
             const unresolved = packageDeps.filter(dep => !data.hasOwnProperty(dep));

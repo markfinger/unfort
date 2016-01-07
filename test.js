@@ -1,6 +1,6 @@
 var fs = require('fs');
 var profiler = require('v8-profiler');
-const tracerPerf = require('./lib/tests/tracer-perf');
+const tracerPerf = require('./lib/tests/tracer_perf');
 
 profiler.startProfiling('1', true);
 
