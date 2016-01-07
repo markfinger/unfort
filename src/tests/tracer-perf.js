@@ -7,14 +7,13 @@ import browserResolve from 'browser-resolve';
 import murmur from 'imurmurhash';
 import {startsWith} from 'lodash/string';
 import {assert} from '../utils/assert';
-import {nodeLibs} from '../dependencies/browser_resolve';
+import {nodeCoreLibs} from '../dependencies/node_core_libs';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createWorkerFarm} from '../workers/worker_farm';
 import {createFileCache, createMockCache} from '../kv-file-cache';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 
 const sourceRoot = process.cwd();
-const rootPackageJson = path.join(sourceRoot, 'package.json');
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
 function trace(caches, cb) {
@@ -225,12 +224,12 @@ function createMockCaches() {
   }
 }
 
-function browserResolveDependency(dependency, origin, cb) {
+function browserResolveDependency(dependency, originFile, cb) {
   browserResolve(
     dependency,
     {
-      basedir: path.dirname(origin),
-      modules: nodeLibs
+      basedir: path.dirname(originFile),
+      modules: nodeCoreLibs
     },
     cb
   );

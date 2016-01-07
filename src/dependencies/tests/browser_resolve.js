@@ -1,7 +1,7 @@
 import * as path from 'path';
-import * as imm from 'immutable';
 import {assert} from '../../utils/assert';
-import {browserResolver, nodeLibs} from '../browser_resolve';
+import {nodeCoreLibs} from '../node_core_libs';
+import {browserResolver} from '../browser_resolve';
 
 describe('dependencies/browser_resolve', () => {
   describe('#browserResolver', () => {
@@ -18,7 +18,7 @@ describe('dependencies/browser_resolve', () => {
     it('should map to packages that replace node core libraries', (done) => {
       browserResolver({dependency: 'path', basedir: __dirname}, (err, resolved) => {
         assert.isNull(err);
-        assert.equal(resolved, nodeLibs.path);
+        assert.equal(resolved, nodeCoreLibs.path);
         done();
       });
     });

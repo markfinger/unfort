@@ -1,21 +1,7 @@
 import {isString} from 'lodash/lang';
 import {mapValues} from 'lodash/object';
 import resolve from 'browser-resolve';
-import * as nodeLibsBrowser from 'node-libs-browser';
-
-export const emptyMock = require.resolve('node-libs-browser/mock/empty');
-
-export const nodeLibs = mapValues(nodeLibsBrowser, (filename, dep) => {
-  if (filename) {
-    return filename;
-  }
-
-  try {
-    return resolve.sync(`node-libs-browser/mock/${dep}`);
-  } catch(err) {
-    return emptyMock;
-  }
-});
+import {nodeCoreLibs} from './node_core_libs';
 
 export function browserResolver(options, cb) {
   const {dependency, basedir} = options;
@@ -29,7 +15,7 @@ export function browserResolver(options, cb) {
 
   const resolveOptions = {
     basedir: basedir,
-    modules: nodeLibs
+    modules: nodeCoreLibs
   };
 
   resolve(dependency, resolveOptions, cb);

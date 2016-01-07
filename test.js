@@ -4,7 +4,7 @@ const tracerPerf = require('./lib/tests/tracer-perf');
 
 profiler.startProfiling('1', true);
 
-tracerPerf(true, function() {
+tracerPerf(false, function() {
   var profile1 = profiler.stopProfiling();
 
   profile1.export(function(error, result) {

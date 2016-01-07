@@ -1,7 +1,6 @@
 import path from 'path';
 import fs from 'fs';
 import async from 'async';
-import imm from 'immutable';
 import {values} from 'lodash/object';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
