@@ -11,6 +11,7 @@ import {nodeLibs} from '../dependencies/browser_resolve';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createWorkerFarm} from '../workers/worker_farm';
 import {createFileCache, createMockCache} from '../kv-file-cache';
+import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 
 const sourceRoot = process.cwd();
 const rootPackageJson = path.join(sourceRoot, 'package.json');
@@ -200,53 +201,17 @@ function trace(caches, cb) {
   });
 }
 
-function createFileCaches() {
-  // We aggressively cache path resolution of external packages, but, as always, cache
-  // invalidation is a pain. To resolve the cache invalidation issue, we need a way to
-  // identify the state of the dependency tree...
-  //
-  // The most accurate, but slowest, method would be to crawl node_modules and generate
-  // a hash from the file tree. This would work well on small codebases, but even typical
-  // dependency trees will introduce multiple seconds of overhead as the tree is crawled.
-  //
-  // The simplest - and most performant - solution would be to treat the package.json
-  // as a canonical indicator. However, in practice this falls apart as NPM will install
-  // packages that are semantic version compatible, but that may not match the exact
-  // versions specified in package.json. Additionally, as NPM 3 builds the dependency
-  // tree in a non-deterministic, the state of the node_modules tree can't be relied
-  // upon without interrogating it.
-  //
-  // A performant approach that maintains some accuracy is to do a shallow crawl of the
-  // node_modules' contents, and then build a hash from each directory's names and mtimes.
-  // The downside to this approach, is that it doesn't provide too much clarity when
-  // flattened dependencies are moved around in the tree. Though, in practice, this
-  // doesn't seem to be too much of an issue.
-  //
-  // Mindful of both performance and accuracy requirements, we combine the package.json
-  // and shallow crawl approaches to produce a single hash which is then used to namespace
-  // cached data. This approach does add a few milliseconds of IO overhead, but seems to
-  // work well with regards to detecting changes to an environment.
-
-  const packageJson = fs.readFileSync(rootPackageJson, 'utf8');
-  const moduleDirs = fs.readdirSync(rootNodeModules);
-
-  const hash = murmur(packageJson);
-  moduleDirs.forEach(dir => {
-    const mtime = fs.statSync(path.join(rootNodeModules, dir)).mtime.getTime();
-    hash.hash(dir + mtime);
-  });
-  const packageHash = hash.result();
-
+function createFileCaches(npmDependencyTreeHash) {
   return {
     // Used for ASTs parsed from text files
     ast: createFileCache(path.join(__dirname, 'ast_cache')),
     // Used for dependency identifiers extracted form ASTs
     dependencies: createFileCache(path.join(__dirname, 'dependency_cache')),
     // Used for resolving package dependencies
-    packageResolver: createFileCache(path.join(__dirname, 'package_resolver_cache', String(packageHash))),
+    packageResolver: createFileCache(path.join(__dirname, 'package_resolver_cache', String(npmDependencyTreeHash))),
     // Used for resolving path-based dependencies for files within `rootNodeModules`.
     // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
-    moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', String(packageHash)))
+    moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', String(npmDependencyTreeHash)))
   }
 }
 
@@ -275,14 +240,18 @@ module.exports = function tracerPerf(useFileCache, cb) {
   const start = (new Date).getTime();
 
   if (useFileCache) {
-    trace(createFileCaches(), (err, tree) => {
-      assert.isNull(err);
-      assert.isObject(tree);
+    hashNpmDependencyTree(sourceRoot, (err, npmDependencyTreeHash) => {
+      if (err) return cb(err);
 
-      const end = (new Date).getTime() - start;
-      console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms with file caches`);
+      trace(createFileCaches(npmDependencyTreeHash), (err, tree) => {
+        assert.isNull(err);
+        assert.isObject(tree);
 
-      cb();
+        const end = (new Date).getTime() - start;
+        console.log(`Traced ${Object.keys(tree).length} records in ${end}ms with file caches`);
+
+        cb();
+      });
     });
   } else {
     trace(createMockCaches(), (err, tree) => {
@@ -290,7 +259,7 @@ module.exports = function tracerPerf(useFileCache, cb) {
       assert.isObject(tree);
 
       const end = (new Date).getTime() - start;
-      console.log(`\n\nTraced ${Object.keys(tree).length} records in ${end}ms with mock caches`);
+      console.log(`Traced ${Object.keys(tree).length} records in ${end}ms with mock caches`);
 
       cb();
     });
