@@ -68,13 +68,13 @@ function trace(caches, cb) {
   }
 
   function getResolvedDependencies(file, stat, cb) {
-    const packageResolverCache = caches.packageResolver;
     const moduleResolverCache = caches.moduleResolver;
 
     // If the file is within the root node_modules, we can aggressively
     // cache its resolved dependencies
     if (startsWith(file, rootNodeModules)) {
-      return moduleResolverCache.get(file, (err, data) => {
+      const cacheKey = file + stat.mtime.getTime();
+      return moduleResolverCache.get(cacheKey, (err, data) => {
         if (err || data) return cb(err, data);
 
         getDependencies(file, stat, (err, deps) => {
@@ -86,7 +86,7 @@ function trace(caches, cb) {
             (err, data) => {
               if (err) return cb(err);
 
-              moduleResolverCache.set(file, data);
+              moduleResolverCache.set(cacheKey, data);
 
               cb(null, data);
             }
@@ -94,6 +94,8 @@ function trace(caches, cb) {
         });
       });
     }
+
+    const packageResolverCache = caches.packageResolver;
 
     // If the file does not live in the root node_modules, we need to get the
     // dependency identifiers first, so that we can split based on path-based
@@ -199,11 +201,40 @@ function trace(caches, cb) {
 }
 
 function createFileCaches() {
-  const packageJson = fs.readFileSync(rootPackageJson);
+  // We aggressively cache path resolution of external packages, but, as always, cache
+  // invalidation is a pain. To resolve the cache invalidation issue, we need a way to
+  // identify the state of the dependency tree...
+  //
+  // The most accurate, but slowest, method would be to crawl node_modules and generate
+  // a hash from the file tree. This would work well on small codebases, but even typical
+  // dependency trees will introduce multiple seconds of overhead as the tree is crawled.
+  //
+  // The simplest - and most performant - solution would be to treat the package.json
+  // as a canonical indicator. However, in practice this falls apart as NPM will install
+  // packages that are semantic version compatible, but that may not match the exact
+  // versions specified in package.json. Additionally, as NPM 3 builds the dependency
+  // tree in a non-deterministic, the state of the node_modules tree can't be relied
+  // upon without interrogating it.
+  //
+  // A performant approach that maintains some accuracy is to do a shallow crawl of the
+  // node_modules' contents, and then build a hash from each directory's names and mtimes.
+  // The downside to this approach, is that it doesn't provide too much clarity when
+  // flattened dependencies are moved around in the tree. Though, in practice, this
+  // doesn't seem to be too much of an issue.
+  //
+  // Mindful of both performance and accuracy requirements, we combine the package.json
+  // and shallow crawl approaches to produce a single hash which is then used to namespace
+  // cached data. This approach does add a few milliseconds of IO overhead, but seems to
+  // work well with regards to detecting changes to an environment.
+
+  const packageJson = fs.readFileSync(rootPackageJson, 'utf8');
   const moduleDirs = fs.readdirSync(rootNodeModules);
 
   const hash = murmur(packageJson);
-  moduleDirs.forEach(dir => hash.hash(dir));
+  moduleDirs.forEach(dir => {
+    const mtime = fs.statSync(path.join(rootNodeModules, dir)).mtime.getTime();
+    hash.hash(dir + mtime);
+  });
   const packageHash = hash.result();
 
   return {
@@ -212,10 +243,10 @@ function createFileCaches() {
     // Used for dependency identifiers extracted form ASTs
     dependencies: createFileCache(path.join(__dirname, 'dependency_cache')),
     // Used for resolving package dependencies
-    packageResolver: createFileCache(path.join(__dirname, packageHash + '_package_resolver_cache')),
+    packageResolver: createFileCache(path.join(__dirname, 'package_resolver_cache', String(packageHash))),
     // Used for resolving path-based dependencies for files within `rootNodeModules`.
     // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
-    moduleResolver: createFileCache(path.join(__dirname, packageHash + '_module_resolver_cache'))
+    moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', String(packageHash)))
   }
 }
 
