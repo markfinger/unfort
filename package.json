@@ -19,6 +19,7 @@
   "homepage": "https://github.com/unfort/unfort",
   "dependencies": {
     "babel-core": "^6.3.13",
+    "babel-plugin-transform-react-jsx": "^6.4.0",
     "babel-traverse": "^6.3.26",
     "babel-types": "^6.3.24",
     "babylon": "^6.3.26",

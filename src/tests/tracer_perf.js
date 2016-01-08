@@ -16,7 +16,7 @@ import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
-function traceFile(file, tree, caches, cb) {
+export function traceFile(file, tree, caches, cb) {
   tree[file] = [];
 
   fs.stat(file, (err, stat) => {
@@ -34,7 +34,7 @@ function traceFile(file, tree, caches, cb) {
 
       if (untracedFiles.length) {
         untracedFiles.forEach(file => {
-          tree[file] = Object.create(null)
+          tree[file] = [];
         });
 
         async.map(
@@ -49,7 +49,7 @@ function traceFile(file, tree, caches, cb) {
   });
 }
 
-function getResolvedDependencies(file, stat, caches, cb) {
+export function getResolvedDependencies(file, stat, caches, cb) {
   // If the file is within the root node_modules, we can aggressively
   // cache its resolved dependencies
   if (startsWith(file, rootNodeModules)) {
@@ -122,7 +122,7 @@ function getResolvedDependencies(file, stat, caches, cb) {
             (err, resolvedPaths) => {
               if (err) return cb(err);
 
-              resolvedPaths.map(resolved, i => {
+              resolvedPaths.forEach(resolved, i => {
                 data[unresolved[i]] = resolved;
               });
 
@@ -137,7 +137,7 @@ function getResolvedDependencies(file, stat, caches, cb) {
   });
 }
 
-function getDependencies(file, stat, caches, cb) {
+export function getDependencies(file, stat, caches, cb) {
   const cacheKey = file + stat.mtime.getTime();
 
   caches.dependencies.get(cacheKey, (err, data) => {
@@ -160,7 +160,7 @@ function getDependencies(file, stat, caches, cb) {
   });
 }
 
-function getAst(file, stat, caches, cb) {
+export function getAst(file, stat, caches, cb) {
   const cacheKey = file + stat.mtime.getTime();
 
   caches.ast.get(cacheKey, (err, data) => {
@@ -186,11 +186,11 @@ function getAst(file, stat, caches, cb) {
 export function createSqliteCaches(npmDependencyTreeHash) {
   return {
     // Used for ASTs parsed from text files
-    ast: createSqliteCache(path.join(__dirname, 'ast_cache.db')),
+    ast: createSqlite3Cache(path.join(__dirname, 'ast_cache.db')),
     // Used for dependency identifiers extracted form ASTs
-    dependencies: createSqliteCache(path.join(__dirname, 'dependency_cache.db')),
+    dependencies: createSqlite3Cache(path.join(__dirname, 'dependency_cache.db')),
     // Used for resolving package dependencies
-    packageResolver: createSqliteCache(path.join(__dirname, 'package_resolver_cache', npmDependencyTreeHash + '.db')),
+    packageResolver: createSqlite3Cache(path.join(__dirname, 'package_resolver_cache', npmDependencyTreeHash + '.db')),
     // Used for resolving path-based dependencies for files within `rootNodeModules`.
     // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
     moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', npmDependencyTreeHash + '.db'))
