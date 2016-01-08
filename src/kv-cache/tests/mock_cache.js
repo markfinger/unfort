@@ -43,23 +43,5 @@ describe('mock_cache', () => {
         });
       });
     });
-    it('should mimic the file cache\'s API', () => {
-      const dirname = path.join(__dirname, 'cache_test_dir');
-
-      const mockCache = createMockCache(dirname);
-      const fileCache = createFileCache(dirname);
-
-      for (let prop in fileCache) {
-        if (fileCache.hasOwnProperty(prop)) {
-          if (typeof fileCache[prop] !== typeof mockCache[prop]) {
-            throw new Error(
-              `mock caches should mimic the file cache api by providing a ${typeof fileCache[prop]} as "${prop}"`
-            );
-          }
-        }
-      }
-
-      rimraf.sync(dirname);
-    });
   });
 });

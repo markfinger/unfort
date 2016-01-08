@@ -39,8 +39,6 @@ describe('file_cache', () => {
 
       const cache = createFileCache(dirname);
 
-      assert.equal(cache.dirname, dirname);
-
       cache.get('test', (err, data) => {
         assert.isNull(err);
         assert.deepEqual(data, {foo: 'bar'});
@@ -128,7 +126,7 @@ describe('file_cache', () => {
         assert.isNull(err);
 
         assert.equal(
-          cache.cache[TEST_KEY_FILENAME],
+          cache._memoryCache[TEST_KEY_FILENAME],
           JSON.stringify({foo: 'bar'})
         );
         done();
@@ -137,7 +135,7 @@ describe('file_cache', () => {
     it('should fetch from the in-memory cache before hitting the FS', (done) => {
       const cache = createFileCache(dirname);
 
-      cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
+      cache._memoryCache[TEST_KEY_FILENAME] = '{"test": 1}';
 
       cache.get('test', (err, data) => {
         assert.isNull(err);
@@ -148,11 +146,11 @@ describe('file_cache', () => {
     it('should remove entries from the in-memory cache when they are invalidated', (done) => {
       const cache = createFileCache(dirname);
 
-      cache.cache[TEST_KEY_FILENAME] = '{"test": 1}';
+      cache._memoryCache[TEST_KEY_FILENAME] = '{"test": 1}';
 
       cache.invalidate('test', (err) => {
         assert.isNull(err);
-        assert.isUndefined(cache.cache[TEST_KEY_FILENAME]);
+        assert.isUndefined(cache._memoryCache[TEST_KEY_FILENAME]);
         done();
       });
     });
@@ -162,8 +160,6 @@ describe('file_cache', () => {
       };
 
       const cache = createFileCache(dirname, {generateFilename});
-
-      assert.equal(cache.generateFilename, generateFilename);
 
       cache.set('foo', 'bar', (err) => {
         assert.isNull(err);

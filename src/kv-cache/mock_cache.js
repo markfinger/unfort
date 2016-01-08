@@ -1,12 +1,5 @@
-import {murmurFilename} from './utils';
-
-export function createMockCache(dirname, options={}) {
-  const {generateFilename=murmurFilename} = options;
-
+export function createMockCache() {
   return {
-    dirname,
-    cache: Object.create(null),
-    generateFilename: generateFilename,
     get(key, cb) {
       cb(null, null);
     },

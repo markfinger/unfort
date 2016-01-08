@@ -23,18 +23,6 @@ export function createFileCache(dirname, options={}) {
 
   const emitter = new EventEmitter();
 
-  return {
-    get,
-    set,
-    invalidate,
-    on: emitter.on.bind(emitter),
-    once: emitter.once.bind(emitter),
-    off: emitter.removeListener.bind(emitter),
-    dirname,
-    generateFilename,
-    cache
-  };
-
   /**
    * Given a key and a callback, an associated value (if any) will be provided
    * to the callback.
@@ -172,4 +160,14 @@ export function createFileCache(dirname, options={}) {
       }
     });
   }
+
+  return {
+    get,
+    set,
+    invalidate,
+    on: emitter.on.bind(emitter),
+    once: emitter.once.bind(emitter),
+    off: emitter.removeListener.bind(emitter),
+    _memoryCache: cache
+  };
 }

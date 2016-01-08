@@ -10,8 +10,7 @@ import {assert} from '../utils/assert';
 import {nodeCoreLibs} from '../dependencies/node_core_libs';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createWorkerFarm} from '../workers/worker_farm';
-import {createFileCache, createMockCache} from '../kv-file-cache';
-import {createSqliteCache} from '../kv-file-cache/sqlite_cache';
+import {createFileCache, createMockCache} from '../kv-cache';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 
 const sourceRoot = process.cwd();
