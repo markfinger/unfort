@@ -185,7 +185,7 @@ export function getAst(file, stat, caches, cb) {
 
 export function createFileCaches(npmDependencyTreeHash) {
   function dirname(name) {
-    return path.join(__dirname, name, String(npmDependencyTreeHash));
+    return path.join(__dirname, name, npmDependencyTreeHash.toString());
   }
 
   return {
