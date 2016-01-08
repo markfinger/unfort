@@ -183,31 +183,21 @@ export function getAst(file, stat, caches, cb) {
   });
 }
 
-export function createSqliteCaches(npmDependencyTreeHash) {
-  return {
-    // Used for ASTs parsed from text files
-    ast: createSqlite3Cache(path.join(__dirname, 'ast_cache.db')),
-    // Used for dependency identifiers extracted form ASTs
-    dependencies: createSqlite3Cache(path.join(__dirname, 'dependency_cache.db')),
-    // Used for resolving package dependencies
-    packageResolver: createSqlite3Cache(path.join(__dirname, 'package_resolver_cache', npmDependencyTreeHash + '.db')),
-    // Used for resolving path-based dependencies for files within `rootNodeModules`.
-    // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
-    moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', npmDependencyTreeHash + '.db'))
-  }
-}
-
 export function createFileCaches(npmDependencyTreeHash) {
+  function dirname(name) {
+    return path.join(__dirname, name, String(npmDependencyTreeHash));
+  }
+
   return {
     // Used for ASTs parsed from text files
-    ast: createFileCache(path.join(__dirname, 'ast_cache')),
+    ast: createFileCache(dirname('ast_cache')),
     // Used for dependency identifiers extracted form ASTs
-    dependencies: createFileCache(path.join(__dirname, 'dependency_cache')),
+    dependencies: createFileCache(dirname('dependency_cache')),
     // Used for resolving package dependencies
-    packageResolver: createFileCache(path.join(__dirname, 'package_resolver_cache', String(npmDependencyTreeHash))),
+    packageResolver: createFileCache(dirname('package_resolver_cache')),
     // Used for resolving path-based dependencies for files within `rootNodeModules`.
     // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
-    moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', String(npmDependencyTreeHash)))
+    moduleResolver: createFileCache(dirname('module_resolver_cache'))
   }
 }
 
