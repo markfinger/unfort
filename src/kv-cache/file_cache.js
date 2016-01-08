@@ -3,7 +3,12 @@ import path from 'path';
 import EventEmitter from 'events';
 import mkdirp from 'mkdirp';
 import {isString, isObject} from 'lodash/lang';
-import {murmurFilename} from './utils';
+import murmur from 'imurmurhash';
+
+export function murmurFilename(cacheKey) {
+  const hash = murmur(cacheKey).result();
+  return hash + '.json';
+}
 
 export function createFileCache(dirname, options={}) {
   if (!isString(dirname)) {

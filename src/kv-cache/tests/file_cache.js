@@ -3,8 +3,7 @@ import path from 'path';
 import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import {assert} from '../../utils/assert';
-import {createFileCache} from '../file_cache';
-import {murmurFilename} from '../utils';
+import {createFileCache, murmurFilename} from '../file_cache';
 
 describe('file_cache', () => {
   describe('#createFileCache', () => {
