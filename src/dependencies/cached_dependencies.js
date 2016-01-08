@@ -1,11 +1,13 @@
-export function getCachedData({cache, key, getData}, cb) {
+export function getCachedData(cache, key, getData, cb) {
   return cache.get(key, (err, data) => {
     if (err || data) return cb(err, data);
 
     getData((err, data) => {
       if (err) return cb(err);
 
-      cache.set(key, data);
+      if (data) {
+        cache.set(key, data);
+      }
 
       cb(null, data);
     });
