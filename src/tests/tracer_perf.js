@@ -11,6 +11,7 @@ import {nodeCoreLibs} from '../dependencies/node_core_libs';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 import {createWorkerFarm} from '../workers/worker_farm';
 import {createFileCache, createMockCache} from '../kv-file-cache';
+import {createSqliteCache} from '../kv-file-cache/sqlite_cache';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 
 const sourceRoot = process.cwd();
@@ -181,6 +182,20 @@ function getAst(file, stat, caches, cb) {
       cb(null, ast);
     });
   });
+}
+
+export function createSqliteCaches(npmDependencyTreeHash) {
+  return {
+    // Used for ASTs parsed from text files
+    ast: createSqliteCache(path.join(__dirname, 'ast_cache.db')),
+    // Used for dependency identifiers extracted form ASTs
+    dependencies: createSqliteCache(path.join(__dirname, 'dependency_cache.db')),
+    // Used for resolving package dependencies
+    packageResolver: createSqliteCache(path.join(__dirname, 'package_resolver_cache', npmDependencyTreeHash + '.db')),
+    // Used for resolving path-based dependencies for files within `rootNodeModules`.
+    // Path-based dependencies are denoted by relative (./ or ../) or absolute paths (/)
+    moduleResolver: createFileCache(path.join(__dirname, 'module_resolver_cache', npmDependencyTreeHash + '.db'))
+  }
 }
 
 export function createFileCaches(npmDependencyTreeHash) {
