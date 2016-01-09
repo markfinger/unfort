@@ -3,7 +3,6 @@ import async from 'async';
 import fs from 'fs';
 import * as babylon from 'babylon';
 import crypto from 'crypto';
-import browserResolve from 'browser-resolve';
 import murmur from 'imurmurhash';
 import {startsWith} from 'lodash/string';
 import {assert} from '../utils/assert';
@@ -12,6 +11,7 @@ import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_
 import {createWorkerFarm} from '../workers/worker_farm';
 import {createFileCache, createMockCache} from '../kv-cache';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
+import {browserResolver} from '../dependencies/browser_resolver';
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
@@ -62,7 +62,7 @@ export function getResolvedDependencies(file, stat, caches, cb) {
 
         async.map(
           deps,
-          (dep, cb) => browserResolveDependency(dep, file, cb),
+          (dep, cb) => browserResolver(dep, file, cb),
           (err, data) => {
             if (err) return cb(err);
 
@@ -96,7 +96,7 @@ export function getResolvedDependencies(file, stat, caches, cb) {
       (cb) => {
         async.map(
           pathDeps,
-          (dep, cb) => browserResolveDependency(dep, file, cb),
+          (dep, cb) => browserResolver(dep, file, cb),
           cb
         )
       },
@@ -118,7 +118,7 @@ export function getResolvedDependencies(file, stat, caches, cb) {
 
           async.map(
             unresolved,
-            (dep, cb) => browserResolveDependency(dep, file, cb),
+            (dep, cb) => browserResolver(dep, file, cb),
             (err, resolvedPaths) => {
               if (err) return cb(err);
 
@@ -209,17 +209,6 @@ export function createMockCaches() {
     packageResolver: mockCache,
     moduleResolver: mockCache
   }
-}
-
-export function browserResolveDependency(dependency, originFile, cb) {
-  browserResolve(
-    dependency,
-    {
-      basedir: path.dirname(originFile),
-      modules: nodeCoreLibs
-    },
-    cb
-  );
 }
 
 export function _tracerPerf(caches, cb) {

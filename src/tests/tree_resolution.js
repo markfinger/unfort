@@ -4,7 +4,7 @@ import async from 'async';
 import {values} from 'lodash/object';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
-import {browserResolver} from '../dependencies/browser_resolve';
+import {browserResolver} from '../dependencies/browser_resolver';
 import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
 
 describe('tests/tree_resolution', () => {
@@ -28,10 +28,8 @@ describe('tests/tree_resolution', () => {
           dependencies,
           (dependency, cb) => {
             browserResolver(
-              {
-                dependency,
-                basedir: path.dirname(record.file)
-              },
+              dependency,
+              path.dirname(record.file),
               cb
             );
           },
