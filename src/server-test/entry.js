@@ -1,4 +1,5 @@
-import {React} from 'react';
+import React from 'react';
+import ReactDOM from 'react-dom';
 
 export class Counter extends React.Component {
   constructor(props) {
@@ -17,7 +18,10 @@ export class Counter extends React.Component {
   }
 }
 
-React.render(
+const main = document.createElement('div');
+document.body.appendChild(main);
+
+ReactDOM.render(
   <Counter initialCount={0} />,
-  document.getElementById('main')
+  main
 );

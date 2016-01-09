@@ -59,18 +59,20 @@ export function traceFile(file, tree, caches, cb) {
 export function getResolvedDependencies(file, stat, caches, cb) {
   const key = file + stat.mtime.getTime();
 
+  const options = {
+    cache: caches.resolvedDependencies,
+    astCache: caches.ast,
+    dependencyIdentifierCache: caches.dependencyIdentifiers,
+    key,
+    file
+  };
+
   // If the file is within the root node_modules, we can aggressively
   // cache its resolved dependencies
   if (startsWith(file, rootNodeModules)) {
-    getAggressivelyCachedResolvedDependencies({
-      cache: caches.resolvedDependencies,
-      astCache: caches.ast,
-      dependencyIdentifierCache: caches.dependencyIdentifiers,
-      key,
-      file
-    }, cb);
+    getAggressivelyCachedResolvedDependencies(options, cb);
   } else {
-    throw new Error(file);
+    getCachedResolvedDependencies(options, cb);
   }
 }
 
