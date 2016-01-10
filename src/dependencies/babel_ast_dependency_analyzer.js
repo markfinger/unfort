@@ -3,7 +3,7 @@ import {isObject, isString} from 'lodash/lang';
 import traverse from 'babel-traverse';
 import * as types from 'babel-types';
 
-export function analyzeBabelAstDependencies(ast, debug) {
+export function analyzeBabelAstDependencies(ast) {
   if (!isObject(ast)) {
     throw new Error(`An \`ast\` option must be provided`);
   }

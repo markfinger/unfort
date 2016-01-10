@@ -70,7 +70,7 @@ describe('dependencies/babylon_ast_dependencies', () => {
         {sourceType: 'module'}
       );
 
-      assert.deepEqual(analyzeBabelAstDependencies(ast, true), ['foo']);
+      assert.deepEqual(analyzeBabelAstDependencies(ast), ['foo']);
     });
   });
 });
