@@ -1,5 +1,6 @@
 import path from 'path';
 import rimraf from 'rimraf';
+import EventEmitter from 'events';
 import {assert} from '../../utils/assert';
 import {createFileCache} from '../file_cache';
 import {createMemoryCache} from '../memory_cache';
@@ -12,25 +13,19 @@ describe('index', () => {
     assert.isFunction(fileCache.set);
     assert.isFunction(fileCache.get);
     assert.isFunction(fileCache.invalidate);
-    assert.isFunction(fileCache.on);
-    assert.isFunction(fileCache.once);
-    assert.isFunction(fileCache.off);
+    assert.instanceOf(fileCache.events, EventEmitter);
     rimraf.sync(dirname);
 
     const memoryCache = createMemoryCache();
     assert.isFunction(memoryCache.set);
     assert.isFunction(memoryCache.get);
     assert.isFunction(memoryCache.invalidate);
-    assert.isFunction(memoryCache.on);
-    assert.isFunction(memoryCache.once);
-    assert.isFunction(memoryCache.off);
+    assert.instanceOf(memoryCache.events, EventEmitter);
 
     const mockCache = createMockCache();
     assert.isFunction(mockCache.set);
     assert.isFunction(mockCache.get);
     assert.isFunction(mockCache.invalidate);
-    assert.isFunction(mockCache.on);
-    assert.isFunction(mockCache.once);
-    assert.isFunction(mockCache.off);
+    assert.instanceOf(mockCache.events, EventEmitter);
   });
 });

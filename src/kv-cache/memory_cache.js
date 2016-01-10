@@ -3,7 +3,7 @@ import murmur from 'imurmurhash';
 
 export function createMemoryCache() {
   const cache = Object.create(null);
-  const emitter = new EventEmitter();
+  const events = new EventEmitter();
 
   return {
     get(key, cb) {
@@ -19,7 +19,7 @@ export function createMemoryCache() {
       try {
         data = JSON.parse(json);
       } catch(err) {
-        emitter.emit('error', err);
+        events.emit('error', err);
         return cb(err);
       }
 
@@ -32,7 +32,7 @@ export function createMemoryCache() {
       try {
         json = JSON.stringify(value);
       } catch(err) {
-        emitter.emit('error', err);
+        events.emit('error', err);
         if (cb) {
           return cb(err);
         }
@@ -53,9 +53,7 @@ export function createMemoryCache() {
         cb(null);
       }
     },
-    on: emitter.on.bind(emitter),
-    once: emitter.once.bind(emitter),
-    off: emitter.removeListener.bind(emitter),
+    events,
     _memoryCache: cache
   }
 }

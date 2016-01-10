@@ -1,4 +1,7 @@
+import EventEmitter from 'events';
+
 export function createMockCache() {
+  const events = new EventEmitter();
   return {
     get(key, cb) {
       cb(null, null);
@@ -13,8 +16,6 @@ export function createMockCache() {
         cb(null);
       }
     },
-    on: () => {},
-    once: () => {},
-    off: () => {}
+    events
   }
 }

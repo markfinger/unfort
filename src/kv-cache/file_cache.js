@@ -26,7 +26,7 @@ export function createFileCache(dirname, options={}) {
   // the entries
   const cache = Object.create(null);
 
-  const emitter = new EventEmitter();
+  const events = new EventEmitter();
 
   /**
    * Given a key and a callback, an associated value (if any) will be provided
@@ -45,7 +45,7 @@ export function createFileCache(dirname, options={}) {
       try {
         data = JSON.parse(cache[filename]);
       } catch(err) {
-        emitter.emit('error', err);
+        events.emit('error', err);
         return cb(err);
       }
       return cb(null, data);
@@ -58,7 +58,7 @@ export function createFileCache(dirname, options={}) {
           return cb(null, null);
         }
 
-        emitter.emit('error', err);
+        events.emit('error', err);
         return cb(err);
       }
 
@@ -68,7 +68,7 @@ export function createFileCache(dirname, options={}) {
       try {
         data = JSON.parse(json);
       } catch(err) {
-        emitter.emit('error', err);
+        events.emit('error', err);
         return cb(err);
       }
 
@@ -104,7 +104,7 @@ export function createFileCache(dirname, options={}) {
     try {
       json = JSON.stringify(value);
     } catch(err) {
-      emitter.emit('error', err);
+      events.emit('error', err);
       if (cb) {
         return cb(err);
       } else {
@@ -117,7 +117,7 @@ export function createFileCache(dirname, options={}) {
 
     fs.writeFile(filename, json, (err) => {
       if (err) {
-        emitter.emit('error', err);
+        events.emit('error', err);
       }
 
       if (cb) {
@@ -154,7 +154,7 @@ export function createFileCache(dirname, options={}) {
           return;
         }
 
-        emitter.emit('error', err);
+        events.emit('error', err);
         if (cb) {
           return cb(err);
         }
@@ -170,9 +170,7 @@ export function createFileCache(dirname, options={}) {
     get,
     set,
     invalidate,
-    on: emitter.on.bind(emitter),
-    once: emitter.once.bind(emitter),
-    off: emitter.removeListener.bind(emitter),
+    events,
     _memoryCache: cache
   };
 }
