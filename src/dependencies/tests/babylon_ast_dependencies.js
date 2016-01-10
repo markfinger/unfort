@@ -61,5 +61,16 @@ describe('dependencies/babylon_ast_dependencies', () => {
 
       assert.deepEqual(analyzeBabelAstDependencies(ast), ['foo']);
     });
+    it('should identify dependencies in export ... from statements', () => {
+      const ast = babylon.parse(`
+          export {foo} from 'foo';
+
+          export const bar = 1;
+        `,
+        {sourceType: 'module'}
+      );
+
+      assert.deepEqual(analyzeBabelAstDependencies(ast, true), ['foo']);
+    });
   });
 });

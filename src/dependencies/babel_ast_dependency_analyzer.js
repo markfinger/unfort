@@ -3,7 +3,7 @@ import {isObject, isString} from 'lodash/lang';
 import traverse from 'babel-traverse';
 import * as types from 'babel-types';
 
-export function analyzeBabelAstDependencies(ast) {
+export function analyzeBabelAstDependencies(ast, debug) {
   if (!isObject(ast)) {
     throw new Error(`An \`ast\` option must be provided`);
   }
@@ -12,9 +12,17 @@ export function analyzeBabelAstDependencies(ast) {
   const errors = [];
 
   traverse(ast, {
+    // `import ... from '...';
     ImportDeclaration(node) {
       dependencies.push(node.node.source.value);
     },
+    // `export ... from '...';
+    ExportDeclaration(node) {
+      if (node.node.source) {
+        dependencies.push(node.node.source.value);
+      }
+    },
+    // `require('...');
     CallExpression(node) {
       const callNode = node.node;
       if (callNode.callee.name === 'require') {
