@@ -29,7 +29,7 @@ export function getCachedAst({cache, key, file}, cb) {
 
       let ast;
       try {
-        ast = babylon.parse(text, {sourceType: 'module'})
+        ast = babylon.parse(text, {sourceType: 'module'});
       } catch(err) {
         return cb(err);
       }
@@ -100,7 +100,7 @@ export function getCachedResolvedDependencies({cache, key, file, dependencyIdent
     async.parallel([
       // If a dependency identifier is relative (./ ../) or absolute (/), there are
       // edge-cases where caching the resolved path may produce the wrong result.
-      // For example: an identifier, "./foo" may resolve to either a "./foo.js" or
+      // For example: an identifier "./foo" may resolve to either a "./foo.js" or
       // or "./foo/index.js". Detecting these cases is problematic, so we avoid the
       // problem by ensuring that the resolver always inspects the file system for
       // path-based identifiers
@@ -127,7 +127,7 @@ export function getCachedResolvedDependencies({cache, key, file, dependencyIdent
 
               cb(null, zip(packageIdentifiers, resolvedIdentifiers));
             }
-          )
+          );
         }
 
         getCachedData({cache, key, compute}, cb);
