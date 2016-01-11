@@ -9,8 +9,8 @@ import {assert} from '../utils/assert';
 import {createFileCache, createMockCache} from '../kv-cache';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 import {
-  getAggressivelyCachedResolvedDependencies,
-  getCachedResolvedDependencies
+  getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
+  getCachedDependencyIdentifiers
 } from '../dependencies/cached_dependencies';
 
 const sourceRoot = process.cwd();
@@ -59,20 +59,27 @@ export function traceFile(file, tree, caches, cb) {
 export function getResolvedDependencies(file, stat, caches, cb) {
   const key = file + stat.mtime.getTime();
 
-  const options = {
+  function getAst(cb) {
+    getCachedAst({cache: caches.ast, key, file}, cb);
+  }
+
+  function getDependencyIdentifiers(cb) {
+    getCachedDependencyIdentifiers({cache: caches.dependencyIdentifiers, key, file, getAst}, cb)
+  }
+
+  const resolvedDepsOptions = {
     cache: caches.resolvedDependencies,
-    astCache: caches.ast,
-    dependencyIdentifierCache: caches.dependencyIdentifiers,
     key,
-    file
+    file,
+    getDependencyIdentifiers
   };
 
   // If the file is within the root node_modules, we can aggressively
   // cache its resolved dependencies
   if (startsWith(file, rootNodeModules)) {
-    getAggressivelyCachedResolvedDependencies(options, cb);
+    getAggressivelyCachedResolvedDependencies(resolvedDepsOptions, cb);
   } else {
-    getCachedResolvedDependencies(options, cb);
+    getCachedResolvedDependencies(resolvedDepsOptions, cb);
   }
 }
 

@@ -41,50 +41,47 @@ export function getCachedAst({cache, key, file}, cb) {
   getCachedData({cache, key, compute}, cb);
 }
 
-export function getCachedDependencyIdentifiers({cache, key, file, astCache}, cb) {
+export function getCachedDependencyIdentifiers({cache, key, getAst}, cb) {
   function compute(cb) {
-    getCachedAst({file, cache: astCache, key}, (err, ast) => {
+    getAst((err, ast) => {
       if (err) return cb(err);
 
-      let dependencies;
+      let identifiers;
       try {
-        dependencies = analyzeBabelAstDependencies(ast);
+        identifiers = analyzeBabelAstDependencies(ast);
       } catch(err) {
         return cb(err);
       }
 
-      cb(null, dependencies);
+      cb(null, identifiers);
     });
   }
 
   getCachedData({cache, key, compute}, cb);
 }
 
-export function getAggressivelyCachedResolvedDependencies({cache, key, file, dependencyIdentifierCache, astCache}, cb) {
+export function getAggressivelyCachedResolvedDependencies({cache, key, file, getDependencyIdentifiers}, cb) {
   function compute(cb) {
-    getCachedDependencyIdentifiers(
-      {cache: dependencyIdentifierCache, key, file, astCache},
-      (err, identifiers) => {
-        if (err) return cb(err);
+    getDependencyIdentifiers((err, identifiers) => {
+      if (err) return cb(err);
 
-        async.map(
-          identifiers,
-          (identifier, cb) => browserResolver(identifier, path.dirname(file), cb),
-          (err, resolvedIdentifiers) => {
-            if (err) return cb(err);
+      async.map(
+        identifiers,
+        (identifier, cb) => browserResolver(identifier, path.dirname(file), cb),
+        (err, resolvedIdentifiers) => {
+          if (err) return cb(err);
 
-            cb(null, zip(identifiers, resolvedIdentifiers));
-          }
-        );
-      }
-    );
+          cb(null, zip(identifiers, resolvedIdentifiers));
+        }
+      );
+    });
   }
 
   getCachedData({cache, key, compute}, cb);
 }
 
-export function getCachedResolvedDependencies({cache, key, file, dependencyIdentifierCache, astCache}, cb) {
-  function resolveIdentifiers(err, identifiers) {
+export function getCachedResolvedDependencies({cache, key, file, getDependencyIdentifiers}, cb) {
+  getDependencyIdentifiers((err, identifiers) => {
     if (err) return cb(err);
 
     const pathIdentifiers = [];
@@ -137,7 +134,5 @@ export function getCachedResolvedDependencies({cache, key, file, dependencyIdent
 
       cb(null, flatten(data));
     });
-  }
-
-  getCachedDependencyIdentifiers({cache: dependencyIdentifierCache, key, file, astCache}, resolveIdentifiers);
+  });
 }
