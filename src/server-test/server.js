@@ -1,12 +1,22 @@
 import fs from 'fs';
+import path from 'path';
+import async from 'async';
 import sourceMapSupport from 'source-map-support';
 import express from 'express';
+import {startsWith} from 'lodash/string';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
-import {traceFile, createMockCaches, createFileCaches} from '../tests/tracer_perf';
+import {
+  getAggressivelyCachedResolvedDependencies,
+  getCachedResolvedDependencies
+} from '../dependencies/cached_dependencies';
+import {createMockCaches, createFileCaches} from '../tests/tracer_perf';
 
 sourceMapSupport.install();
 
-const entryFile = require.resolve('./entry');
+const sourceRoot = process.cwd();
+const rootNodeModules = path.join(sourceRoot, 'node_modules');
+const entryFile = path.join(sourceRoot, 'src', 'server-test', 'entry.js');
+
 const tree = Object.create(null);
 const files = Object.create(null);
 
@@ -16,7 +26,9 @@ function startServer() {
   var app = express();
 
   app.get('/', (req, res) => {
-    const scripts = Object.keys(tree).map(file => `<script src="/script?src=${file}"></script>`).join('\n');
+    const scripts = Object.keys(tree)
+      .map(file => `<script src="/script?src=${file}"></script>`)
+      .join('\n');
 
     res.end(`
       <html>
@@ -93,6 +105,24 @@ function startServer() {
     fs.readFile(src, 'utf8', (err, text) => {
       if (err) return res.status(500).send(`File: ${src}\n\n${err.stack}`);
 
+      if (!startsWith(src, rootNodeModules)) {
+        const babel = require('babel-core');
+        const file = babel.transform(text, {
+          plugins: [
+            ['react-transform', {
+              "transforms": [{
+                "transform": "react-transform-hmr"
+              }]
+            }]
+          ],
+          "presets": [
+            "es2015",
+            "react"
+          ]
+        });
+        text = file.code;
+      }
+
       const dependencies = JSON.stringify(tree[src]);
 
       text = (
@@ -103,7 +133,7 @@ function startServer() {
 
       files[src] = text;
 
-      return res.end(files[src]);
+      return res.end(text);
     });
   });
 
@@ -114,6 +144,66 @@ function startServer() {
   app.listen(3000, () => {
     console.log('listening at http://127.0.0.1:3000');
   });
+}
+
+function traceFile(file, tree, caches, cb) {
+  tree[file] = [];
+
+  fs.stat(file, (err, stat) => {
+    if (err) return cb(err);
+
+    getResolvedDependencies(file, stat, caches, (err, resolved) => {
+      if (err) {
+        err.message = `File: ${file}\n\n${err.message}`;
+        return cb(err);
+      }
+
+      tree[file] = resolved;
+
+      const untracedFiles = [];
+
+      resolved.forEach(dep => {
+        const filename = dep[1];
+        if (!tree[filename]) {
+          untracedFiles.push(filename);
+        }
+      });
+
+      if (untracedFiles.length) {
+        untracedFiles.forEach(file => {
+          tree[file] = {};
+        });
+
+        async.map(
+          untracedFiles,
+          (file, cb) => traceFile(file, tree, caches, cb),
+          cb
+        );
+      } else {
+        cb(null);
+      }
+    });
+  });
+}
+
+function getResolvedDependencies(file, stat, caches, cb) {
+  const key = file + stat.mtime.getTime();
+
+  const options = {
+    cache: caches.resolvedDependencies,
+    astCache: caches.ast,
+    dependencyIdentifierCache: caches.dependencyIdentifiers,
+    key,
+    file
+  };
+
+  // If the file is within the root node_modules, we can aggressively
+  // cache its resolved dependencies
+  if (startsWith(file, rootNodeModules)) {
+    getAggressivelyCachedResolvedDependencies(options, cb);
+  } else {
+    getCachedResolvedDependencies(options, cb);
+  }
 }
 
 hashNpmDependencyTree(process.cwd(), (err, hash) => {
