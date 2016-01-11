@@ -81,13 +81,26 @@ export function createFileCaches(npmDependencyTreeHash) {
     return path.join(__dirname, name, npmDependencyTreeHash.toString());
   }
 
+  function onFileCacheError(err) {
+    throw err;
+  }
+
+  // Used for ASTs parsed from text files
+  const ast = createFileCache(dirname('ast_cache'));
+
+  // Used for dependency identifiers extracted from ASTs
+  const dependencyIdentifiers = createFileCache(dirname('dependency_cache'));
+  // Used for resolving package dependencies
+  const resolvedDependencies = createFileCache(dirname('package_resolver_cache'));
+
+  ast.events.on('error', onFileCacheError);
+  dependencyIdentifiers.events.on('error', onFileCacheError);
+  resolvedDependencies.events.on('error', onFileCacheError);
+
   return {
-    // Used for ASTs parsed from text files
-    ast: createFileCache(dirname('ast_cache')),
-    // Used for dependency identifiers extracted form ASTs
-    dependencyIdentifiers: createFileCache(dirname('dependency_cache')),
-    // Used for resolving package dependencies
-    resolvedDependencies: createFileCache(dirname('package_resolver_cache')),
+    ast,
+    dependencyIdentifiers,
+    resolvedDependencies
   }
 }
 
