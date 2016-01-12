@@ -17,6 +17,7 @@ sourceMapSupport.install();
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 const entryFile = path.join(sourceRoot, 'src', 'server-test', 'entry.js');
+const runtimeFile = require.resolve('./runtime');
 
 const tree = Object.create(null);
 const files = Object.create(null);
@@ -28,101 +29,66 @@ function startServer() {
   var app = express();
 
   app.get('/', (req, res) => {
+    function generateScriptElement(file) {
+      const relPath = file.split(sourceRoot)[1];
+      return `<script src="${relPath}"></script>`;
+    }
+
+    const runtimeScript = generateScriptElement(runtimeFile);
     const scripts = Object.keys(tree)
-      .map(file => `<script src="/script?src=${file}"></script>`)
+      .filter(file => file !== runtimeFile)
+      .map(generateScriptElement)
       .join('\n');
 
     res.end(`
       <html>
       <body>
-        <script>
-          var __modules = Object.create(null);
-        </script>
+        ${runtimeScript}
         ${scripts}
         <script>
-          (function() {
-            var entry = ${JSON.stringify(entryFile)};
-
-            var cache = Object.create(null);
-
-            function executeModule(name) {
-              var dependencies = __modules[name][0];
-              var factory = __modules[name][1];
-
-              var module = {
-                exports: {}
-              };
-
-              cache[name] = module.exports;
-
-              var require = buildRequire(name, dependencies);
-
-              var process = {env: {}};
-
-              factory.call(window, module, module.exports, require, process, window);
-
-              return module.exports;
-            }
-
-            function buildRequire(name, dependencies) {
-              var resolved = Object.create(null);
-
-              dependencies.forEach(function(deps) {
-                resolved[deps[0]] = deps[1];
-              });
-
-              return function require(identifier) {
-                var depName = resolved[identifier];
-                if (depName) {
-                  if (!cache[depName]) {
-                    cache[depName] = executeModule(depName);
-                  }
-                  return cache[depName];
-                } else {
-                  var msg = 'File "' + name + '". Unknown identifier "' + identifier + '". Dependencies ' + JSON.stringify(dependencies, null, 2);
-                  throw new Error(msg);
-                }
-              };
-            }
-
-            executeModule(entry);
-          })();
+          __modules.executeModule(${JSON.stringify(entryFile)});
         </script>
       </body>
       </html>
     `);
   });
 
-  app.get('/script', (req, res) => {
-    const src = req.query.src;
-
-    if (!tree[src]) {
+  app.get('/*', (req, res) => {
+    const file = req.path;
+    console.log(file);
+    if (!file) {
       return res.status(404).send('Not found');
     }
 
-    if (files[src]) {
-      return res.end(files[src]);
+    const abs = path.join(sourceRoot, file);
+
+    if (!tree[abs]) {
+      return res.status(404).send('Not found');
     }
 
-    if (transformedFiles[src]) {
-      if (!files[src]) {
-        files[src] = wrapCommonJSModule({file: src, dependencies: tree[src], code: transformedFiles[src]});
+    if (files[abs]) {
+      return res.end(files[abs]);
+    }
+
+    if (transformedFiles[abs]) {
+      if (!files[abs]) {
+        files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: transformedFiles[abs]});
       }
 
-      res.end(files[src]);
+      res.end(files[abs]);
     } else {
-      fs.readFile(src, 'utf8', (err, text) => {
-        if (err) return res.status(500).send(`File: ${src}\n\n${err.stack}`);
+      fs.readFile(abs, 'utf8', (err, text) => {
+        if (err) return res.status(500).send(`File: ${abs}\n\n${err.stack}`);
 
-        files[src] = wrapCommonJSModule({file: src, dependencies: tree[src], code: text});
+        if (abs === runtimeFile) {
+          files[abs] = text;
+        } else {
+          files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: text});
+        }
 
-        res.end(files[src]);
+        res.end(files[abs]);
       });
     }
-  });
-
-  app.get('/tree', (req, res) => {
-    res.json(tree);
   });
 
   app.listen(3000, () => {
@@ -131,15 +97,16 @@ function startServer() {
 }
 
 function wrapCommonJSModule({code, file, dependencies}) {
-  dependencies = JSON.stringify(dependencies);
   return (
-    `__modules[${JSON.stringify(file)}] = [${dependencies}, function(module, exports, require, process, global){\n` +
+    `__modules.addModule(${JSON.stringify(file)}, ${JSON.stringify(dependencies)}, function(module, exports, require, process, global){\n` +
     code +
-    '\n}];'
+    '\n});'
   );
 }
 
 function traceFile(file, tree, caches, cb) {
+  console.log(`Tracing: ${file.split(sourceRoot)[1]}`);
+
   tree[file] = [];
 
   function onTraceComplete(err) {
@@ -150,14 +117,14 @@ function traceFile(file, tree, caches, cb) {
     cb(null);
   }
 
-  console.log(file)
+
   fs.stat(file, (err, stat) => {
     if (err) return cb(err);
 
     const key = file + stat.mtime.getTime();
 
     function getAst(cb) {
-      if (startsWith(file, rootNodeModules)) {
+      if (startsWith(file, rootNodeModules) || file === runtimeFile) {
         return getCachedAst({cache: caches.ast, key, file}, cb);
       }
 
@@ -167,13 +134,13 @@ function traceFile(file, tree, caches, cb) {
           plugins: [
             //'transform-object-rest-spread',
             //'transform-react-jsx',
-            ['react-transform', {
-              transforms: [{
-                transform: 'react-transform-hmr',
-                imports: ['react'],
-                locals: ['module']
-              }]
-            }]
+            //['react-transform', {
+            //  transforms: [{
+            //    transform: 'react-transform-hmr',
+            //    imports: ['react'],
+            //    locals: ['module']
+            //  }]
+            //}]
           ]
           //,
           //'presets': ['es2015']
@@ -238,9 +205,11 @@ function traceFile(file, tree, caches, cb) {
 hashNpmDependencyTree(process.cwd(), (err, hash) => {
   if (err) throw err;
 
-  //const caches = createFileCaches(hash);
   const caches = createMockCaches();
-  traceFile(entryFile, tree, caches, (err) => {
+  async.parallel([
+    (cb) => traceFile(runtimeFile, tree, caches, cb),
+    (cb) => traceFile(entryFile, tree, caches, cb)
+  ], (err) => {
     if (err) throw err;
     const end = (new Date()).getTime() - start;
     console.log(`traced ${Object.keys(tree).length} records in ${end}ms`);
