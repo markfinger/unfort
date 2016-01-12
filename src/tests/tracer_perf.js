@@ -12,6 +12,7 @@ import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
 } from '../dependencies/cached_dependencies';
+import {browserResolver} from '../dependencies/browser_resolver';
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
@@ -59,19 +60,27 @@ export function traceFile(file, tree, caches, cb) {
 export function getResolvedDependencies(file, stat, caches, cb) {
   const key = file + stat.mtime.getTime();
 
+  function getFile(cb) {
+    fs.readFile(file, 'utf8', cb);
+  }
+
   function getAst(cb) {
-    getCachedAst({cache: caches.ast, key, file}, cb);
+    getCachedAst({cache: caches.ast, key, getFile}, cb);
   }
 
   function getDependencyIdentifiers(cb) {
-    getCachedDependencyIdentifiers({cache: caches.dependencyIdentifiers, key, file, getAst}, cb)
+    getCachedDependencyIdentifiers({cache: caches.dependencyIdentifiers, key, getAst}, cb)
+  }
+
+  function resolveIdentifier(identifier, cb) {
+    browserResolver(identifier, path.dirname(file), cb);
   }
 
   const resolvedDepsOptions = {
     cache: caches.resolvedDependencies,
     key,
-    file,
-    getDependencyIdentifiers
+    getDependencyIdentifiers,
+    resolveIdentifier
   };
 
   // If the file is within the root node_modules, we can aggressively
