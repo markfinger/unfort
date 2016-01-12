@@ -132,18 +132,14 @@ function traceFile(file, tree, caches, cb) {
         file,
         {
           plugins: [
-            //'transform-object-rest-spread',
-            //'transform-react-jsx',
-            //['react-transform', {
-            //  transforms: [{
-            //    transform: 'react-transform-hmr',
-            //    imports: ['react'],
-            //    locals: ['module']
-            //  }]
-            //}]
+            ['react-transform', {
+              transforms: [{
+                transform: 'react-transform-hmr',
+                imports: ['react'],
+                locals: ['module']
+              }]
+            }]
           ]
-          //,
-          //'presets': ['es2015']
         },
         (err, transformed) => {
           if (err) return cb(err);

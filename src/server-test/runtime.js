@@ -1,5 +1,4 @@
 (function (root, factory) {
-  console.log(root, factory)
   if (typeof exports === 'object' && typeof exports.nodeName !== 'string') {
     // CommonJS
     factory(exports);
@@ -21,7 +20,10 @@
     const {dependencies, factory} = modules[name];
 
     const _module = {
-      exports: {}
+      exports: {},
+      hot: {
+        accept: () => console.log(`hmr accepted by "${name}"`)
+      }
     };
     const require = buildRequire(name, dependencies);
 
