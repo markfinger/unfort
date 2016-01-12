@@ -124,30 +124,6 @@ function traceFile(file, tree, caches, cb) {
 
     const key = file + stat.mtime.getTime();
 
-    function onDepsResolved(err, resolved) {
-      if (err) return onTraceComplete(err);
-
-      tree[file] = resolved;
-
-      const untracedFiles = resolved
-        .filter(dep => !tree[dep[1]])
-        .map(dep => dep[1]);
-
-      if (!untracedFiles.length) {
-        return onTraceComplete(null);
-      }
-
-      untracedFiles.forEach(file => {
-        tree[file] = {};
-      });
-
-      async.map(
-        untracedFiles,
-        (file, cb) => traceFile(file, tree, caches, cb),
-        onTraceComplete
-      );
-    }
-
     function getFile(cb) {
       fs.readFile(file, 'utf8', cb);
     }
@@ -196,12 +172,36 @@ function traceFile(file, tree, caches, cb) {
     if (startsWith(file, rootNodeModules)) {
       getAggressivelyCachedResolvedDependencies(
         {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
-        onDepsResolved
+        onDependenciesResolved
       );
     } else {
       getCachedResolvedDependencies(
         {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
-        onDepsResolved
+        onDependenciesResolved
+      );
+    }
+
+    function onDependenciesResolved(err, resolved) {
+      if (err) return onTraceComplete(err);
+
+      tree[file] = resolved;
+
+      const untracedFiles = resolved
+        .filter(dep => !tree[dep[1]])
+        .map(dep => dep[1]);
+
+      if (!untracedFiles.length) {
+        return onTraceComplete(null);
+      }
+
+      untracedFiles.forEach(file => {
+        tree[file] = {};
+      });
+
+      async.map(
+        untracedFiles,
+        (file, cb) => traceFile(file, tree, caches, cb),
+        onTraceComplete
       );
     }
   });
