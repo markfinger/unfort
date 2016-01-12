@@ -12,6 +12,7 @@ import {
 } from '../dependencies/cached_dependencies';
 import {browserResolver} from '../dependencies/browser_resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer_perf';
+import * as graph from '../directed-dependency-graph';
 
 sourceMapSupport.install();
 
@@ -207,6 +208,29 @@ function traceFile(file, tree, caches, cb) {
   });
 }
 
+function buildDependencyGraph(fileTree) {
+  let start = +new Date();
+
+  const nodes = Object.create(null);
+
+  const files = Object.keys(fileTree);
+
+  files.forEach(file => graph.addNode(nodes, file));
+  files.forEach(file => {
+    const deps = fileTree[file].map(dep => dep[1]);
+
+    deps.forEach(dep => graph.addEdge(nodes, file, dep));
+  });
+
+  let end = +new Date() - start;
+  console.log(`built graph in ${end}ms`);
+
+  start = +new Date();
+  console.log(graph.getNodesWithoutPredecessors(nodes));
+  end = +new Date() - start;
+  console.log(`with pred graph in ${end}ms`);
+}
+
 hashNpmDependencyTree(process.cwd(), (err, hash) => {
   if (err) throw err;
 
@@ -218,6 +242,9 @@ hashNpmDependencyTree(process.cwd(), (err, hash) => {
     if (err) throw err;
     const end = (new Date()).getTime() - start;
     console.log(`traced ${Object.keys(tree).length} records in ${end}ms`);
+
+    buildDependencyGraph(tree);
+
     startServer();
   });
 });
