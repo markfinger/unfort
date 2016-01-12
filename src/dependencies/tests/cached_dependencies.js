@@ -42,7 +42,12 @@ describe('dependencies/cached_dependencies', () => {
     it('should return a babylon AST', (done) => {
       const cache = createMockCache();
       const file = require.resolve('./cached_dependencies/parse_test');
-      getCachedAst({cache, file, key: 'test'}, (err, ast) => {
+
+      function getFile(cb) {
+        fs.readFile(file, 'utf8', cb);
+      }
+
+      getCachedAst({cache, key: 'test', getFile}, (err, ast) => {
         assert.isNull(err);
         assert.deepEqual(
           ast,
@@ -53,13 +58,12 @@ describe('dependencies/cached_dependencies', () => {
     });
     it('should not compute the AST if data is in the cache', (done) => {
       const cache = createMemoryCache();
-      const file = require.resolve('./cached_dependencies/parse_test');
       const key = 'foo';
 
       cache.set(key, 'bar', (err) => {
         assert.isNull(err);
 
-        getCachedAst({cache, file, key}, (err, ast) => {
+        getCachedAst({cache, key}, (err, ast) => {
           assert.isNull(err);
           assert.equal(ast, 'bar');
           done();
@@ -72,8 +76,12 @@ describe('dependencies/cached_dependencies', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached_dependencies/parse_test');
 
+      function getFile(cb) {
+        fs.readFile(file, 'utf8', cb);
+      }
+
       function getAst(cb) {
-        getCachedAst({cache, key: 'test', file}, cb);
+        getCachedAst({cache, key: 'test', getFile}, cb);
       }
 
       getCachedDependencyIdentifiers({file, cache, key: 'test', getAst}, (err, identifiers) => {
@@ -87,13 +95,12 @@ describe('dependencies/cached_dependencies', () => {
     });
     it('should not compute the dependency identifiers if data is in the cache', (done) => {
       const cache = createMemoryCache();
-      const file = require.resolve('./cached_dependencies/parse_test');
       const key = 'foo';
 
       cache.set(key, 'bar', (err) => {
         assert.isNull(err);
 
-        getCachedDependencyIdentifiers({cache, file, key}, (err, identifiers) => {
+        getCachedDependencyIdentifiers({cache, key}, (err, identifiers) => {
           assert.isNull(err);
           assert.equal(identifiers, 'bar');
           done();
@@ -106,12 +113,16 @@ describe('dependencies/cached_dependencies', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached_dependencies/resolve_test');
 
+      function getFile(cb) {
+        fs.readFile(file, 'utf8', cb);
+      }
+
       function getAst(cb) {
-        getCachedAst({cache, file, key: 'test'}, cb);
+        getCachedAst({cache, key: 'test', getFile}, cb);
       }
 
       function getDependencyIdentifiers(cb) {
-        getCachedDependencyIdentifiers({cache, file, key: 'test', getAst}, cb);
+        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, cb);
       }
 
       getAggressivelyCachedResolvedDependencies({
@@ -135,13 +146,12 @@ describe('dependencies/cached_dependencies', () => {
     });
     it('should not compute the resolved identifiers if data is in the cache', (done) => {
       const cache = createMemoryCache();
-      const file = require.resolve('./cached_dependencies/resolve_test');
       const key = 'test';
 
       cache.set(key, 'foo', (err) => {
         assert.isNull(err);
 
-        getAggressivelyCachedResolvedDependencies({cache, key, file}, (err, resolved) => {
+        getAggressivelyCachedResolvedDependencies({cache, key}, (err, resolved) => {
           assert.isNull(err);
           assert.equal(resolved, 'foo');
           done();
@@ -154,12 +164,16 @@ describe('dependencies/cached_dependencies', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached_dependencies/resolve_test');
 
+      function getFile(cb) {
+        fs.readFile(file, 'utf8', cb);
+      }
+
       function getAst(cb) {
-        getCachedAst({cache, file, key: 'test'}, cb);
+        getCachedAst({cache, key: 'test', getFile}, cb);
       }
 
       function getDependencyIdentifiers(cb) {
-        getCachedDependencyIdentifiers({cache, file, key: 'test', getAst}, cb);
+        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, cb);
       }
 
       getCachedResolvedDependencies({
@@ -189,12 +203,16 @@ describe('dependencies/cached_dependencies', () => {
       cache.set(key, [['bar', 'test']], (err) => {
         assert.isNull(err);
 
+        function getFile(cb) {
+          fs.readFile(file, 'utf8', cb);
+        }
+
         function getAst(cb) {
-          getCachedAst({cache: createMockCache(), file, key: 'test'}, cb);
+          getCachedAst({cache: createMockCache(), key: 'test', getFile}, cb);
         }
 
         function getDependencyIdentifiers(cb) {
-          getCachedDependencyIdentifiers({cache: createMockCache(), file, key: 'test', getAst}, cb);
+          getCachedDependencyIdentifiers({cache: createMockCache(), key: 'test', getAst}, cb);
         }
 
         getCachedResolvedDependencies({

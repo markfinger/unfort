@@ -1,5 +1,4 @@
 import path from 'path';
-import fs from 'fs';
 import * as babylon from 'babylon';
 import async from 'async';
 import {zip, flatten} from 'lodash/array';
@@ -22,9 +21,9 @@ export function getCachedData({cache, key, compute}, cb) {
   });
 }
 
-export function getCachedAst({cache, key, file}, cb) {
+export function getCachedAst({cache, key, getFile}, cb) {
   function compute(cb) {
-    fs.readFile(file, 'utf8', (err, text) => {
+    getFile((err, text) => {
       if (err) return cb;
 
       let ast;
