@@ -1,18 +1,6 @@
+import {clone} from 'lodash/lang';
 import {forOwn} from 'lodash/object';
 import {without} from 'lodash/array';
-
-//export function createDirectedDependencyGraph() {
-//  const nodes = Object.create(null);
-//
-//  return {
-//    nodes,
-//    addNode: (name) => addNode(nodes, name),
-//    removeNode: (name) => removeNode(nodes, name),
-//    addEdge: (head, tail) => addEdge(nodes, head, tail),
-//    removeEdge: (head, tail) => removeEdge(nodes, head, tail),
-//    getNodesWithoutPredecessors: () => getNodesWithoutPredecessors(nodes)
-//  }
-//}
 
 export function addNode(nodes, name) {
   const node = nodes[name];
@@ -100,14 +88,16 @@ export function pruneFromNode(nodes, name, ignore=[]) {
   let nodesPruned = [name];
 
   if (node.predecessors.length) {
-    const predecessors = node.predecessors.splice(0);
+    // Clone the array to avoid mutations during iteration
+    const predecessors = clone(node.predecessors);
     predecessors.forEach(predecessorName => {
       removeEdge(nodes, predecessorName, name);
     });
   }
 
   if (node.successors.length) {
-    const successors = node.successors.splice(0);
+    // Clone the array to avoid mutations during iteration
+    const successors = clone(node.successors);
     successors.forEach(successorName => {
       removeEdge(nodes, name, successorName);
 

@@ -4,7 +4,7 @@ import {
 import {assert} from '../../utils/assert';
 
 describe('directed_dependency_graph', () => {
-  describe('addNode', () => {
+  describe('#addNode', () => {
     it('should mutate the provided object', () => {
       const nodes = {};
       addNode(nodes, 'test');
@@ -23,7 +23,7 @@ describe('directed_dependency_graph', () => {
       );
     });
   });
-  describe('removeNode', () => {
+  describe('#removeNode', () => {
     it('should mutate the provided object', () => {
       const nodes = {test: {}};
       removeNode(nodes, 'test');
@@ -37,7 +37,7 @@ describe('directed_dependency_graph', () => {
       );
     });
   });
-  describe('addEdge', () => {
+  describe('#addEdge', () => {
     it('should mutate the provided object', () => {
       const nodes = {};
 
@@ -72,7 +72,7 @@ describe('directed_dependency_graph', () => {
       );
     });
   });
-  describe('removeEdge', () => {
+  describe('#removeEdge', () => {
     it('should mutate the provided object', () => {
       const nodes = {};
 
@@ -108,7 +108,7 @@ describe('directed_dependency_graph', () => {
       );
     });
   });
-  describe('getNodesWithoutPredecessors', () => {
+  describe('#getNodesWithoutPredecessors', () => {
     it('should return a list of nodes that do not have any predecessors', () => {
       const nodes = {};
 
@@ -133,7 +133,7 @@ describe('directed_dependency_graph', () => {
       assert.deepEqual(getNodesWithoutPredecessors(nodes), ['foo']);
     });
   });
-  describe('pruneFromNode', () => {
+  describe('#pruneFromNode', () => {
     it('should remove the node and recursively remove all successor nodes that lack other predecessors', () => {
       const nodes = {
         a: {successors: ['b', 'c'], predecessors: []},
