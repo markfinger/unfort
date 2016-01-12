@@ -2,7 +2,6 @@ import path from 'path';
 import * as babylon from 'babylon';
 import async from 'async';
 import {zip, flatten} from 'lodash/array';
-import {browserResolver} from './browser_resolver';
 import {analyzeBabelAstDependencies} from './babel_ast_dependency_analyzer'
 
 export function getCachedData({cache, key, compute}, cb) {
@@ -59,14 +58,14 @@ export function getCachedDependencyIdentifiers({cache, key, getAst}, cb) {
   getCachedData({cache, key, compute}, cb);
 }
 
-export function getAggressivelyCachedResolvedDependencies({cache, key, file, getDependencyIdentifiers}, cb) {
+export function getAggressivelyCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}, cb) {
   function compute(cb) {
     getDependencyIdentifiers((err, identifiers) => {
       if (err) return cb(err);
 
       async.map(
         identifiers,
-        (identifier, cb) => browserResolver(identifier, path.dirname(file), cb),
+        (identifier, cb) => resolveIdentifier(identifier, cb),
         (err, resolvedIdentifiers) => {
           if (err) return cb(err);
 
@@ -79,7 +78,7 @@ export function getAggressivelyCachedResolvedDependencies({cache, key, file, get
   getCachedData({cache, key, compute}, cb);
 }
 
-export function getCachedResolvedDependencies({cache, key, file, getDependencyIdentifiers}, cb) {
+export function getCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}, cb) {
   getDependencyIdentifiers((err, identifiers) => {
     if (err) return cb(err);
 
@@ -103,7 +102,7 @@ export function getCachedResolvedDependencies({cache, key, file, getDependencyId
       (cb) => {
         async.map(
           pathIdentifiers,
-          (identifier, cb) => browserResolver(identifier, path.dirname(file), cb),
+          (identifier, cb) => resolveIdentifier(identifier, cb),
           (err, resolvedIdentifiers) => {
             if (err) return cb(err);
 
@@ -117,7 +116,7 @@ export function getCachedResolvedDependencies({cache, key, file, getDependencyId
         function compute(cb) {
           async.map(
             packageIdentifiers,
-            (identifier, cb) => browserResolver(identifier, path.dirname(file), cb),
+            (identifier, cb) => resolveIdentifier(identifier, cb),
             (err, resolvedIdentifiers) => {
               if (err) return cb(err);
 

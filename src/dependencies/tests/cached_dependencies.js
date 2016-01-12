@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import * as babylon from 'babylon';
 import {assert} from '../../utils/assert';
-import {createMockCache, createMemoryCache} from '../../kv-cache'
+import {createMockCache, createMemoryCache} from '../../kv-cache';
+import {browserResolver} from '../browser_resolver';
 import {
   getCachedData, getCachedAst, getCachedDependencyIdentifiers, getAggressivelyCachedResolvedDependencies,
   getCachedResolvedDependencies
@@ -23,7 +24,7 @@ describe('dependencies/cached_dependencies', () => {
     });
     it('should not call the compute function if data is available', (done) => {
       const cache = createMemoryCache();
-      function compute(cb) {
+      function compute() {
         throw new Error('should not be called');
       }
 
@@ -125,11 +126,15 @@ describe('dependencies/cached_dependencies', () => {
         getCachedDependencyIdentifiers({cache, key: 'test', getAst}, cb);
       }
 
+      function resolveIdentifier(identifier, cb) {
+        browserResolver(identifier, path.dirname(file), cb);
+      }
+
       getAggressivelyCachedResolvedDependencies({
         cache,
         key: 'test',
-        file,
-        getDependencyIdentifiers
+        getDependencyIdentifiers,
+        resolveIdentifier
       }, (err, resolved) => {
         assert.isNull(err);
 
@@ -176,11 +181,15 @@ describe('dependencies/cached_dependencies', () => {
         getCachedDependencyIdentifiers({cache, key: 'test', getAst}, cb);
       }
 
+      function resolveIdentifier(identifier, cb) {
+        browserResolver(identifier, path.dirname(file), cb);
+      }
+
       getCachedResolvedDependencies({
         cache,
         key: 'test',
-        file,
-        getDependencyIdentifiers
+        getDependencyIdentifiers,
+        resolveIdentifier
       }, (err, resolved) => {
         assert.isNull(err);
 
@@ -195,7 +204,7 @@ describe('dependencies/cached_dependencies', () => {
         done();
       });
     });
-    it('should not compute package identifiers if data is in the cache', (done) => {
+    it('should compute path-based identifiers and use cached data for package identifiers, if data is in the cache', (done) => {
       const cache = createMemoryCache();
       const file = require.resolve('./cached_dependencies/resolve_test');
       const key = 'test';
@@ -215,11 +224,15 @@ describe('dependencies/cached_dependencies', () => {
           getCachedDependencyIdentifiers({cache: createMockCache(), key: 'test', getAst}, cb);
         }
 
+        function resolveIdentifier(identifier, cb) {
+          browserResolver(identifier, path.dirname(file), cb);
+        }
+
         getCachedResolvedDependencies({
           cache,
           key: 'test',
-          file,
-          getDependencyIdentifiers
+          getDependencyIdentifiers,
+          resolveIdentifier
         }, (err, resolved) => {
           assert.isNull(err);
 
