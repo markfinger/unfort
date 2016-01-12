@@ -10,6 +10,7 @@ import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
 } from '../dependencies/cached_dependencies';
+import {browserResolver} from '../dependencies/browser_resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer_perf';
 
 sourceMapSupport.install();
@@ -97,11 +98,11 @@ function startServer() {
 }
 
 function wrapCommonJSModule({code, file, dependencies}) {
-  return (
-    `__modules.addModule(${JSON.stringify(file)}, ${JSON.stringify(dependencies)}, function(module, exports, require, process, global){\n` +
-    code +
-    '\n});'
-  );
+  return `__modules.addModule(${JSON.stringify(file)}, ${JSON.stringify(dependencies)}, function(module, exports, require, process, global){
+
+${code}
+
+});`;
 }
 
 function traceFile(file, tree, caches, cb) {
@@ -123,9 +124,37 @@ function traceFile(file, tree, caches, cb) {
 
     const key = file + stat.mtime.getTime();
 
+    function onDepsResolved(err, resolved) {
+      if (err) return onTraceComplete(err);
+
+      tree[file] = resolved;
+
+      const untracedFiles = resolved
+        .filter(dep => !tree[dep[1]])
+        .map(dep => dep[1]);
+
+      if (!untracedFiles.length) {
+        return onTraceComplete(null);
+      }
+
+      untracedFiles.forEach(file => {
+        tree[file] = {};
+      });
+
+      async.map(
+        untracedFiles,
+        (file, cb) => traceFile(file, tree, caches, cb),
+        onTraceComplete
+      );
+    }
+
+    function getFile(cb) {
+      fs.readFile(file, 'utf8', cb);
+    }
+
     function getAst(cb) {
       if (startsWith(file, rootNodeModules) || file === runtimeFile) {
-        return getCachedAst({cache: caches.ast, key, file}, cb);
+        return getCachedAst({cache: caches.ast, key, getFile}, cb);
       }
 
       babel.transformFile(
@@ -153,45 +182,25 @@ function traceFile(file, tree, caches, cb) {
 
     function getDependencyIdentifiers(cb) {
       getCachedDependencyIdentifiers(
-        {cache: caches.dependencyIdentifiers, key, file, getAst},
+        {cache: caches.dependencyIdentifiers, key, getAst},
         cb
       )
     }
 
-    function onDepsResolved(err, resolved) {
-      if (err) return onTraceComplete(err);
-
-      tree[file] = resolved;
-
-      const untracedFiles = resolved
-        .filter(dep => !tree[dep[1]])
-        .map(dep => dep[1]);
-
-      if (!untracedFiles.length) {
-        return onTraceComplete(null);
-      }
-
-      untracedFiles.forEach(file => {
-        tree[file] = {};
-      });
-
-      async.map(
-        untracedFiles,
-        (file, cb) => traceFile(file, tree, caches, cb),
-        onTraceComplete
-      );
+    function resolveIdentifier(identifier, cb) {
+      browserResolver(identifier, path.dirname(file), cb);
     }
 
     // If the file is within the root node_modules, we can aggressively
     // cache its resolved dependencies
     if (startsWith(file, rootNodeModules)) {
       getAggressivelyCachedResolvedDependencies(
-        {cache: caches.resolvedDependencies, key, file, getDependencyIdentifiers},
+        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
         onDepsResolved
       );
     } else {
       getCachedResolvedDependencies(
-        {cache: caches.resolvedDependencies, key, file, getDependencyIdentifiers},
+        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
         onDepsResolved
       );
     }
