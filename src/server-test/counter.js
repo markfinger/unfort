@@ -9,10 +9,9 @@ export class Counter extends React.Component {
     this.setState({count: this.state.count + 1});
   }
   render() {
-    console.log(1)
     return (
       <div onClick={this.tick.bind(this)}>
-        Click: {this.state.count + 11}
+        Click: {this.state.count}
       </div>
     );
   }
