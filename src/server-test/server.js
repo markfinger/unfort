@@ -107,7 +107,7 @@ ${code}
 }
 
 function traceFile(file, tree, caches, cb) {
-  console.log(`Tracing: ${file.split(sourceRoot)[1]}`);
+  process.stdout.write('.'); // progress
 
   tree[file] = [];
 
@@ -118,7 +118,6 @@ function traceFile(file, tree, caches, cb) {
     }
     cb(null);
   }
-
 
   fs.stat(file, (err, stat) => {
     if (err) return cb(err);
@@ -239,6 +238,8 @@ hashNpmDependencyTree(process.cwd(), (err, hash) => {
     (cb) => traceFile(runtimeFile, tree, caches, cb),
     (cb) => traceFile(entryFile, tree, caches, cb)
   ], (err) => {
+    process.stdout.write('\n'); // clear the progress line
+
     if (err) throw err;
     const end = (new Date()).getTime() - start;
     console.log(`traced ${Object.keys(tree).length} records in ${end}ms`);
