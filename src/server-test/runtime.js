@@ -11,18 +11,25 @@
   const modules = Object.create(null);
   const exportsCache = Object.create(null);
   const process = {env: {}};
+  const hmrAcceptedModules = [];
 
   function addModule(name, dependencies, factory) {
     modules[name] = {dependencies, factory};
   }
 
   function executeModule(name) {
+    if (!modules[name]) {
+      throw new Error(`Unknown module "${name}"`);
+    }
+
     const {dependencies, factory} = modules[name];
 
     const _module = {
       exports: {},
       hot: {
-        accept: () => console.log(`hmr accepted by "${name}"`)
+        accept: () => {
+          hmrAcceptedModules.push(name);
+        }
       }
     };
     const require = buildRequire(name, dependencies);
@@ -62,6 +69,7 @@
 
   exports.modules = modules;
   exports.exportsCache = exportsCache;
+  exports.hmrAcceptedModules = hmrAcceptedModules;
   exports.addModule = addModule;
   exports.executeModule = executeModule;
   exports.buildRequire = buildRequire;
