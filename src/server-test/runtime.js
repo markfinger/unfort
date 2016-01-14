@@ -8,44 +8,45 @@
   }
 }((typeof window == 'object' ? window : global), function (exports) {
 
-  const modules = Object.create(null);
-  const exportsCache = Object.create(null);
-  const process = {env: {}};
-  const hmrAcceptedModules = [];
+  const __modules = exports;
 
-  function addModule(name, dependencies, factory) {
-    modules[name] = {dependencies, factory};
-  }
+  __modules.modules = Object.create(null);
+  __modules.exportsCache = Object.create(null);
+  __modules.process = {env: {}};
 
-  function executeModule(name) {
-    if (!modules[name]) {
+  __modules.addModule = (name, dependencies, factory) => {
+    __modules.modules[name] = {dependencies, factory};
+  };
+
+  __modules.buildModuleObject = (name) => {
+    return {
+      exports: {}
+    };
+  };
+
+  __modules.executeModule = (name) => {
+    if (!__modules.modules[name]) {
       throw new Error(`Unknown module "${name}"`);
     }
 
-    const {dependencies, factory} = modules[name];
+    const {dependencies, factory} = __modules.modules[name];
 
-    const _module = {
-      exports: {},
-      hot: {
-        accept: () => {
-          hmrAcceptedModules.push(name);
-        }
-      }
-    };
-    const require = buildRequire(name, dependencies);
+    const _module = __modules.buildModuleObject(name);
+
+    const require = __modules.buildRequire(name, dependencies);
 
     // Bind the initial exports object to handle circular dependencies
-    exportsCache[name] = _module.exports;
+    __modules.exportsCache[name] = _module.exports;
 
-    factory.call(window, _module, _module.exports, require, process, window);
+    factory.call(window, _module, _module.exports, require, __modules.process, window);
 
     // Re-bind the exports object to handle redefinitions of `module.exports`
-    exportsCache[name] = _module.exports;
+    __modules.exportsCache[name] = _module.exports;
 
     return _module.exports;
-  }
+  };
 
-  function buildRequire(name, dependencies) {
+  __modules.buildRequire = (name, dependencies) => {
     const resolved = Object.create(null);
 
     dependencies.forEach(function(deps) {
@@ -55,23 +56,16 @@
     return function require(identifier) {
       const depName = resolved[identifier];
       if (depName) {
-        if (!exportsCache[depName]) {
-          exportsCache[depName] = executeModule(depName);
+        if (!__modules.exportsCache[depName]) {
+          __modules.exportsCache[depName] = __modules.executeModule(depName);
         }
-        return exportsCache[depName];
+        return __modules.exportsCache[depName];
       } else {
         throw new Error(
           `'Module "${name}" required an unknown identifier "${identifier}". Available dependencies ${JSON.stringify(dependencies, null, 2)}`
         );
       }
     };
-  }
-
-  exports.modules = modules;
-  exports.exportsCache = exportsCache;
-  exports.hmrAcceptedModules = hmrAcceptedModules;
-  exports.addModule = addModule;
-  exports.executeModule = executeModule;
-  exports.buildRequire = buildRequire;
+  };
 
 }));

@@ -4,8 +4,14 @@ import {Counter} from './counter';
 
 const main = document.createElement('div');
 document.body.appendChild(main);
-console.log("hel")
+
 ReactDOM.render(
-  <Counter initialCount={0} />,
+  <Counter initialCount={1} />,
   main
 );
+
+if (module.hot) {
+  module.hot.accept(() => {
+    main.parentNode.removeChild(main);
+  });
+}

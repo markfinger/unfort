@@ -1,28 +1,46 @@
 import socketIoClient from 'socket.io-client';
+import {isFunction} from 'lodash/lang';
 
-const {
-  addModule, hmrAcceptedModules, executeModule, modules
-} = __modules;
-__modules.addModule = hmrAddModuleWrapper;
+__modules.hmrAcceptedModules = Object.create(null);
 
-let start;
+const buildModuleObject = __modules.buildModuleObject;
+__modules.buildModuleObject = function hmrBuildModuleObjectWrapper(name) {
+  const _module = buildModuleObject(name);
 
-function hmrAddModuleWrapper(name, dependencies, factory) {
+  _module.hot = {
+    accept: (cb) => {
+      __modules.hmrAcceptedModules[name] = cb || true;
+    }
+  };
+
+  return _module
+};
+
+const addModule = __modules.addModule;
+__modules.addModule = function hmrAddModuleWrapper(name, dependencies, factory) {
   addModule(name, dependencies, factory);
 
-  if (modules[name] && hmrAcceptedModules.indexOf(name) !== -1) {
-    executeModule(name);
-    console.log((new Date()).getTime() - start);
-  }
-}
+  if (__modules.hmrAcceptedModules[name]) {
+    console.log(`[hmr] ${name}`);
 
-console.log('hmr booting');
+    // If the module has specified a function to be called
+    // when it is swapped, execute before the swap
+    if (isFunction(__modules.hmrAcceptedModules[name])) {
+      __modules.hmrAcceptedModules[name]();
+    }
+
+    // Reset the accepted state, so that the swapped module is
+    // forced to re-accept
+    __modules.hmrAcceptedModules[name] = false;
+
+    __modules.executeModule(name);
+  }
+};
 
 const io = socketIoClient();
 io.on('hmr', (msg) => {
-  start = (new Date()).getTime();
-  const {url, file} = msg;
-  console.log('hmr', url, file);
+  const {url} = msg;
+  console.log(`Change detected in ${url}`);
 
   const script = document.createElement('script');
   script.src = url;
