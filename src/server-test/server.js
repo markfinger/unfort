@@ -69,30 +69,6 @@ function startWatcher() {
   console.log('Watching', files);
 }
 
-function clusterPackages(cb) {
-  const files = Object.keys(tree);
-  const relFiles = files.filter(file => !startsWith(file, rootNodeModules));
-  const packageFiles = files.filter(file => startsWith(file, rootNodeModules));
-
-  const clustered = Object.create(null);
-  packageFiles.forEach(file => {
-    const relative = file.split(rootNodeModules)[1];
-    const parts = relative.split(path.sep);
-    const dir = parts[1];
-
-    if (!clustered[dir]) {
-      clustered[dir] = [];
-    }
-    clustered[dir].push(file);
-  });
-
-  forOwn(clustered, (files, name) => {
-    console.log(name, clustered[name].length);
-  });
-
-  cb(null);
-}
-
 function startServer() {
   const app = express();
   const server = http.createServer(app);
@@ -324,10 +300,6 @@ hashNpmDependencyTree(process.cwd(), (err, hash) => {
 
     startWatcher();
 
-    clusterPackages((err) => {
-      if (err) throw err;
-
-      startServer();
-    });
+    startServer();
   });
 });
