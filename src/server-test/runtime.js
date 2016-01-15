@@ -14,7 +14,7 @@
   __modules.exportsCache = Object.create(null);
   __modules.process = {env: {}};
 
-  __modules.addModule = (name, dependencies, factory) => {
+  __modules.addModule = ({name, dependencies}, factory) => {
     __modules.modules[name] = {dependencies, factory};
   };
 

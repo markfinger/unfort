@@ -7,6 +7,7 @@ import sourceMapSupport from 'source-map-support';
 import express from 'express';
 import * as babel from 'babel-core';
 import chokidar from 'chokidar';
+import murmur from 'imurmurhash';
 import {startsWith} from 'lodash/string';
 import {forOwn} from 'lodash/object';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
@@ -158,7 +159,13 @@ function startServer() {
 }
 
 function wrapCommonJSModule({code, file, dependencies}) {
-  return `__modules.addModule(${JSON.stringify(file)}, ${JSON.stringify(dependencies)}, function(module, exports, require, process, global){
+  const moduleData = {
+    name: file,
+    dependencies: dependencies,
+    version: murmur(code).result()
+  };
+
+  return `__modules.addModule(${JSON.stringify(moduleData)}, function(module, exports, require, process, global) {
 
 ${code}
 

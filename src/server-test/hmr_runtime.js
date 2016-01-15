@@ -17,8 +17,10 @@ __modules.buildModuleObject = function hmrBuildModuleObjectWrapper(name) {
 };
 
 const addModule = __modules.addModule;
-__modules.addModule = function hmrAddModuleWrapper(name, dependencies, factory) {
-  addModule(name, dependencies, factory);
+__modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
+  const {name} = moduleData;
+
+  addModule(moduleData, factory);
 
   if (__modules.hmrAcceptedModules[name]) {
     console.log(`[hmr] ${name}`);
