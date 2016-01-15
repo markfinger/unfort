@@ -5,40 +5,11 @@ import {assert} from '../../utils/assert';
 import {createMockCache, createMemoryCache} from '../../kv-cache';
 import {browserResolver} from '../browser_resolver';
 import {
-  getCachedData, getCachedAst, getCachedDependencyIdentifiers, getAggressivelyCachedResolvedDependencies,
+  getCachedAst, getCachedDependencyIdentifiers, getAggressivelyCachedResolvedDependencies,
   getCachedResolvedDependencies
 } from '../cached_dependencies';
 
 describe('dependencies/cached_dependencies', () => {
-  describe('#getCachedData', () => {
-    it('should call the compute function if no data is available', (done) => {
-      const cache = createMockCache();
-      function compute(cb) {
-        cb(null, 'foo');
-      }
-      getCachedData({cache, key: 'test', compute}, (err, data) => {
-        assert.isNull(err);
-        assert.equal(data, 'foo');
-        done();
-      });
-    });
-    it('should not call the compute function if data is available', (done) => {
-      const cache = createMemoryCache();
-      function compute() {
-        throw new Error('should not be called');
-      }
-
-      cache.set('test', 'foo', (err) => {
-        assert.isNull(err);
-
-        getCachedData({cache, key: 'test', compute}, (err, data) => {
-          assert.isNull(err);
-          assert.equal(data, 'foo');
-          done();
-        });
-      });
-    });
-  });
   describe('#getCachedAst', () => {
     it('should return a babylon AST', (done) => {
       const cache = createMockCache();

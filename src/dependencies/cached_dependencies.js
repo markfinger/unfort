@@ -3,22 +3,8 @@ import * as babylon from 'babylon';
 import async from 'async';
 import {zip, flatten} from 'lodash/array';
 import {analyzeBabelAstDependencies} from './babel_ast_dependency_analyzer'
+import {getCachedData} from './cache_utils';
 
-export function getCachedData({cache, key, compute}, cb) {
-  cache.get(key, (err, data) => {
-    if (err || data) return cb(err, data);
-
-    compute((err, data) => {
-      if (err) return cb(err);
-
-      if (data) {
-        cache.set(key, data);
-      }
-
-      cb(null, data);
-    });
-  });
-}
 
 export function getCachedAst({cache, key, getFile}, cb) {
   function compute(cb) {
