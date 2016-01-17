@@ -1,5 +1,7 @@
 import socketIoClient from 'socket.io-client';
 import {isFunction} from 'lodash/lang';
+import {forEach} from 'lodash/collection';
+import {startsWith, endsWith} from 'lodash/string';
 
 __modules.hmrAcceptedModules = Object.create(null);
 
@@ -42,9 +44,21 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
 const io = socketIoClient();
 io.on('hmr', (msg) => {
   const {url} = msg;
-  console.log(`Change detected in ${url}`);
 
-  const script = document.createElement('script');
-  script.src = url;
-  document.body.appendChild(script);
+  console.log(`Change detected for ${url}`);
+
+  if (endsWith(url, '.css')) {
+    const links = document.getElementsByTagName('link');
+    forEach(links, (node) => {
+      const href = node.getAttribute('href');
+      if (startsWith(href, url)) {
+        node.href = url + '?hash=' + (new Date()).getTime();
+        return false;
+      }
+    });
+  } else {
+    const script = document.createElement('script');
+    script.src = url;
+    document.body.appendChild(script);
+  }
 });

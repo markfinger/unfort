@@ -8,13 +8,30 @@ import {
 
 describe('dependencies/css_dependencies', () => {
   describe('#buildPostCssAst', () => {
-    it('should throw if an import is missing a trailing quotation mark', () => {
+    it('should be able to build a PostCSS AST', (done) => {
+      buildPostCssAst({name: 'test.css', text: '@import "foo.css"'}, (err, ast) => {
+        assert.equal(
+          ast.first.type,
+          'atrule'
+        );
+        done();
+      });
+    });
+    it('should produce an error, if an import is missing a trailing quotation mark', (done) => {
       // This is a sanity check, as PostCSS will often try to repair broken css.
       // If this ever starts failing, we should remove this test case and add
       // it as a constraint during analysis of dependency identifiers
-      assert.throws(
-        () => postcss.parse('@import url("test.css);').first
-      );
+      buildPostCssAst({name: 'foo.css', text: '@import url("test.css);'}, (err) => {
+        assert.isString(err.message);
+        assert.isString(err.stack);
+        done();
+      });
+    });
+    it('should indicate the filename for parse errors', (done) => {
+      buildPostCssAst({name: 'foo.css', text: 'bo}d:y}{"'}, (err) => {
+        assert.throws(() => {throw err}, 'foo.css');
+        done();
+      });
     });
   });
   describe('#getCachedStyleSheetImports', () => {

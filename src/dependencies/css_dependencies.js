@@ -2,7 +2,7 @@ import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {getCachedData} from './cache_utils';
 
-export function buildPostCssAst(name, text, cb) {
+export function buildPostCssAst({name, text}, cb) {
   let ast;
   try {
     ast = postcss.parse(text, {from: name});

@@ -8,6 +8,7 @@ import express from 'express';
 import * as babel from 'babel-core';
 import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
+import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {forOwn} from 'lodash/object';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
@@ -15,6 +16,7 @@ import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
 } from '../dependencies/cached_dependencies';
+import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css_dependencies';
 import {browserResolver} from '../dependencies/browser_resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer_perf';
 import * as graph from '../directed-dependency-graph';
@@ -56,7 +58,7 @@ function onFileChange(file) {
     console.log(`traced ${file}`);
     sockets.forEach(socket => {
       socket.emit('hmr', {file, url: file.split(sourceRoot)[1]});
-    })
+    });
   });
 }
 
@@ -95,14 +97,29 @@ function startServer() {
       return `<script src="${relPath}"></script>`;
     }
 
+    function generateLinkElement(file) {
+      const relPath = file.split(sourceRoot)[1];
+      return `<link rel="stylesheet" href="${relPath}">`;
+    }
+
     const runtimeScript = generateScriptElement(runtimeFile);
+
+    const styles = Object.keys(tree)
+      .filter(file => path.parse(file).ext === '.css')
+      .map(generateLinkElement)
+      .join('\n');
+
     const scripts = Object.keys(tree)
       .filter(file => file !== runtimeFile)
+      .filter(file => path.parse(file).ext !== '.css')
       .map(generateScriptElement)
       .join('\n');
 
     res.end(`
       <html>
+      <head>
+        ${styles}
+      </head>
       <body>
         ${runtimeScript}
         ${scripts}
@@ -142,7 +159,9 @@ function startServer() {
       fs.readFile(abs, 'utf8', (err, text) => {
         if (err) return res.status(500).send(`File: ${abs}\n\n${err.stack}`);
 
-        if (abs === runtimeFile) {
+        const pathObj = path.parse(file);
+
+        if (abs === runtimeFile || pathObj.ext === '.css') {
           files[abs] = text;
         } else {
           files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: text});
@@ -194,7 +213,7 @@ function traceFile(file, tree, caches, cb) {
       fs.readFile(file, 'utf8', cb);
     }
 
-    function getAst(cb) {
+    function getJsAst(cb) {
       if (startsWith(file, rootNodeModules) || file === runtimeFile) {
         return getCachedAst({cache: caches.ast, key, getFile}, cb);
       }
@@ -222,11 +241,28 @@ function traceFile(file, tree, caches, cb) {
       );
     }
 
+    function getCssAst(cb) {
+      fs.readFile(file, 'utf8', (err, text) => {
+        if (err) return cb(err);
+
+        buildPostCssAst({name: file, text}, cb);
+      });
+    }
+
     function getDependencyIdentifiers(cb) {
-      getCachedDependencyIdentifiers(
-        {cache: caches.dependencyIdentifiers, key, getAst},
-        cb
-      )
+      const pathObj = path.parse(file);
+
+      if (pathObj.ext === '.css') {
+        getCachedStyleSheetImports(
+          {cache: caches.dependencyIdentifiers, key, getAst: getCssAst},
+          cb
+        );
+      } else {
+        getCachedDependencyIdentifiers(
+          {cache: caches.dependencyIdentifiers, key, getAst: getJsAst},
+          cb
+        );
+      }
     }
 
     function resolveIdentifier(identifier, cb) {
