@@ -11,6 +11,7 @@ import murmur from 'imurmurhash';
 import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {forOwn} from 'lodash/object';
+import {sample} from 'lodash/collection';
 import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
@@ -72,7 +73,8 @@ function startWatcher() {
   console.log('Watching', files);
 }
 
-function startServer() {
+const fileRefs = Object.create(null);
+function startServer(port, portPool) {
   const app = express();
   const server = http.createServer(app);
   const io = socketIo(server);
@@ -92,14 +94,22 @@ function startServer() {
   });
 
   app.get('/', (req, res) => {
+
+    function getUrl(file) {
+      if (!fileRefs[file]) {
+        const relPath = file.split(sourceRoot)[1];
+        const selectedPort = sample(portPool);
+        fileRefs[file] = `http://127.0.0.1:${selectedPort}${relPath}`;
+      }
+      return fileRefs[file];
+    }
+
     function generateScriptElement(file) {
-      const relPath = file.split(sourceRoot)[1];
-      return `<script src="${relPath}"></script>`;
+      return `<script src="${getUrl(file)}"></script>`;
     }
 
     function generateLinkElement(file) {
-      const relPath = file.split(sourceRoot)[1];
-      return `<link rel="stylesheet" href="${relPath}">`;
+      return `<link rel="stylesheet" href="${getUrl(file)}">`;
     }
 
     const runtimeScript = generateScriptElement(runtimeFile);
@@ -172,8 +182,8 @@ function startServer() {
     }
   });
 
-  server.listen(3000, '0.0.0.0', () => {
-    console.log('listening at http://127.0.0.1:3000');
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`listening at http://127.0.0.1:${port}`);
   });
 }
 
@@ -343,6 +353,7 @@ hashNpmDependencyTree(process.cwd(), (err, hash) => {
 
     startWatcher();
 
-    startServer();
+    const portPool = [3000, 3001];
+    portPool.forEach(port => startServer(port, portPool));
   });
 });
