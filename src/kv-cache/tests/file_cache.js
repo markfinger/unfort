@@ -3,12 +3,13 @@ import path from 'path';
 import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import {assert} from '../../utils/assert';
-import {createFileCache, murmurFilename} from '../file_cache';
+import {createFileCache} from '../file_cache';
+import {generateMurmurHash} from '../utils';
 
 describe('file_cache', () => {
   describe('#createFileCache', () => {
     const dirname = path.join(__dirname, 'cache_test_dir');
-    const TEST_KEY_FILENAME = path.join(dirname, murmurFilename('test'));
+    const TEST_KEY_FILENAME = path.join(dirname, generateMurmurHash('test') + '.json');
 
     // Ensure that data does not persist across tests
     function removeDirname(cb) {
@@ -153,12 +154,12 @@ describe('file_cache', () => {
         done();
       });
     });
-    it('should accept a `generateFilename` option', (done) => {
-      const generateFilename = () => {
-        return 'test.json'
+    it('should accept a `generateHash` option', (done) => {
+      const generateHash = () => {
+        return 'test'
       };
 
-      const cache = createFileCache(dirname, {generateFilename});
+      const cache = createFileCache(dirname, {generateHash});
 
       cache.set('foo', 'bar', (err) => {
         assert.isNull(err);

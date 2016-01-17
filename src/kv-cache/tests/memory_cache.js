@@ -43,5 +43,22 @@ describe('memory_cache', () => {
         });
       });
     });
+    it('should accept a `generateHash` option', (done) => {
+      const generateHash = () => {
+        return 'test'
+      };
+
+      const cache = createMemoryCache({generateHash});
+
+      cache.set('foo', 'bar', (err) => {
+        assert.isNull(err);
+
+        assert.equal(
+          cache._memoryCache['test'],
+          '"bar"'
+        );
+        done();
+      });
+    });
   });
 });

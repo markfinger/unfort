@@ -3,19 +3,14 @@ import path from 'path';
 import EventEmitter from 'events';
 import mkdirp from 'mkdirp';
 import {isString, isObject} from 'lodash/lang';
-import murmur from 'imurmurhash';
-
-export function murmurFilename(cacheKey) {
-  const hash = murmur(cacheKey).result();
-  return hash + '.json';
-}
+import {generateMurmurHash} from './utils';
 
 export function createFileCache(dirname, options={}) {
   if (!isString(dirname)) {
     throw new Error('A `dirname` option must be provided');
   }
 
-  const {generateFilename=murmurFilename} = options;
+  const {generateHash=generateMurmurHash} = options;
 
   // We create the cache dir in a *synchronous* call so that we don't have
   // to add any ready-state detection to the `set` function
@@ -38,7 +33,7 @@ export function createFileCache(dirname, options={}) {
    * @param {Function} cb - a callback function accepting err & data args
    */
   function get(key, cb) {
-    const filename = path.join(dirname, generateFilename(key));
+    const filename = path.join(dirname, generateHash(key) + '.json');
 
     if (cache[filename]) {
       let data;
@@ -89,7 +84,7 @@ export function createFileCache(dirname, options={}) {
    * @returns {*}
    */
   function set(key, value, cb) {
-    const filename = path.join(dirname, generateFilename(key));
+    const filename = path.join(dirname, generateHash(key) + '.json');
 
     // Note: serializing large JSON structures can block the event loop. Might be worth
     // investigating deferring this.
@@ -137,7 +132,7 @@ export function createFileCache(dirname, options={}) {
    * @param {Function} [cb]
    */
   function invalidate(key, cb) {
-    const filename = path.join(dirname, generateFilename(key));
+    const filename = path.join(dirname, generateHash(key) + '.json');
 
     // Ensure that the in-memory cache is fresh
     cache[filename] = undefined;

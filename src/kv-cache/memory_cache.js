@@ -1,13 +1,15 @@
 import EventEmitter from 'events';
-import murmur from 'imurmurhash';
+import {generateMurmurHash} from './utils';
 
-export function createMemoryCache() {
+export function createMemoryCache(options={}) {
+  const {generateHash=generateMurmurHash} = options;
+
   const cache = Object.create(null);
   const events = new EventEmitter();
 
   return {
     get(key, cb) {
-      key = murmur(key).result();
+      key = generateHash(key);
 
       if (cache[key] === undefined) {
         return cb(null, null);
@@ -26,7 +28,7 @@ export function createMemoryCache() {
       return cb(null, data);
     },
     set(key, value, cb) {
-      key = murmur(key).result();
+      key = generateHash(key);
 
       let json;
       try {
@@ -45,7 +47,7 @@ export function createMemoryCache() {
       }
     },
     invalidate(key, cb) {
-      key = murmur(key).result();
+      key = generateHash(key);
 
       cache[key] = undefined;
 
