@@ -12,7 +12,7 @@ import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {forOwn} from 'lodash/object';
 import {sample} from 'lodash/collection';
-import {hashNpmDependencyTree} from '../hash-npm-dependency-tree';
+import {hashNpmDependencyTree} from '../node-env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
