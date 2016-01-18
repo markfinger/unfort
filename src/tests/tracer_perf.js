@@ -7,7 +7,7 @@ import murmur from 'imurmurhash';
 import {startsWith} from 'lodash/string';
 import {assert} from '../utils/assert';
 import {createFileCache, createMockCache} from '../kv-cache';
-import {hashNpmDependencyTree} from '../node-env-hash';
+import {hashNpmDependencyTree} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
