@@ -17,7 +17,8 @@ cache.invalidate(key, (err) => { });
 cache.events.on('error', (err) => { });
 ```
 
-`key` should be a string. Keys are murmur hashed to produce consistent mappings.
+`key` should be a string or an array of strings. Keys are hashed with murmur to produce
+consistent mappings.
 
 `value` should be a JSON-serializable value.
 
@@ -25,12 +26,9 @@ cache.events.on('error', (err) => { });
 and `invalidate` callbacks are optional, but if provided, they will be called either
 when an error occurs, or once the operation has completed.
 
-`events` is an EventEmitter instance that emits `'error'` events. You can use it to
-trap errors if you omit callbacks from `set` and `invalidate`.
+`events` is an EventEmitter instance that emits `'error'` events. If you omit callbacks
+from `set` and `invalidate`, it can be used it to respond to error conditions.
 
-Note: operations may complete either synchronously or asynchronously. While this is
-inconsistent, it is by design and is intended to reduce system load, and increase
-both performance and the clarity of stack traces.
 
 Caches
 ------
@@ -68,6 +66,15 @@ then asynchronously written to disk.
 When `invalidate` is called, it removes any related data in memory and then asynchronously
 remove the related file. Note: invalidating a missing key will not produce an error.
 
+```javascript
+// You can optionally override the hashing mechanism
+createFileCache('/path/to/directory', {
+  generateHash: (key) => {
+    return '...';
+  }
+});
+```
+
 
 ### Memory cache
 
@@ -77,7 +84,17 @@ import {createMemoryCache} from 'kv-cache';
 const cache = createMemoryCache();
 ```
 
-Similar to file caches, only it never touches the file system.
+Presents a similar API to file caches. Unlike the file cache, it will never touches the file
+system, instead it will only preserve data in memory.
+
+```javascript
+// You can optionally override the hashing mechanism
+createMemoryCache({
+  generateHash: (key) => {
+    return '...';
+  }
+});
+```
 
 
 ### Mock cache
@@ -88,19 +105,8 @@ import {createMockCache} from 'kv-cache';
 const cache = createMockCache();
 ```
 
-Does nothing, and immediately calls any provided callbacks.
+Presents a similar API to file caches and memory caches. However, it does nothing, and
+will immediately call any provided callbacks with `null` as the argument(s).
 
-Useful as a drop-in replacement if you want to debug, or profile without the serialization
-or IO overheads.
-
-
-TODO
-----
-
-### Reference cache
-
-Might be useful to persist references and avoid deserialization costs on repeated gets.
-Loses immutability guarantee though.
-
-Might want to accept a cache as an argument: proxy gets for missing data, sets should
-maintain a reference and pass the key/value/cb along.
+This is useful as a drop-in replacement, if you want to debug or profile without the
+serialization or IO overheads.
