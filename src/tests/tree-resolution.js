@@ -5,7 +5,7 @@ import {values} from 'lodash/object';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
 import {browserResolver} from '../dependencies/browser-resolver';
-import {analyzeBabelAstDependencies} from '../dependencies/babel-ast-dependency-analyzer';
+import {analyzeBabelAstDependencies} from '../dependencies/analyze-babel-ast-dependencies';
 
 describe('tests/tree-resolution', () => {
   it('should build a tree from a simple set of files', function(done) {

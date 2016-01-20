@@ -2,7 +2,7 @@ import path from 'path';
 import * as babylon from 'babylon';
 import async from 'async';
 import {zip, flatten} from 'lodash/array';
-import {analyzeBabelAstDependencies} from './babel-ast-dependency-analyzer'
+import {analyzeBabelAstDependencies} from './analyze-babel-ast-dependencies';
 import {getCachedData} from './cache-utils';
 
 
