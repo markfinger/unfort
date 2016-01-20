@@ -1,6 +1,7 @@
 import {clone} from 'lodash/lang';
 import {forOwn} from 'lodash/object';
-import {without} from 'lodash/array';
+import {pull} from 'lodash/array';
+import {contains} from 'lodash/collection';
 
 export function addNode(nodes, name) {
   const node = nodes[name];
@@ -37,12 +38,12 @@ export function addEdge(nodes, head, tail) {
   }
 
   const successors = headNode.successors;
-  if (successors.indexOf(tail) === -1) {
+  if (!contains(successors, tail)) {
     successors.push(tail);
   }
 
   const predecessors = tailNode.predecessors;
-  if (predecessors.indexOf(head) === -1) {
+  if (!contains(predecessors, head)) {
     predecessors.push(head);
   }
 }
@@ -58,24 +59,15 @@ export function removeEdge(nodes, head, tail) {
     throw new Error(`Node "${tail}" does not exist`);
   }
 
-  const successors = headNode.successors;
-  const successorIndex = successors.indexOf(tail);
-  if (successorIndex!== -1) {
-    successors.splice(successorIndex, 1);
-  }
-
-  const predecessors = tailNode.predecessors;
-  const predecessorIndex = predecessors.indexOf(head);
-  if (predecessorIndex!== -1) {
-    predecessors.splice(predecessorIndex, 1);
-  }
+  pull(headNode.successors, tail);
+  pull(tailNode.predecessors, head);
 }
 
 export function getNodesWithoutPredecessors(nodes) {
   const nodesWithoutPredecessors = [];
 
   forOwn(nodes, (node, name) => {
-    if (node.predecessors.length === 0) {
+    if (node && node.predecessors.length === 0) {
       nodesWithoutPredecessors.push(name);
     }
   });
@@ -106,7 +98,7 @@ export function pruneFromNode(nodes, name, ignore=[]) {
         ignore.indexOf(successorName) === -1
       ) {
         const successorNodesPruned = pruneFromNode(nodes, successorName, ignore);
-        nodesPruned = nodesPruned.concat(successorNodesPruned);
+        nodesPruned.push.apply(nodesPruned, successorNodesPruned);
       }
     });
   }

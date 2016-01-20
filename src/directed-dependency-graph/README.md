@@ -1,11 +1,19 @@
-directed-dependency-graph
-=========================
+dependency-tracer
+=================
+
+Tracer
+------
+
+**TODO**
+
+
+Graph utils
+-----------
 
 Tools for operating on a directed graph that represents dependencies in a system.
 
 
-Example
--------
+### Example
 
 ```javascript
 // Given...
@@ -16,7 +24,7 @@ Example
 //  d -> c
 //  d -> e
 
-import * as graph from 'directed-dependency-graph';
+import {graph} from 'dependency-tracer';
 
 const nodes = Object.create(null);
 
@@ -49,11 +57,10 @@ Object.keys(nodes).filter(name => nodes[name]);
 ```
 
 
-API
----
+### API
 
 ```javascript
-import * as graph from 'directed-dependency-graph';
+import {graph} from 'dependency-tracer';
 
 graph.addNode(nodes, 'node name');
 graph.removeNode(nodes, 'node name');
@@ -75,8 +82,7 @@ graph.pruneFromNode(nodes, 'node name');
 ```
 
 
-Caveats
--------
+### Caveats
 
 When nodes are removed from the `nodes` object, it actually just sets their key
 to `undefined`. This is to avoid the overhead associated with using the `delete`
