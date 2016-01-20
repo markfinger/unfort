@@ -84,7 +84,6 @@ export function hashFileSystemDataLists(data) {
 
   data.forEach((entry, i) => {
     if (i !== 0) {
-      console.log(entry, entry[0]);
       hash.hash(entry[0]);
     }
     hash.hash(String(entry[1]));
