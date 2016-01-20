@@ -27,6 +27,19 @@ describe('directed-dependency-graph/graph', () => {
         assert.equal(graph.pendingJobs[0].node, 'test');
         assert.isTrue(graph.pendingJobs[0].isValid);
       });
+      it('should emit a `complete` signal once all the dependencies have been resolved', (done) => {
+        const graph = createGraph({getDependencies});
+
+        function getDependencies(file, cb) {
+          cb(null, []);
+        }
+
+        graph.events.on('complete', () => {
+          done();
+        });
+
+        graph.traceNode('test');
+      });
       it('should populate the graph with the provided dependencies', (done) => {
         const graph = createGraph({getDependencies});
 
