@@ -1,7 +1,7 @@
 import {addNode, removeNode, addEdge, removeEdge, getNodesWithoutPredecessors, pruneFromNode} from '../utils';
 import {assert} from '../../utils/assert';
 
-describe('dependency-tracer/utils', () => {
+describe('directed-dependency-graph/utils', () => {
   describe('#addNode', () => {
     it('should mutate the provided object', () => {
       const nodes = {};
