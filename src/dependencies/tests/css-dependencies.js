@@ -4,9 +4,9 @@ import {createMockCache, createMemoryCache} from '../../kv-cache';
 import {
   buildPostCssAst, getCachedStyleSheetImports, getDependencyIdentifiersFromStyleSheetAst,
   getDependencyIdentifierFromImportRule
-} from '../css_dependencies';
+} from '../css-dependencies';
 
-describe('dependencies/css_dependencies', () => {
+describe('dependencies/css-dependencies', () => {
   describe('#buildPostCssAst', () => {
     it('should be able to build a PostCSS AST', (done) => {
       buildPostCssAst({name: 'test.css', text: '@import "foo.css"'}, (err, ast) => {

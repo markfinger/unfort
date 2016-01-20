@@ -3,17 +3,17 @@ import path from 'path';
 import * as babylon from 'babylon';
 import {assert} from '../../utils/assert';
 import {createMockCache, createMemoryCache} from '../../kv-cache';
-import {browserResolver} from '../browser_resolver';
+import {browserResolver} from '../browser-resolver';
 import {
   getCachedAst, getCachedDependencyIdentifiers, getAggressivelyCachedResolvedDependencies,
   getCachedResolvedDependencies
-} from '../cached_dependencies';
+} from '../cached-dependencies';
 
-describe('dependencies/cached_dependencies', () => {
+describe('dependencies/cached-dependencies', () => {
   describe('#getCachedAst', () => {
     it('should return a babylon AST', (done) => {
       const cache = createMockCache();
-      const file = require.resolve('./cached_dependencies/parse_test');
+      const file = require.resolve('./cached-dependencies/parse-test');
 
       function getFile(cb) {
         fs.readFile(file, 'utf8', cb);
@@ -46,7 +46,7 @@ describe('dependencies/cached_dependencies', () => {
   describe('#getCachedDependencyIdentifiers', () => {
     it('should return an array of dependency identifiers', (done) => {
       const cache = createMockCache();
-      const file = require.resolve('./cached_dependencies/parse_test');
+      const file = require.resolve('./cached-dependencies/parse-test');
 
       function getFile(cb) {
         fs.readFile(file, 'utf8', cb);
@@ -83,7 +83,7 @@ describe('dependencies/cached_dependencies', () => {
   describe('#getAggressivelyCachedResolvedDependencies', () => {
     it('should return an array of arrays, each containing an identifier and a resolved path', (done) => {
       const cache = createMockCache();
-      const file = require.resolve('./cached_dependencies/resolve_test');
+      const file = require.resolve('./cached-dependencies/resolve-test');
 
       function getFile(cb) {
         fs.readFile(file, 'utf8', cb);
@@ -112,8 +112,8 @@ describe('dependencies/cached_dependencies', () => {
         assert.deepEqual(
           resolved,
           [
-            ['./foo', require.resolve('./cached_dependencies/foo.js')],
-            ['bar', require.resolve('./cached_dependencies/node_modules/bar/browser.js')]
+            ['./foo', require.resolve('./cached-dependencies/foo.js')],
+            ['bar', require.resolve('./cached-dependencies/node_modules/bar/browser.js')]
           ]
         );
 
@@ -138,7 +138,7 @@ describe('dependencies/cached_dependencies', () => {
   describe('#getCachedResolvedDependencies', () => {
     it('should return an array of arrays, each containing an identifier and a resolved path', (done) => {
       const cache = createMockCache();
-      const file = require.resolve('./cached_dependencies/resolve_test');
+      const file = require.resolve('./cached-dependencies/resolve-test');
 
       function getFile(cb) {
         fs.readFile(file, 'utf8', cb);
@@ -167,8 +167,8 @@ describe('dependencies/cached_dependencies', () => {
         assert.deepEqual(
           resolved,
           [
-            ['./foo', require.resolve('./cached_dependencies/foo.js')],
-            ['bar', require.resolve('./cached_dependencies/node_modules/bar/browser.js')]
+            ['./foo', require.resolve('./cached-dependencies/foo.js')],
+            ['bar', require.resolve('./cached-dependencies/node_modules/bar/browser.js')]
           ]
         );
 
@@ -177,7 +177,7 @@ describe('dependencies/cached_dependencies', () => {
     });
     it('should compute path-based identifiers and use cached data for package identifiers, if data is in the cache', (done) => {
       const cache = createMemoryCache();
-      const file = require.resolve('./cached_dependencies/resolve_test');
+      const file = require.resolve('./cached-dependencies/resolve-test');
       const key = 'test';
 
       cache.set(key, [['bar', 'test']], (err) => {
@@ -210,7 +210,7 @@ describe('dependencies/cached_dependencies', () => {
           assert.deepEqual(
             resolved,
             [
-              ['./foo', require.resolve('./cached_dependencies/foo.js')],
+              ['./foo', require.resolve('./cached-dependencies/foo.js')],
               ['bar', 'test']
             ]
           );

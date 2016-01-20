@@ -4,10 +4,10 @@ import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import async from 'async';
 import {assert} from '../../utils/assert';
-import {hashFileSystemDataLists, readFileData, readDirectoryData} from '../node_env_hash';
+import {hashFileSystemDataLists, readFileData, readDirectoryData} from '../env-hash';
 import murmur from 'imurmurhash';
 
-describe('node_env_hash', () => {
+describe('env-hash', () => {
   const fileRoot = path.join(__dirname, 'node_env_cache_test_files');
   const file1 = path.join(fileRoot, 'file1.txt');
   const file2 = path.join(fileRoot, 'file2.txt');

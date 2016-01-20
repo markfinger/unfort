@@ -1,8 +1,8 @@
 import * as babylon from 'babylon';
 import {assert} from '../../utils/assert';
-import {analyzeBabelAstDependencies} from '../babel_ast_dependency_analyzer';
+import {analyzeBabelAstDependencies} from '../babel-ast-dependency-analyzer';
 
-describe('dependencies/babylon_ast_dependencies', () => {
+describe('dependencies/babel-ast-dependency-analyzer', () => {
   describe('#analyzeBabelAstDependencies', () => {
     it('should accept an AST and provide a list of dependencies specified in `require` calls', () => {
       const ast = babylon.parse(`

@@ -2,7 +2,7 @@ require('source-map-support').install();
 
 var fs = require('fs');
 var profiler = require('v8-profiler');
-const tracerPerf = require('./lib/tests/tracer_perf');
+const tracerPerf = require('./lib/tests/tracer-perf');
 
 profiler.startProfiling('1', true);
 

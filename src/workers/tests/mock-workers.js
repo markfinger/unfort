@@ -1,11 +1,11 @@
 import {assert} from '../../utils/assert';
-import {createMockWorkers} from '../mock_workers';
+import {createMockWorkers} from '../mock-workers';
 
 export function testFunction(testArg, cb) {
   cb(null, testArg);
 }
 
-describe('workers/mock_workers', () => {
+describe('workers/mock-workers', () => {
   describe('#createMockWorkers', () => {
     it('should expose a method to invoke a module in a module', (done) => {
       const workers = createMockWorkers();

@@ -2,8 +2,8 @@ import path from 'path';
 import * as babylon from 'babylon';
 import async from 'async';
 import {zip, flatten} from 'lodash/array';
-import {analyzeBabelAstDependencies} from './babel_ast_dependency_analyzer'
-import {getCachedData} from './cache_utils';
+import {analyzeBabelAstDependencies} from './babel-ast-dependency-analyzer'
+import {getCachedData} from './cache-utils';
 
 
 export function getCachedAst({cache, key, getFile}, cb) {

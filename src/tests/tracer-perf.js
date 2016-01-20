@@ -11,8 +11,8 @@ import {hashNpmDependencyTree} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
-} from '../dependencies/cached_dependencies';
-import {browserResolver} from '../dependencies/browser_resolver';
+} from '../dependencies/cached-dependencies';
+import {browserResolver} from '../dependencies/browser-resolver';
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
@@ -102,12 +102,12 @@ export function createFileCaches(npmDependencyTreeHash) {
   }
 
   // Used for ASTs parsed from text files
-  const ast = createFileCache(dirname('ast_cache'));
+  const ast = createFileCache(dirname('ast-cache'));
 
   // Used for dependency identifiers extracted from ASTs
-  const dependencyIdentifiers = createFileCache(dirname('dependency_cache'));
+  const dependencyIdentifiers = createFileCache(dirname('dependency-cache'));
   // Used for resolving package dependencies
-  const resolvedDependencies = createFileCache(dirname('package_resolver_cache'));
+  const resolvedDependencies = createFileCache(dirname('package-resolver-cache'));
 
   ast.events.on('error', onFileCacheError);
   dependencyIdentifiers.events.on('error', onFileCacheError);

@@ -1,9 +1,9 @@
 import {assert} from '../../utils/assert';
-import {createWorkerFarm} from '../worker_farm';
+import {createWorkerFarm} from '../worker-farm';
 
-const workerEntry = require.resolve('./worker_farm/worker_entry');
+const workerEntry = require.resolve('./worker-farm/worker-entry');
 
-describe('workers/worker_farm', () => {
+describe('workers/worker-farm', () => {
   describe('#createWorkerFarm', () => {
     it('should expose a method to invoke a module in a module', (done) => {
       const workers = createWorkerFarm();

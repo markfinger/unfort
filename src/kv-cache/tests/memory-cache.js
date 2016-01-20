@@ -1,8 +1,8 @@
 import {assert} from '../../utils/assert';
-import {createMemoryCache} from '../memory_cache';
+import {createMemoryCache} from '../memory-cache';
 import murmur from 'imurmurhash';
 
-describe('memory_cache', () => {
+describe('memory-cache', () => {
   describe('#createMemoryCache', () => {
     it('should be able to write to the cache', (done) => {
       const cache = createMemoryCache();

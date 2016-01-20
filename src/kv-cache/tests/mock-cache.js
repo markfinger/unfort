@@ -1,10 +1,10 @@
 import path from 'path';
 import rimraf from 'rimraf';
 import {assert} from '../../utils/assert';
-import {createFileCache} from '../file_cache';
-import {createMockCache} from '../mock_cache';
+import {createFileCache} from '../file-cache';
+import {createMockCache} from '../mock-cache';
 
-describe('mock_cache', () => {
+describe('mock-cache', () => {
   describe('#createMockCache', () => {
     it('should return an object with appropriate methods', () => {
       const cache = createMockCache();

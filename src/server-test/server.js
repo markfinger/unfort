@@ -16,10 +16,10 @@ import {hashNpmDependencyTree} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
-} from '../dependencies/cached_dependencies';
-import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css_dependencies';
-import {browserResolver} from '../dependencies/browser_resolver';
-import {createMockCaches, createFileCaches} from '../tests/tracer_perf';
+} from '../dependencies/cached-dependencies';
+import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
+import {browserResolver} from '../dependencies/browser-resolver';
+import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
 import * as graph from '../directed-dependency-graph';
 
 sourceMapSupport.install();
@@ -28,7 +28,7 @@ const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 const entryFile = path.join(sourceRoot, 'src', 'server-test', 'entry.js');
 const runtimeFile = require.resolve('./runtime');
-const hmrRuntimeFile = require.resolve('./hmr_runtime');
+const hmrRuntimeFile = require.resolve('./hmr-runtime');
 
 const tree = Object.create(null);
 const files = Object.create(null);

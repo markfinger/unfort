@@ -1,1 +1,1 @@
-export {nodeEnvHash} from './node_env_hash';
+export {nodeEnvHash} from './env-hash';

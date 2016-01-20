@@ -2,9 +2,9 @@ import path from 'path';
 import rimraf from 'rimraf';
 import EventEmitter from 'events';
 import {assert} from '../../utils/assert';
-import {createFileCache} from '../file_cache';
-import {createMemoryCache} from '../memory_cache';
-import {createMockCache} from '../mock_cache';
+import {createFileCache} from '../file-cache';
+import {createMemoryCache} from '../memory-cache';
+import {createMockCache} from '../mock-cache';
 
 describe('index', () => {
   it('all caches should expose similar APIs', () => {

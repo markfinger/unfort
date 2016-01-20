@@ -1,9 +1,9 @@
 import * as path from 'path';
 import {assert} from '../../utils/assert';
-import {nodeCoreLibs} from '../node_core_libs';
-import {browserResolver} from '../browser_resolver';
+import {nodeCoreLibs} from '../node-core-libs';
+import {browserResolver} from '../browser-resolver';
 
-describe('dependencies/browser_resolver', () => {
+describe('dependencies/browser-resolver', () => {
   describe('#browserResolver', () => {
     it('should correctly resolve `browser` dependencies', (done) => {
       browserResolver('__resolve_test_case__', __dirname, (err, resolved) => {

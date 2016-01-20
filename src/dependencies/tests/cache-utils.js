@@ -1,6 +1,6 @@
 import {assert} from '../../utils/assert';
 import {createMockCache, createMemoryCache} from '../../kv-cache';
-import {getCachedData} from '../cache_utils';
+import {getCachedData} from '../cache-utils';
 
 describe('dependencies/cache_utils', () => {
   describe('#getCachedData', () => {

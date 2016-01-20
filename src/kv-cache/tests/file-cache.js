@@ -3,10 +3,10 @@ import path from 'path';
 import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import {assert} from '../../utils/assert';
-import {createFileCache} from '../file_cache';
+import {createFileCache} from '../file-cache';
 import {generateMurmurHash} from '../utils';
 
-describe('file_cache', () => {
+describe('file-cache', () => {
   describe('#createFileCache', () => {
     const dirname = path.join(__dirname, 'cache_test_dir');
     const TEST_KEY_FILENAME = path.join(dirname, generateMurmurHash('test') + '.json');

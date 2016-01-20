@@ -1,5 +1,5 @@
 import workerFarm from 'worker-farm';
-import {createMockWorkers} from './mock_workers';
+import {createMockWorkers} from './mock-workers';
 
 const mockWorkers = createMockWorkers();
 

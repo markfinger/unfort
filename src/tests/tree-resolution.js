@@ -4,15 +4,15 @@ import async from 'async';
 import {values} from 'lodash/object';
 import * as babylon from 'babylon';
 import {assert} from '../utils/assert';
-import {browserResolver} from '../dependencies/browser_resolver';
-import {analyzeBabelAstDependencies} from '../dependencies/babel_ast_dependency_analyzer';
+import {browserResolver} from '../dependencies/browser-resolver';
+import {analyzeBabelAstDependencies} from '../dependencies/babel-ast-dependency-analyzer';
 
-describe('tests/tree_resolution', () => {
+describe('tests/tree-resolution', () => {
   it('should build a tree from a simple set of files', function(done) {
     const store = Object.create(null);
 
     const entryRecord = {
-      file: require.resolve('./tree_resolution/entry')
+      file: require.resolve('./tree-resolution/entry')
     };
 
     store[entryRecord.file] = entryRecord;
@@ -71,10 +71,10 @@ describe('tests/tree_resolution', () => {
           assert.equal(files.length, 4);
 
           const expected = [
-            require.resolve('./tree_resolution/entry'),
-            require.resolve('./tree_resolution/commonjs_dependency'),
-            require.resolve('./tree_resolution/es6_dependency'),
-            require.resolve('./tree_resolution/node_modules/package_dependency/index')
+            require.resolve('./tree-resolution/entry'),
+            require.resolve('./tree-resolution/commonjs_dependency'),
+            require.resolve('./tree-resolution/es6_dependency'),
+            require.resolve('./tree-resolution/node_modules/package_dependency/index')
           ];
           files.forEach(file => assert.include(expected, file));
 

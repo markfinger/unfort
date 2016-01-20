@@ -1,6 +1,6 @@
 import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
-import {getCachedData} from './cache_utils';
+import {getCachedData} from './cache-utils';
 
 export function buildPostCssAst({name, text}, cb) {
   let ast;
