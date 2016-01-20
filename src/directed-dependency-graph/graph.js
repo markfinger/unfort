@@ -1,109 +1,155 @@
-import {clone} from 'lodash/lang';
-import {forOwn} from 'lodash/object';
+import EventEmitter from 'events';
 import {pull} from 'lodash/array';
 import {contains} from 'lodash/collection';
+import {addNode, addEdge, pruneFromNode, removeEdge, removeNode} from './utils';
 
-export function addNode(nodes, name) {
-  const node = nodes[name];
+/*
+Events
+------
 
-  if (node) {
-    throw new Error(`Node "${name}" already exists`);
-  }
+start
+complete
 
-  nodes[name] = {
-    successors: [],
-    predecessors: []
-  };
-}
+added [node]
+removed [node]
+error [err, node]
 
-export function removeNode(nodes, name) {
-  const node = nodes[name];
+tracing [node]
+traced [node]
 
-  if (!node) {
-    throw new Error(`Node "${name}" does not exist`);
-  }
+*/
 
-  nodes[name] = undefined;
-}
+/*
+ we need a notion of 'jobs', to enable async
+ invalidation and resolution.
 
-export function addEdge(nodes, head, tail) {
-  const headNode = nodes[head];
-  const tailNode = nodes[tail];
+ `pending` should be a list of objects where
+ each object takes the form:
+ {
+ file: '...',
+ isValid: true
+ }
 
-  if (!headNode) {
-    throw new Error(`Node "${head}" does not exist`);
-  }
-  if (!tailNode) {
-    throw new Error(`Node "${tail}" does not exist`);
-  }
+ if a file is ever invalidated while a job is pending,
+ the `isValid` property should be set to false, so that
+ when that job completes, it will discard its results
+ */
 
-  const successors = headNode.successors;
-  if (!contains(successors, tail)) {
-    successors.push(tail);
-  }
+/*
+ Handle file change while tracing:
+ given predecessors [a, b, ...] -> c
 
-  const predecessors = tailNode.predecessors;
-  if (!contains(predecessors, head)) {
-    predecessors.push(head);
-  }
-}
+ if c changes during dep resolution:
+ when c's dep resolution has completed:
+ if c's job is still active:
+ update graph
+ else:
+ discard results
+ */
 
-export function removeEdge(nodes, head, tail) {
-  const headNode = nodes[head];
-  const tailNode = nodes[tail];
+/*
+ Handle file change:
+ given predecessors [a, b, ...] -> c
 
-  if (!headNode) {
-    throw new Error(`Node "${head}" does not exist`);
-  }
-  if (!tailNode) {
-    throw new Error(`Node "${tail}" does not exist`);
-  }
+ when c changes:
+ deps = []
+ for predecessor of c:
+ deps += getDeps(predecessor)
+ rebuildGraph(deps)
+ */
 
-  pull(headNode.successors, tail);
-  pull(tailNode.predecessors, head);
-}
+/*
+ When pruning, we'll need a notion of entry points,
+ so that we can safely prune the tree without
+ removing required nodes.
 
-export function getNodesWithoutPredecessors(nodes) {
-  const nodesWithoutPredecessors = [];
+ Also need to take into consideration that `trace`
+ may be called by iteration functions which provide
+ index values of an object. Should make sure that
+ defining an entry point is an explicit process
+ */
 
-  forOwn(nodes, (node, name) => {
-    if (node && node.predecessors.length === 0) {
-      nodesWithoutPredecessors.push(name);
-    }
-  });
+export function createGraph({getDependencies}) {
+  const nodes = Object.create(null);
+  const permanentNodes = [];
+  const events = new EventEmitter;
+  const pendingJobs = [];
 
-  return nodesWithoutPredecessors;
-}
+  return {
+    nodes,
+    permanentNodes,
+    pendingJobs,
+    events,
+    traceNode(node) {
+      const job = {
+        node,
+        isActive: true
+      };
 
-export function pruneFromNode(nodes, name, ignore=[]) {
-  const node = nodes[name];
-  let nodesPruned = [name];
+      pendingJobs.push(job);
 
-  if (node.predecessors.length) {
-    // Clone the array to avoid mutations during iteration
-    const predecessors = clone(node.predecessors);
-    predecessors.forEach(predecessorName => {
-      removeEdge(nodes, predecessorName, name);
-    });
-  }
+      process.nextTick(startTracingNode);
 
-  if (node.successors.length) {
-    // Clone the array to avoid mutations during iteration
-    const successors = clone(node.successors);
-    successors.forEach(successorName => {
-      removeEdge(nodes, name, successorName);
-
-      if (
-        nodes[successorName].predecessors.length == 0 &&
-        ignore.indexOf(successorName) === -1
-      ) {
-        const successorNodesPruned = pruneFromNode(nodes, successorName, ignore);
-        nodesPruned.push.apply(nodesPruned, successorNodesPruned);
+      function removeJob() {
+        pull(pendingJobs, job);
       }
-    });
-  }
 
-  removeNode(nodes, name);
+      function startTracingNode() {
+        // Allow jobs to be cancelled synchronously
+        if (!job.isActive) {
+          return removeJob();
+        }
 
-  return nodesPruned;
+        getDependencies(file, (err, dependencies) => {
+          removeJob();
+
+          if (err) {
+            return events.emit('error', err, file);
+          }
+
+          // Allow jobs to be cancelled asynchronously
+          if (!job.isActive) {
+            return;
+          }
+
+          const nodesAdded = [];
+
+          if (!nodes[node]) {
+            addNode(nodes, node);
+            nodesAdded.push(node);
+          }
+
+          dependencies.forEach(depNode => {
+            if (!nodes[depNode]) {
+              addNode(nodes, depNode);
+              nodesAdded.push(depNode);
+            }
+
+            addEdge(nodes, node, depNode);
+          });
+
+          nodesAdded.forEach(() => events.emit('added', node));
+        });
+      }
+    },
+    setNodeAsPermanent(node) {
+      if (!contains(permanentNodes, node)) {
+        permanentNodes.push(node);
+      }
+    },
+    isGraphComplete() {
+      return pendingJobs.length === 0;
+    },
+    invalidateNode(node) {
+      const prunedNodes = pruneFromNode(nodes, node, permanentNodes);
+
+      prunedNodes.forEach(node => {
+        pendingJobs
+          .filter(job => job.node === node)
+          .forEach(job => job.isActive = false);
+
+        events.emit('removed', node);
+      });
+    }
+  };
 }
