@@ -127,6 +127,58 @@ describe('directed-dependency-graph/graph', () => {
 
         assert.isFalse(graph.pendingJobs[0].isValid);
       });
+      it('should trigger `complete` after pruning a node', (done) => {
+        const graph = createGraph();
+
+        addNode(graph.nodes, 'a');
+
+        graph.events.on('complete', () => {
+          done();
+        });
+
+        graph.pruneNode('a');
+      });
+      it('should not trigger `complete` if there are other pending jobs', () => {
+        const graph = createGraph();
+
+        addNode(graph.nodes, 'a');
+
+        graph.pendingJobs.push({node: 'b', isValid: true});
+
+        graph.events.on('complete', () => {
+          throw new Error('Should not be called');
+        });
+
+        graph.pruneNode('a');
+      });
+      it('should trigger `complete` if pending jobs are only for successors', (done) => {
+        const graph = createGraph();
+
+        addNode(graph.nodes, 'a');
+        addNode(graph.nodes, 'b');
+        addEdge(graph.nodes, 'a', 'b');
+
+        graph.pendingJobs.push({node: 'b', isValid: true});
+
+        graph.events.on('complete', () => {
+          done();
+        });
+
+        graph.pruneNode('a');
+      });
+      it('should trigger `complete` if there are pending jobs that are no longer valid', (done) => {
+        const graph = createGraph();
+
+        addNode(graph.nodes, 'a');
+
+        graph.pendingJobs.push({node: 'b', isValid: false});
+
+        graph.events.on('complete', () => {
+          done();
+        });
+
+        graph.pruneNode('a');
+      });
     });
     describe('.isNodeDefined', () => {
       it('should indicate if a node has been defined', () => {

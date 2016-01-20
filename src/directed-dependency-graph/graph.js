@@ -3,6 +3,7 @@ import {pull, remove} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {clone} from 'lodash/lang';
 import {addNode, addEdge, pruneFromNode, removeEdge, removeNode} from './utils';
+import {callOnceAfterTick} from '../utils/call-once-after-tick';
 
 /*
 Events
@@ -76,6 +77,21 @@ export function createGraph({getDependencies}={}) {
   const events = new EventEmitter;
   const pendingJobs = [];
 
+  // Enable multiple call sites to enqueue a 'complete' check that
+  // will occur asynchronously. Our events are emitted synchronously,
+  // so executing this check asynchronously enables code to respond to
+  // state changes by enqueueing more jobs before the 'complete' signal
+  // is emitted
+  const signalIfCompleted = callOnceAfterTick(_signalIfCompleted);
+  function _signalIfCompleted() {
+    const hasPendingJobs = pendingJobs.some(job => job.isActive);
+    if (hasPendingJobs) {
+      return;
+    }
+
+    events.emit('complete');
+  }
+
   function traceNode(node) {
     const job = {
       node,
@@ -132,11 +148,7 @@ export function createGraph({getDependencies}={}) {
           events.emit('added', node);
         });
 
-        process.nextTick(() => {
-          if (!pendingJobs.length) {
-            events.emit('complete');
-          }
-        });
+        signalIfCompleted();
       });
     }
   }
@@ -155,6 +167,8 @@ export function createGraph({getDependencies}={}) {
         .forEach(job => job.isValid = false);
 
       events.emit('pruned', node);
+
+      signalIfCompleted();
     }
   }
 
