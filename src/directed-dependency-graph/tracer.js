@@ -101,13 +101,15 @@ export function createGraph({getDependencies}) {
         }
 
         getDependencies(file, (err, dependencies) => {
+          removeJob();
+
           if (err) {
             return events.emit('error', err, file);
           }
 
           // Allow jobs to be cancelled asynchronously
           if (!job.isActive) {
-            return removeJob();
+            return;
           }
 
           const nodesAdded = [];
@@ -122,6 +124,7 @@ export function createGraph({getDependencies}) {
               addNode(nodes, depNode);
               nodesAdded.push(depNode);
             }
+            
             addEdge(nodes, node, depNode);
           });
 
