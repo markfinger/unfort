@@ -95,7 +95,7 @@ export function pruneFromNode(nodes, name, ignore=[]) {
 
       if (
         nodes[dependencyName].dependents.length == 0 &&
-        ignore.indexOf(dependencyName) === -1
+        !contains(ignore, dependencyName)
       ) {
         const dependencyNodesPruned = pruneFromNode(nodes, dependencyName, ignore);
         nodesPruned.push.apply(nodesPruned, dependencyNodesPruned);
