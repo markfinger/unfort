@@ -61,12 +61,12 @@ describe('directed-dependency-graph/utils', () => {
       const nodes = {};
       assert.throws(
         () => addEdge(nodes, 'foo', 'bar'),
-        'Node "foo" does not exist'
+        'Cannot add edge from "foo" -> "bar" as "foo" has not been defined'
       );
       nodes.foo = {};
       assert.throws(
         () => addEdge(nodes, 'foo', 'bar'),
-        'Node "bar" does not exist'
+        'Cannot add edge from "foo" -> "bar" as "bar" has not been defined'
       );
     });
   });
@@ -97,12 +97,12 @@ describe('directed-dependency-graph/utils', () => {
       const nodes = {};
       assert.throws(
         () => removeEdge(nodes, 'foo', 'bar'),
-        'Node "foo" does not exist'
+        'Cannot remove edge from "foo" -> "bar" as "foo" has not been defined'
       );
       nodes.foo = {};
       assert.throws(
         () => removeEdge(nodes, 'foo', 'bar'),
-        'Node "bar" does not exist'
+        'Cannot remove edge from "foo" -> "bar" as "bar" has not been defined'
       );
     });
   });

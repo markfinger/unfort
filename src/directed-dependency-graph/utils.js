@@ -31,10 +31,10 @@ export function addEdge(nodes, head, tail) {
   const tailNode = nodes[tail];
 
   if (!headNode) {
-    throw new Error(`Node "${head}" does not exist`);
+    throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
   }
   if (!tailNode) {
-    throw new Error(`Node "${tail}" does not exist`);
+    throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
   }
 
   const dependencies = headNode.dependencies;
@@ -53,10 +53,10 @@ export function removeEdge(nodes, head, tail) {
   const tailNode = nodes[tail];
 
   if (!headNode) {
-    throw new Error(`Node "${head}" does not exist`);
+    throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
   }
   if (!tailNode) {
-    throw new Error(`Node "${tail}" does not exist`);
+    throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
   }
 
   pull(headNode.dependencies, tail);
