@@ -39,7 +39,7 @@ traced [node]
 
 /*
  Handle node change while tracing:
- given predecessors [a, b, ...] -> c
+ given dependents [a, b, ...] -> c
 
  if c changes during dep resolution:
  when c's dep resolution has completed:
@@ -51,12 +51,12 @@ traced [node]
 
 /*
  Handle node change:
- given predecessors [a, b, ...] -> c
+ given dependents [a, b, ...] -> c
 
  when c changes:
  deps = []
- for predecessor of c:
- deps += getDeps(predecessor)
+ for dependent of c:
+ deps += getDeps(dependent)
  rebuildGraph(deps)
  */
 

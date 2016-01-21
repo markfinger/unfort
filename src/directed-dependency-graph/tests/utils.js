@@ -8,8 +8,8 @@ describe('directed-dependency-graph/utils', () => {
       addNode(nodes, 'test');
       assert.deepEqual(nodes, {
         test: {
-          successors: [],
-          predecessors: []
+          dependencies: [],
+          dependents: []
         }
       });
     });
@@ -47,12 +47,12 @@ describe('directed-dependency-graph/utils', () => {
         nodes,
         {
           foo: {
-            successors: ['bar'],
-            predecessors: []
+            dependencies: ['bar'],
+            dependents: []
           },
           bar: {
-            successors: [],
-            predecessors: ['foo']
+            dependencies: [],
+            dependents: ['foo']
           }
         }
       )
@@ -83,12 +83,12 @@ describe('directed-dependency-graph/utils', () => {
         nodes,
         {
           foo: {
-            successors: [],
-            predecessors: []
+            dependencies: [],
+            dependents: []
           },
           bar: {
-            successors: [],
-            predecessors: []
+            dependencies: [],
+            dependents: []
           }
         }
       )
@@ -107,7 +107,7 @@ describe('directed-dependency-graph/utils', () => {
     });
   });
   describe('#getNodesWithoutPredecessors', () => {
-    it('should return a list of nodes that do not have any predecessors', () => {
+    it('should return a list of nodes that do not have any dependents', () => {
       const nodes = {};
 
       assert.deepEqual(getNodesWithoutPredecessors(nodes), []);
@@ -132,15 +132,15 @@ describe('directed-dependency-graph/utils', () => {
     });
   });
   describe('#pruneFromNode', () => {
-    it('should remove the node and recursively remove all successor nodes that lack other predecessors', () => {
+    it('should remove the node and recursively remove all dependency nodes that lack other dependents', () => {
       const nodes = {
-        a: {successors: ['b', 'c'], predecessors: []},
-        b: {successors: ['d'], predecessors: ['a']},
-        c: {successors: ['d', 'e', 'f'], predecessors: ['a']},
-        d: {successors: ['e'], predecessors: ['b', 'c']},
-        e: {successors: [], predecessors: ['c', 'd']},
-        f: {successors: ['g'], predecessors: ['c']},
-        g: {successors: ['d'], predecessors: ['f']}
+        a: {dependencies: ['b', 'c'], dependents: []},
+        b: {dependencies: ['d'], dependents: ['a']},
+        c: {dependencies: ['d', 'e', 'f'], dependents: ['a']},
+        d: {dependencies: ['e'], dependents: ['b', 'c']},
+        e: {dependencies: [], dependents: ['c', 'd']},
+        f: {dependencies: ['g'], dependents: ['c']},
+        g: {dependencies: ['d'], dependents: ['f']}
       };
 
       assert.deepEqual(getNodesWithoutPredecessors(nodes), ['a']);
@@ -153,23 +153,23 @@ describe('directed-dependency-graph/utils', () => {
       assert.deepEqual(
         nodes,
         {
-          a: {successors: ['b'], predecessors: []},
-          b: {successors: ['d'], predecessors: ['a']},
+          a: {dependencies: ['b'], dependents: []},
+          b: {dependencies: ['d'], dependents: ['a']},
           c: undefined,
-          d: {successors: ['e'], predecessors: ['b']},
-          e: {successors: [], predecessors: ['d']},
+          d: {dependencies: ['e'], dependents: ['b']},
+          e: {dependencies: [], dependents: ['d']},
           f: undefined,
           g: undefined
         }
       )
     });
-    it('should remove edges from predecessors', () => {
+    it('should remove edges from dependents', () => {
       const nodes = {
-        a: {successors: ['d', 'e'], predecessors: []},
-        b: {successors: ['c'], predecessors: ['d']},
-        c: {successors: ['d'], predecessors: ['b']},
-        d: {successors: ['b'], predecessors: ['a', 'c']},
-        e: {successors: [], predecessors: ['a']}
+        a: {dependencies: ['d', 'e'], dependents: []},
+        b: {dependencies: ['c'], dependents: ['d']},
+        c: {dependencies: ['d'], dependents: ['b']},
+        d: {dependencies: ['b'], dependents: ['a', 'c']},
+        e: {dependencies: [], dependents: ['a']}
       };
 
       assert.deepEqual(getNodesWithoutPredecessors(nodes), ['a']);
@@ -182,21 +182,21 @@ describe('directed-dependency-graph/utils', () => {
       assert.deepEqual(
         nodes,
         {
-          a: {successors: ['e'], predecessors: []},
+          a: {dependencies: ['e'], dependents: []},
           b: undefined,
           c: undefined,
           d: undefined,
-          e: {successors: [], predecessors: ['a']}
+          e: {dependencies: [], dependents: ['a']}
         }
       )
     });
-    it('should ignore specified nodes when pruning successor nodes', () => {
+    it('should ignore specified nodes when pruning dependency nodes', () => {
       const nodes = {
-        a: {successors: ['d', 'e'], predecessors: []},
-        b: {successors: ['c'], predecessors: ['d']},
-        c: {successors: ['d'], predecessors: ['b']},
-        d: {successors: ['b'], predecessors: ['a', 'c']},
-        e: {successors: [], predecessors: ['a']}
+        a: {dependencies: ['d', 'e'], dependents: []},
+        b: {dependencies: ['c'], dependents: ['d']},
+        c: {dependencies: ['d'], dependents: ['b']},
+        d: {dependencies: ['b'], dependents: ['a', 'c']},
+        e: {dependencies: [], dependents: ['a']}
       };
 
       assert.deepEqual(getNodesWithoutPredecessors(nodes), ['a']);
@@ -209,11 +209,11 @@ describe('directed-dependency-graph/utils', () => {
       assert.deepEqual(
         nodes,
         {
-          a: {successors: ['e'], predecessors: []},
-          b: {successors: ['c'], predecessors: []},
-          c: {successors: [], predecessors: ['b']},
+          a: {dependencies: ['e'], dependents: []},
+          b: {dependencies: ['c'], dependents: []},
+          c: {dependencies: [], dependents: ['b']},
           d: undefined,
-          e: {successors: [], predecessors: ['a']}
+          e: {dependencies: [], dependents: ['a']}
         }
       )
     });

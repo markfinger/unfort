@@ -11,8 +11,8 @@ export function addNode(nodes, name) {
   }
 
   nodes[name] = {
-    successors: [],
-    predecessors: []
+    dependencies: [],
+    dependents: []
   };
 }
 
@@ -37,14 +37,14 @@ export function addEdge(nodes, head, tail) {
     throw new Error(`Node "${tail}" does not exist`);
   }
 
-  const successors = headNode.successors;
-  if (!contains(successors, tail)) {
-    successors.push(tail);
+  const dependencies = headNode.dependencies;
+  if (!contains(dependencies, tail)) {
+    dependencies.push(tail);
   }
 
-  const predecessors = tailNode.predecessors;
-  if (!contains(predecessors, head)) {
-    predecessors.push(head);
+  const dependents = tailNode.dependents;
+  if (!contains(dependents, head)) {
+    dependents.push(head);
   }
 }
 
@@ -59,15 +59,15 @@ export function removeEdge(nodes, head, tail) {
     throw new Error(`Node "${tail}" does not exist`);
   }
 
-  pull(headNode.successors, tail);
-  pull(tailNode.predecessors, head);
+  pull(headNode.dependencies, tail);
+  pull(tailNode.dependents, head);
 }
 
 export function getNodesWithoutPredecessors(nodes) {
   const nodesWithoutPredecessors = [];
 
   forOwn(nodes, (node, name) => {
-    if (node && node.predecessors.length === 0) {
+    if (node && node.dependents.length === 0) {
       nodesWithoutPredecessors.push(name);
     }
   });
@@ -79,26 +79,26 @@ export function pruneFromNode(nodes, name, ignore=[]) {
   const node = nodes[name];
   let nodesPruned = [name];
 
-  if (node.predecessors.length) {
+  if (node.dependents.length) {
     // Clone the array to avoid mutations during iteration
-    const predecessors = clone(node.predecessors);
-    predecessors.forEach(predecessorName => {
-      removeEdge(nodes, predecessorName, name);
+    const dependents = clone(node.dependents);
+    dependents.forEach(dependentName => {
+      removeEdge(nodes, dependentName, name);
     });
   }
 
-  if (node.successors.length) {
+  if (node.dependencies.length) {
     // Clone the array to avoid mutations during iteration
-    const successors = clone(node.successors);
-    successors.forEach(successorName => {
-      removeEdge(nodes, name, successorName);
+    const dependencies = clone(node.dependencies);
+    dependencies.forEach(dependencyName => {
+      removeEdge(nodes, name, dependencyName);
 
       if (
-        nodes[successorName].predecessors.length == 0 &&
-        ignore.indexOf(successorName) === -1
+        nodes[dependencyName].dependents.length == 0 &&
+        ignore.indexOf(dependencyName) === -1
       ) {
-        const successorNodesPruned = pruneFromNode(nodes, successorName, ignore);
-        nodesPruned.push.apply(nodesPruned, successorNodesPruned);
+        const dependencyNodesPruned = pruneFromNode(nodes, dependencyName, ignore);
+        nodesPruned.push.apply(nodesPruned, dependencyNodesPruned);
       }
     });
   }

@@ -71,11 +71,11 @@ graph.removeEdge(nodes, 'head node', 'tail node');
 // Returns an array
 graph.getNodesWithoutPredecessors(nodes);
 
-// Removes a node, removes the edges with its predecessors, and then recursively
-// removes all successor nodes that do not have other predecessors.
+// Removes a node, removes the edges with its dependents, and then recursively
+// removes all dependency nodes that do not have other dependents.
 //
 // Accepts an optional third argument, a list of node names that will not be removed
-// during the recursive check over its predecessors
+// during the recursive check over its dependents
 //
 // Returns an array containing the names of all nodes that were removed.
 graph.pruneFromNode(nodes, 'node name');

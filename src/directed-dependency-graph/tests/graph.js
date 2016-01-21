@@ -86,7 +86,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('test');
       });
-      it('should emit `pruned` events for all successors without predecessors', (_done) => {
+      it('should emit `pruned` events for all dependencies without dependents', (_done) => {
         const done = after(2, _done);
 
         const graph = createGraph();
@@ -102,7 +102,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
-      it('should not emit `pruned` events for any successors with other predecessors', (done) => {
+      it('should not emit `pruned` events for any dependencies with other dependents', (done) => {
         const graph = createGraph();
 
         addNode(graph.nodes, 'a');
@@ -127,7 +127,7 @@ describe('directed-dependency-graph/graph', () => {
 
         assert.isFalse(graph.pendingJobs[0].isValid);
       });
-      it('should invalidate any pending jobs for successors', () => {
+      it('should invalidate any pending jobs for dependencies', () => {
         const graph = createGraph();
 
         addNode(graph.nodes, 'a');
@@ -164,7 +164,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
-      it('should trigger `complete` if pending jobs are only for successors', (done) => {
+      it('should trigger `complete` if pending jobs are only for dependencies', (done) => {
         const graph = createGraph();
 
         addNode(graph.nodes, 'a');
@@ -192,6 +192,22 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
+      it('should trigger `complete` if there are pending jobs that are no longer valid', (done) => {
+        const graph = createGraph();
+
+        addNode(graph.nodes, 'a');
+
+        graph.pendingJobs.push({node: 'b', isValid: false});
+
+        graph.events.on('complete', () => {
+          done();
+        });
+
+        graph.pruneNode('a');
+      });
+      // TODO: should be able to re-trace a node's dependents when it's pruned
+      // maybe emit a `dependency-pruned` event with (node, dependency)?
+      // should only emit the event if the dependent node itself is not being pruned
     });
     describe('.isNodeDefined', () => {
       it('should indicate if a node has been defined', () => {
@@ -229,7 +245,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
-      it('should not be removed when pruning successors', (done) => {
+      it('should not be removed when pruning dependencies', (done) => {
         const graph = createGraph();
 
         addNode(graph.nodes, 'a');
