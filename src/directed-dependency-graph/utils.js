@@ -2,33 +2,39 @@ import {clone} from 'lodash/lang';
 import {forOwn} from 'lodash/object';
 import {pull} from 'lodash/array';
 import {contains} from 'lodash/collection';
+import {Record, List, Set} from 'immutable';
+
+export const Node = Record({
+  name: '',
+  dependencies: Set(),
+  dependents: Set()
+});
 
 export function addNode(nodes, name) {
-  const node = nodes[name];
+  const node = nodes.get(name);
 
   if (node) {
     throw new Error(`Node "${name}" already exists`);
   }
 
-  nodes[name] = {
-    dependencies: [],
-    dependents: []
-  };
+  return nodes.set(name, Node({
+    name
+  }));
 }
 
 export function removeNode(nodes, name) {
-  const node = nodes[name];
+  const node = nodes.get(name);
 
   if (!node) {
     throw new Error(`Node "${name}" does not exist`);
   }
 
-  nodes[name] = undefined;
+  return nodes.delete(name);
 }
 
 export function addEdge(nodes, head, tail) {
-  const headNode = nodes[head];
-  const tailNode = nodes[tail];
+  const headNode = nodes.get(head);
+  const tailNode = nodes.get(tail);
 
   if (!headNode) {
     throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
@@ -37,20 +43,28 @@ export function addEdge(nodes, head, tail) {
     throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
   }
 
-  const dependencies = headNode.dependencies;
-  if (!contains(dependencies, tail)) {
-    dependencies.push(tail);
-  }
+  nodes = nodes.set(
+    head,
+    headNode.set(
+      'dependencies',
+      headNode.dependencies.add(tail)
+    )
+  );
 
-  const dependents = tailNode.dependents;
-  if (!contains(dependents, head)) {
-    dependents.push(head);
-  }
+  nodes = nodes.set(
+    tail,
+    tailNode.set(
+      'dependents',
+      tailNode.dependents.add(head)
+    )
+  );
+
+  return nodes;
 }
 
 export function removeEdge(nodes, head, tail) {
-  const headNode = nodes[head];
-  const tailNode = nodes[tail];
+  const headNode = nodes.get(head);
+  const tailNode = nodes.get(tail);
 
   if (!headNode) {
     throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
@@ -59,51 +73,60 @@ export function removeEdge(nodes, head, tail) {
     throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
   }
 
-  pull(headNode.dependencies, tail);
-  pull(tailNode.dependents, head);
-}
+  nodes = nodes.set(
+    head,
+    headNode.set(
+      'dependencies',
+      headNode.dependencies.remove(tail)
+    )
+  );
 
-export function getNodesWithoutPredecessors(nodes) {
-  const nodesWithoutPredecessors = [];
+  nodes = nodes.set(
+    tail,
+    tailNode.set(
+      'dependents',
+      tailNode.dependents.remove(head)
+    )
+  );
 
-  forOwn(nodes, (node, name) => {
-    if (node && node.dependents.length === 0) {
-      nodesWithoutPredecessors.push(name);
-    }
-  });
-
-  return nodesWithoutPredecessors;
+  return nodes;
 }
 
 export function pruneFromNode(nodes, name, ignore=[]) {
-  const node = nodes[name];
-  let nodesPruned = [name];
+  const node = nodes.get(name);
 
-  if (node.dependents.length) {
-    // Clone the array to avoid mutations during iteration
-    const dependents = clone(node.dependents);
-    dependents.forEach(dependentName => {
-      removeEdge(nodes, dependentName, name);
+  if (!node) {
+    throw new Error(`Cannot prune from node "${name}" as it has not been defined`);
+  }
+
+  const pruned = [name];
+
+  if (node.dependents.size > 0) {
+    node.dependents.forEach(dependentName => {
+      nodes = removeEdge(nodes, dependentName, name);
     });
   }
 
-  if (node.dependencies.length) {
-    // Clone the array to avoid mutations during iteration
-    const dependencies = clone(node.dependencies);
-    dependencies.forEach(dependencyName => {
-      removeEdge(nodes, name, dependencyName);
+  if (node.dependencies.size > 0) {
+    node.dependencies.forEach(dependencyName => {
+      nodes = removeEdge(nodes, name, dependencyName);
+      const dependency = nodes.get(dependencyName);
 
       if (
-        nodes[dependencyName].dependents.length == 0 &&
+        dependency.dependents.size === 0 &&
         !contains(ignore, dependencyName)
       ) {
-        const dependencyNodesPruned = pruneFromNode(nodes, dependencyName, ignore);
-        nodesPruned.push.apply(nodesPruned, dependencyNodesPruned);
+        const data = pruneFromNode(nodes, dependencyName, ignore);
+        pruned.push.apply(pruned, data.pruned);
+        nodes = data.nodes;
       }
     });
   }
 
-  removeNode(nodes, name);
+  nodes = removeNode(nodes, name);
 
-  return nodesPruned;
+  return {
+    nodes,
+    pruned
+  };
 }

@@ -155,13 +155,21 @@ export function createGraph({getDependencies}={}) {
 
   function pruneNode(node) {
     if (isNodeDefined(nodes, node)) {
-      const prunedNodes = pruneFromNode(nodes, node, permanentNodes);
-      prunedNodes.forEach(prunePendingJobsAndEmit);
+      const {
+        nodesPruned,
+        dependentsImpacted
+      } = pruneFromNode(nodes, node, permanentNodes);
+
+      nodesPruned.forEach(removePendingJobsAndEmit);
+
+      dependentsImpacted.forEach(({node, dependencyPruned}) => {
+        events.emit('dependency-pruned', node, dependencyPruned);
+      });
     } else if (isNodePending(pendingJobs, node)) {
-      prunePendingJobsAndEmit(node);
+      removePendingJobsAndEmit(node);
     }
 
-    function prunePendingJobsAndEmit(node) {
+    function removePendingJobsAndEmit(node) {
       pendingJobs
         .filter(job => job.node === node)
         .forEach(job => job.isValid = false);
