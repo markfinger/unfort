@@ -1,23 +1,19 @@
 import EventEmitter from 'events';
+import {Map} from 'immutable';
 import {pull, remove} from 'lodash/array';
 import {contains} from 'lodash/collection';
-import {clone} from 'lodash/lang';
-import {addNode, addEdge, pruneFromNode, removeEdge, removeNode} from './utils';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
+import {addNode, addEdge, pruneFromNode} from './node';
 
 /*
 Events
 ------
 
-start
-complete
-
-added [node]
-pruned [node]
-error [err, node]
-
-tracing [node]
-traced [node]
+started <nodes>
+traced => <node name>
+error => err, <node name>
+complete <nodes>
+pruned => <nodes removed>, <nodes impacted>
 
 */
 
@@ -27,10 +23,11 @@ traced [node]
 
  `pending` should be a list of objects where
  each object takes the form:
- {
- node: '...',
- isValid: true
- }
+
+   {
+     node: '...',
+     isValid: true
+   }
 
  if a node is ever invalidated while a job is pending,
  the `isValid` property should be set to false, so that
@@ -42,11 +39,11 @@ traced [node]
  given dependents [a, b, ...] -> c
 
  if c changes during dep resolution:
- when c's dep resolution has completed:
- if c's job is still active:
- update graph
- else:
- discard results
+  when c's dep resolution has completed:
+    if c's job is still active:
+      update graph
+    else:
+      discard results
  */
 
 /*
@@ -54,10 +51,10 @@ traced [node]
  given dependents [a, b, ...] -> c
 
  when c changes:
- deps = []
- for dependent of c:
- deps += getDeps(dependent)
- rebuildGraph(deps)
+  deps = []
+  for dependent of c:
+    deps += getDeps(dependent)
+  rebuildGraph(deps)
  */
 
 /*
@@ -71,8 +68,7 @@ traced [node]
  defining an entry point is an explicit process
  */
 
-export function createGraph({getDependencies}={}) {
-  const nodes = Object.create(null);
+export function createGraph({nodes=Map(), getDependencies}={}) {
   const permanentNodes = [];
   const events = new EventEmitter;
   const pendingJobs = [];
@@ -82,15 +78,16 @@ export function createGraph({getDependencies}={}) {
   // so executing this check asynchronously enables code to respond to
   // state changes by enqueueing more jobs before the 'complete' signal
   // is emitted
-  const signalIfCompleted = callOnceAfterTick(_signalIfCompleted);
-  function _signalIfCompleted() {
-    const hasPendingJobs = pendingJobs.some(job => job.isActive);
-    if (hasPendingJobs) {
-      return;
-    }
+  const signalIfCompleted = callOnceAfterTick(
+    function signalIfCompleted() {
+      const hasPendingJobs = pendingJobs.some(job => job.isActive);
+      if (hasPendingJobs) {
+        return;
+      }
 
-    events.emit('complete');
-  }
+      events.emit('complete');
+    }
+  );
 
   function traceNode(node) {
     const job = {
@@ -98,6 +95,7 @@ export function createGraph({getDependencies}={}) {
       isValid: true
     };
 
+    // TODO: invalidate any pending jobs for the node
     pendingJobs.push(job);
 
     process.nextTick(startTracingNode);
@@ -126,22 +124,25 @@ export function createGraph({getDependencies}={}) {
 
         const nodesAdded = [];
 
-        if (!nodes[node]) {
-          addNode(nodes, node);
+        if (!isNodeDefined(nodes, node)) {
+          nodes = addNode(nodes, node);
           nodesAdded.push(node);
         }
 
-        dependencies.forEach(depNode => {
-          if (!isNodeDefined(nodes, depNode) && !isNodePending(pendingJobs, depNode)) {
-            traceNode(depNode);
+        dependencies.forEach(depName => {
+          if (
+            !isNodeDefined(nodes, depName) &&
+            !isNodePending(pendingJobs, depName)
+          ) {
+            traceNode(depName);
           }
 
-          if (!nodes[depNode]) {
-            addNode(nodes, depNode);
-            nodesAdded.push(depNode);
+          if (!isNodeDefined(nodes, depName)) {
+            nodes = addNode(nodes, depName);
+            nodesAdded.push(depName);
           }
 
-          addEdge(nodes, node, depNode);
+          nodes = addEdge(nodes, node, depName);
         });
 
         nodesAdded.forEach(node => {
@@ -153,46 +154,40 @@ export function createGraph({getDependencies}={}) {
     }
   }
 
-  function pruneNode(node) {
-    if (isNodeDefined(nodes, node)) {
-      const {
-        nodesPruned,
-        dependentsImpacted
-      } = pruneFromNode(nodes, node, permanentNodes);
+  function _pruneNode(node) {
+    pendingJobs
+      .filter(job => job.node === node)
+      .forEach(job => job.isValid = false);
 
-      nodesPruned.forEach(removePendingJobsAndEmit);
+    events.emit('pruned', node);
 
-      dependentsImpacted.forEach(({node, dependencyPruned}) => {
-        events.emit('dependency-pruned', node, dependencyPruned);
-      });
-    } else if (isNodePending(pendingJobs, node)) {
-      removePendingJobsAndEmit(node);
-    }
-
-    function removePendingJobsAndEmit(node) {
-      pendingJobs
-        .filter(job => job.node === node)
-        .forEach(job => job.isValid = false);
-
-      events.emit('pruned', node);
-
-      signalIfCompleted();
-    }
+    signalIfCompleted();
   }
 
-  function setNodeAsPermanent(node) {
-    return ensureNodeIsPermanent(permanentNodes, node);
+  function pruneNode(name, debug) {
+    if (isNodeDefined(nodes, name)) {
+      const data = pruneFromNode(nodes, name, permanentNodes);
+
+      data.pruned.forEach(_pruneNode);
+      nodes = data.nodes;
+    } else if (isNodePending(pendingJobs, name)) {
+      _pruneNode(name);
+    }
   }
 
   return {
-    nodes,
     permanentNodes,
     pendingJobs,
     events,
+    getNodes() {
+      return nodes;
+    },
     traceNode,
-    setNodeAsPermanent,
+    setNodeAsPermanent(node) {
+      return ensureNodeIsPermanent(permanentNodes, node);
+    },
     pruneNode,
-    isNodeDefined(node) { // TODO: rename to `hasTracedNode`
+    isNodeDefined(node) { // TODO: rename to `hasCompletedNode`
       return isNodeDefined(nodes, node);
     }
   };
@@ -205,7 +200,7 @@ export function ensureNodeIsPermanent(permanentNodes, node) {
 }
 
 export function isNodeDefined(nodes, node) {
-  return !!nodes[node];
+  return nodes.has(node);
 }
 
 export function isNodePending(pendingJobs, node) {

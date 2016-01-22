@@ -76,6 +76,12 @@ describe('directed-dependency-graph/node', () => {
         })
       )
     });
+    it('should throw if the node names are the same', () => {
+      assert.throws(
+        () => addEdge(Map(), 'foo', 'foo'),
+        'Edges must point to two different nodes. Cannot add an edge from "foo" to itself'
+      );
+    });
     it('should throw if either node does not already exist', () => {
       let nodes = Map();
 

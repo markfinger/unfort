@@ -33,6 +33,12 @@ export function removeNode(nodes, name) {
 }
 
 export function addEdge(nodes, head, tail) {
+  if (head === tail) {
+    throw new Error(
+      `Edges must point to two different nodes. Cannot add an edge from "${head}" to itself`
+    );
+  }
+
   const headNode = nodes.get(head);
   const tailNode = nodes.get(tail);
 
