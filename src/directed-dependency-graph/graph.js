@@ -192,7 +192,7 @@ export function createGraph({getDependencies}={}) {
     traceNode,
     setNodeAsPermanent,
     pruneNode,
-    isNodeDefined(node) {
+    isNodeDefined(node) { // TODO: rename to `hasTracedNode`
       return isNodeDefined(nodes, node);
     }
   };

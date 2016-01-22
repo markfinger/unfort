@@ -1,8 +1,18 @@
 import {Map, List, Set} from 'immutable';
-import {Node, addNode, removeNode, addEdge, removeEdge, pruneFromNode} from '../utils';
+import {Node, addNode, removeNode, addEdge, removeEdge, pruneFromNode} from '../node';
 import {assert} from '../../utils/assert';
 
-describe('directed-dependency-graph/utils', () => {
+describe('directed-dependency-graph/node', () => {
+  describe('#Node', () => {
+    it('should have name, dependencies and dependents properties', () => {
+      const node = Node({
+        name: 'test'
+      });
+      assert.equal(node.name, 'test');
+      assert.instanceOf(node.dependencies, Set);
+      assert.instanceOf(node.dependents, Set);
+    });
+  });
   describe('#addNode', () => {
     it('should return a Map containing the specified key and a Node instance', () => {
       let nodes = Map();
