@@ -129,7 +129,9 @@ export function pruneFromNode(nodes, name, ignore=[]) {
     });
   }
 
-  nodes = removeNode(nodes, name);
+  if (nodes.has(name)) {
+    nodes = removeNode(nodes, name);
+  }
 
   return {
     nodes,

@@ -1,5 +1,6 @@
 import {Map, List, Set} from 'immutable';
 import {Node, addNode, removeNode, addEdge, removeEdge, pruneFromNode} from '../node';
+import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
 describe('directed-dependency-graph/node', () => {
@@ -54,26 +55,16 @@ describe('directed-dependency-graph/node', () => {
   });
   describe('#addEdge', () => {
     it('should return a map with the respective nodes updated', () => {
-      let nodes = Map();
+      const nodes = createNodesFromNotation(`
+        a
+        b
+      `);
 
-      nodes = addNode(nodes, 'foo');
-      nodes = addNode(nodes, 'bar');
-      nodes = addEdge(nodes, 'foo', 'bar');
+      const withEdge = addEdge(nodes, 'a', 'b');
 
       assert.deepEqual(
-        nodes,
-        Map({
-          foo: Node({
-            name: 'foo',
-            dependencies: Set(['bar']),
-            dependents: Set()
-          }),
-          bar: Node({
-            name: 'bar',
-            dependencies: Set(),
-            dependents: Set(['foo'])
-          })
-        })
+        withEdge,
+        createNodesFromNotation('a -> b')
       )
     });
     it('should throw if the node names are the same', () => {
@@ -99,20 +90,17 @@ describe('directed-dependency-graph/node', () => {
     });
   });
   describe('#removeEdge', () => {
-    it('should mutate the provided object', () => {
-      let nodes = Map();
+    it('should return a map without the specified edge', () => {
+      let nodes = createNodesFromNotation('a -> b');
 
-      nodes = addNode(nodes, 'foo');
-      nodes = addNode(nodes, 'bar');
-      nodes = addEdge(nodes, 'foo', 'bar');
-      nodes = removeEdge(nodes, 'foo', 'bar');
+      nodes = removeEdge(nodes, 'a', 'b');
 
       assert.deepEqual(
         nodes,
-        Map({
-          foo: Node({name: 'foo'}),
-          bar: Node({name: 'bar'})
-        })
+        createNodesFromNotation(`
+          a
+          b
+        `)
       )
     });
     it('should throw if either node does not already exist', () => {
@@ -133,22 +121,18 @@ describe('directed-dependency-graph/node', () => {
   });
   describe('#pruneFromNode', () => {
     it('should prune the specified node', () => {
-      let nodes = Map({
-        a: Node({name: 'a'}),
-        b: Node({name: 'b'})
-      });
+      const nodes = createNodesFromNotation(`
+        a
+        b
+      `);
 
       assert.equal(
         pruneFromNode(nodes, 'b').nodes,
-        Map({
-          a: Node({name: 'a'})
-        })
+        createNodesFromNotation('a')
       );
     });
     it('should indicate the nodes pruned', () => {
-      let nodes = Map({
-        a: Node({name: 'a'})
-      });
+      const nodes = createNodesFromNotation('a');
 
       assert.deepEqual(
         pruneFromNode(nodes, 'a').pruned,
@@ -156,16 +140,10 @@ describe('directed-dependency-graph/node', () => {
       );
     });
     it('should follow dependents and prune them as well', () => {
-      let nodes = Map({
-        a: Node({name: 'a'}),
-        b: Node({name: 'b'}),
-        c: Node({name: 'c'}),
-        d: Node({name: 'd'})
-      });
-
-      nodes = addEdge(nodes, 'a', 'b');
-      nodes = addEdge(nodes, 'b', 'c');
-      nodes = addEdge(nodes, 'a', 'd');
+      const nodes = createNodesFromNotation(`
+        a -> b -> c
+        a -> d
+      `);
 
       let data = pruneFromNode(nodes, 'a');
 
@@ -177,23 +155,19 @@ describe('directed-dependency-graph/node', () => {
       );
     });
     it('should update dependents when pruning a node', () => {
-      let nodes = Map({
-        a: Node({name: 'a'}),
-        b: Node({name: 'b'}),
-        c: Node({name: 'c'})
-      });
+      const nodes = createNodesFromNotation(`
+        a -> c
+        b -> c
+      `);
 
-      nodes = addEdge(nodes, 'a', 'c');
-      nodes = addEdge(nodes, 'b', 'c');
-
-      let data = pruneFromNode(nodes, 'c');
+      const data = pruneFromNode(nodes, 'c');
 
       assert.equal(
         data.nodes,
-        Map({
-          a: Node({name: 'a'}),
-          b: Node({name: 'b'})
-        })
+        createNodesFromNotation(`
+          a
+          b
+        `)
       );
 
       assert.deepEqual(
@@ -202,14 +176,9 @@ describe('directed-dependency-graph/node', () => {
       );
     });
     it('should be able to ignore nodes when pruning nodes', () => {
-      let nodes = Map({
-        a: Node({name: 'a'}),
-        b: Node({name: 'b'}),
-        c: Node({name: 'c'})
-      });
-
-      nodes = addEdge(nodes, 'a', 'b');
-      nodes = addEdge(nodes, 'b', 'c');
+      const nodes = createNodesFromNotation(`
+        a -> b -> c
+      `);
 
       assert.deepEqual(
         pruneFromNode(nodes, 'a').pruned,
@@ -234,15 +203,12 @@ describe('directed-dependency-graph/node', () => {
       );
     });
     it('should remove the node and recursively remove all dependency nodes that lack other dependents', () => {
-      const nodes = Map({
-        a: Node({dependencies: Set(['b', 'c'])}),
-        b: Node({dependencies: Set(['d']), dependents: Set(['a'])}),
-        c: Node({dependencies: Set(['d', 'e', 'f']), dependents: Set(['a'])}),
-        d: Node({dependencies: Set(['e']), dependents: Set(['b', 'c'])}),
-        e: Node({dependents: Set(['c', 'd'])}),
-        f: Node({dependencies: Set(['g']), dependents: Set(['c'])}),
-        g: Node({dependencies: Set(['d']), dependents: Set(['f'])})
-      });
+      const nodes = createNodesFromNotation(`
+        a -> b -> c -> d
+        b -> d -> e
+        c -> e
+        c -> f -> g -> d
+      `);
 
       const data = pruneFromNode(nodes, 'c');
       assert.deepEqual(
@@ -252,12 +218,9 @@ describe('directed-dependency-graph/node', () => {
 
       assert.deepEqual(
         data.nodes,
-        Map({
-          a: Node({dependencies: Set(['b'])}),
-          b: Node({dependencies: Set(['d']), dependents: Set(['a'])}),
-          d: Node({dependencies: Set(['e']), dependents: Set(['b'])}),
-          e: Node({dependents: Set(['d'])})
-        })
+        createNodesFromNotation(`
+          a -> b -> d -> e
+        `)
       );
     });
     it('should throw if the node has not been defined', () => {

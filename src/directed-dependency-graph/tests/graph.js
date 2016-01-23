@@ -1,8 +1,8 @@
 import {Map, Set} from 'immutable';
 import {isNodePending, isNodeDefined, ensureNodeIsPermanent, createGraph} from '../graph';
 import {Node, addNode, removeNode, addEdge, removeEdge} from '../node';
+import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
-import {after} from 'lodash/function';
 
 describe('directed-dependency-graph/graph', () => {
   describe('#createGraph', () => {
@@ -88,14 +88,7 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should emit `pruned` events for all dependencies without dependents', (done) => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node({
-              dependencies: Set(['b'])
-            }),
-            b: Node({
-              dependents: Set(['a'])
-            })
-          })
+          nodes: createNodesFromNotation('a -> b')
         });
 
         let count = 0;
@@ -112,11 +105,10 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should not emit `pruned` events for any dependencies with other dependents', (done) => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node({dependencies: Set(['b'])}),
-            b: Node({dependents: Set(['a', 'c'])}),
-            c: Node({dependencies: Set(['b'])})
-          })
+          nodes: createNodesFromNotation(`
+            a -> b
+            c -> b
+          `)
         });
 
         graph.events.on('pruned', (node) => {
@@ -137,10 +129,7 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should invalidate any pending jobs for dependencies', () => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node({dependencies: Set(['b'])}),
-            b: Node({dependents: Set(['a'])})
-          })
+          nodes: createNodesFromNotation('a -> b')
         });
 
         graph.pendingJobs.push({node: 'b', isValid: true});
@@ -151,9 +140,7 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should trigger `complete` after pruning a node', (done) => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node()
-          })
+          nodes: createNodesFromNotation('a')
         });
 
         graph.events.on('complete', () => {
@@ -164,10 +151,7 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should trigger `complete` if pending jobs are only for pruned dependencies', (done) => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node({dependencies: Set(['b'])}),
-            b: Node({dependents: Set(['a'])})
-          })
+          nodes: createNodesFromNotation('a -> b')
         });
 
         graph.pendingJobs.push({node: 'b', isValid: true});
@@ -179,11 +163,9 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
-      it('should not trigger `complete` if there are pending jobs for unpruned dependencies', () => {
+      it('should not trigger `complete` if there are pending jobs for un-pruned dependencies', () => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node()
-          })
+          nodes: createNodesFromNotation('a')
         });
 
         graph.pendingJobs.push({node: 'b', isValid: true});
@@ -196,9 +178,7 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should trigger `complete` if there are pending jobs that are no longer valid', (done) => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node()
-          })
+          nodes: createNodesFromNotation('a')
         });
 
         graph.pendingJobs.push({node: 'b', isValid: false});
@@ -208,6 +188,54 @@ describe('directed-dependency-graph/graph', () => {
         });
 
         graph.pruneNode('a');
+      });
+      it('should handle cyclic graphs 1', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> b
+          `)
+        });
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
+      it('should handle cyclic graphs 2', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> d -> b
+          `)
+        });
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
+      it('should handle cyclic graphs 3', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> d -> b
+            c -> b
+          `)
+        });
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
+      it('should handle cyclic graphs 4', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> d -> b
+            c -> b
+          `)
+        });
+
+        graph.pruneNode('b');
+
+        assert.equal(
+          graph.getNodes(),
+          Map({a: Node({name: 'a'})}));
       });
   //    it('should trigger `dependency-pruned` when pruning a node with dependents', (done) => {
   //      const graph = createGraph();
@@ -275,10 +303,7 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should not be removed when pruning dependencies', (done) => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node({dependencies: Set(['b'])}),
-            b: Node({dependents: Set(['a'])})
-          })
+          nodes: createNodesFromNotation('a -> b')
         });
 
         graph.setNodeAsPermanent('b');

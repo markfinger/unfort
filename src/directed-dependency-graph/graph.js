@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import {Map} from 'immutable';
-import {pull, remove} from 'lodash/array';
+import {isArray} from 'lodash/lang';
+import {pull} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
 import {addNode, addEdge, pruneFromNode} from './node';
@@ -117,6 +118,10 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
           return events.emit('error', err, node);
         }
 
+        if (!isArray(dependencies)) {
+          throw new Error(`Dependencies should be specified in an array. Received ${dependencies}`);
+        }
+
         // Allow jobs to be cancelled asynchronously
         if (!job.isValid) {
           return;
@@ -164,17 +169,6 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     signalIfCompleted();
   }
 
-  function pruneNode(name, debug) {
-    if (isNodeDefined(nodes, name)) {
-      const data = pruneFromNode(nodes, name, permanentNodes);
-
-      data.pruned.forEach(_pruneNode);
-      nodes = data.nodes;
-    } else if (isNodePending(pendingJobs, name)) {
-      _pruneNode(name);
-    }
-  }
-
   return {
     permanentNodes,
     pendingJobs,
@@ -186,8 +180,18 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     setNodeAsPermanent(node) {
       return ensureNodeIsPermanent(permanentNodes, node);
     },
-    pruneNode,
-    isNodeDefined(node) { // TODO: rename to `hasCompletedNode`
+    pruneNode(name) {
+      if (isNodeDefined(nodes, name)) {
+        const data = pruneFromNode(nodes, name, permanentNodes);
+
+        data.pruned.forEach(_pruneNode);
+        nodes = data.nodes;
+      } else if (isNodePending(pendingJobs, name)) {
+        _pruneNode(name);
+      }
+    },
+    // TODO: rename to `hasNodeCompleted`. Should it check pending too?
+    isNodeDefined(node) {
       return isNodeDefined(nodes, node);
     }
   };
