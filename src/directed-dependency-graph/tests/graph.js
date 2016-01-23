@@ -51,9 +51,9 @@ describe('directed-dependency-graph/graph', () => {
         }
 
         graph.events.on('complete', () => {
-          assert.isTrue(graph.isNodeDefined('a'));
-          assert.isTrue(graph.isNodeDefined('b'));
-          assert.isTrue(graph.isNodeDefined('c'));
+          assert.isTrue(graph.hasNodeCompleted('a'));
+          assert.isTrue(graph.hasNodeCompleted('b'));
+          assert.isTrue(graph.hasNodeCompleted('c'));
           done();
         });
 
@@ -68,9 +68,11 @@ describe('directed-dependency-graph/graph', () => {
           })
         });
 
-        assert.isTrue(graph.isNodeDefined('test'));
+        assert.isTrue(graph.hasNodeCompleted('test'));
 
         graph.pruneNode('test');
+
+        assert.isFalse(graph.hasNodeCompleted('test'));
       });
       it('should emit `pruned` events', (done) => {
         const graph = createGraph({
@@ -272,7 +274,7 @@ describe('directed-dependency-graph/graph', () => {
         );
       });
     });
-    describe('.isNodeDefined', () => {
+    describe('.hasNodeCompleted', () => {
       it('should indicate if a node has been defined', (done) => {
         const graph = createGraph({
           getDependencies(name, cb) {
@@ -281,13 +283,13 @@ describe('directed-dependency-graph/graph', () => {
         });
 
         assert.isFalse(graph.getNodes().has('test'));
-        assert.isFalse(graph.isNodeDefined('test'));
+        assert.isFalse(graph.hasNodeCompleted('test'));
 
         graph.traceNode('test');
 
         process.nextTick(() => {
           assert.isTrue(graph.getNodes().has('test'));
-          assert.isTrue(graph.isNodeDefined('test'));
+          assert.isTrue(graph.hasNodeCompleted('test'));
           done();
         });
       });
@@ -326,7 +328,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.events.on('pruned', node => {
           assert.equal(node, 'b');
-          assert.isTrue(graph.isNodeDefined('a'));
+          assert.isTrue(graph.hasNodeCompleted('a'));
           done();
         });
 

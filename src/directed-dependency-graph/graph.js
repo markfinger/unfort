@@ -207,8 +207,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
         _clearNode(name);
       }
     },
-    // TODO: rename to `hasNodeCompleted`. Should it check pending too?
-    isNodeDefined(node) {
+    hasNodeCompleted(node) {
       return isNodeDefined(nodes, node);
     }
   };
