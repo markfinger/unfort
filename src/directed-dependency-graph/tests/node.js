@@ -1,6 +1,6 @@
 import {difference} from 'lodash/array';
 import {Map, List, Set} from 'immutable';
-import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneFromNode} from '../node';
+import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
@@ -206,7 +206,7 @@ describe('directed-dependency-graph/node', () => {
       assert.deepEqual(disconnectedNodes, []);
     });
   });
-  describe('#pruneFromNode', () => {
+  describe('#pruneNodeAndUniqueDependencies', () => {
     it('should prune the specified node', () => {
       const nodes = createNodesFromNotation(`
         a
@@ -214,7 +214,7 @@ describe('directed-dependency-graph/node', () => {
       `);
 
       assert.equal(
-        pruneFromNode(nodes, 'b').nodes,
+        pruneNodeAndUniqueDependencies(nodes, 'b').nodes,
         createNodesFromNotation('a')
       );
     });
@@ -222,7 +222,7 @@ describe('directed-dependency-graph/node', () => {
       const nodes = createNodesFromNotation('a');
 
       assert.deepEqual(
-        pruneFromNode(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
         ['a']
       );
     });
@@ -232,7 +232,7 @@ describe('directed-dependency-graph/node', () => {
         a -> d
       `);
 
-      let data = pruneFromNode(nodes, 'a');
+      let data = pruneNodeAndUniqueDependencies(nodes, 'a');
 
       assert.equal(data.nodes, Map());
 
@@ -247,7 +247,7 @@ describe('directed-dependency-graph/node', () => {
         b -> c
       `);
 
-      const data = pruneFromNode(nodes, 'c');
+      const data = pruneNodeAndUniqueDependencies(nodes, 'c');
 
       assert.equal(
         data.nodes,
@@ -269,7 +269,7 @@ describe('directed-dependency-graph/node', () => {
       nodes = defineEntryNode(nodes, 'b');
 
       assert.deepEqual(
-        pruneFromNode(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
         ['a']
       );
     });
@@ -280,7 +280,7 @@ describe('directed-dependency-graph/node', () => {
       nodes = defineEntryNode(nodes, 'c');
 
       assert.deepEqual(
-        pruneFromNode(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
         ['a', 'b']
       );
     });
@@ -291,7 +291,7 @@ describe('directed-dependency-graph/node', () => {
       nodes = defineEntryNode(nodes, 'a');
 
       assert.deepEqual(
-        pruneFromNode(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
         ['a', 'b', 'c']
       );
     });
@@ -303,7 +303,7 @@ describe('directed-dependency-graph/node', () => {
         c -> f -> g -> d
       `);
 
-      const data = pruneFromNode(nodes, 'c');
+      const data = pruneNodeAndUniqueDependencies(nodes, 'c');
       assert.deepEqual(
         data.pruned,
         ['c', 'f', 'g']
@@ -318,7 +318,7 @@ describe('directed-dependency-graph/node', () => {
     });
     it('should throw if the node has not been defined', () => {
       assert.throw(
-        () => pruneFromNode(Map(), 'a'),
+        () => pruneNodeAndUniqueDependencies(Map(), 'a'),
         'Cannot prune from node "a" as it has not been defined'
       );
     });

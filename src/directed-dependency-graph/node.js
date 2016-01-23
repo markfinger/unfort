@@ -139,7 +139,7 @@ export function findNodesDisconnectedFromEntryNodes(nodes) {
     .filter(name => disconnected[name]);
 }
 
-export function pruneFromNode(nodes, name) {
+export function pruneNodeAndUniqueDependencies(nodes, name) {
   const node = nodes.get(name);
 
   if (!node) {
@@ -163,7 +163,7 @@ export function pruneFromNode(nodes, name) {
         dependency.dependents.size === 0 &&
         !dependency.isEntryNode
       ) {
-        const data = pruneFromNode(nodes, dependencyName);
+        const data = pruneNodeAndUniqueDependencies(nodes, dependencyName);
         pruned.push.apply(pruned, data.pruned);
         nodes = data.nodes;
       }

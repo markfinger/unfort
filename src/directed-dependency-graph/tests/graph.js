@@ -60,7 +60,7 @@ describe('directed-dependency-graph/graph', () => {
         graph.traceNode('a');
       });
     });
-    describe('.pruneNode', () => {
+    describe('.pruneNodeAndUniqueDependencies', () => {
       it('should allow nodes to be pruned', () => {
         const graph = createGraph({
           nodes: Map({
@@ -70,7 +70,7 @@ describe('directed-dependency-graph/graph', () => {
 
         assert.isTrue(graph.hasNodeCompleted('test'));
 
-        graph.pruneNode('test');
+        graph.pruneFromNode('test');
 
         assert.isFalse(graph.hasNodeCompleted('test'));
       });
@@ -86,7 +86,7 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('test');
+        graph.pruneFromNode('test');
       });
       it('should emit `pruned` events for all dependencies without dependents', (done) => {
         const graph = createGraph({
@@ -103,7 +103,7 @@ describe('directed-dependency-graph/graph', () => {
           }
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should not emit `pruned` events for any dependencies with other dependents', (done) => {
         const graph = createGraph({
@@ -121,14 +121,14 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should invalidate any pending jobs related to the pruned nodes', () => {
         const graph = createGraph();
 
         graph.pendingJobs.push({node: 'a', isValid: true});
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
 
         assert.isFalse(graph.pendingJobs[0].isValid);
       });
@@ -139,7 +139,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pendingJobs.push({node: 'b', isValid: true});
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
 
         assert.isFalse(graph.pendingJobs[0].isValid);
       });
@@ -152,7 +152,7 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should trigger `complete` if pending jobs are only for pruned dependencies', (done) => {
         const graph = createGraph({
@@ -166,7 +166,7 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should not trigger `complete` if there are pending jobs for un-pruned dependencies', () => {
         const graph = createGraph({
@@ -179,7 +179,7 @@ describe('directed-dependency-graph/graph', () => {
           throw new Error('Should not be called');
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should trigger `complete` if there are pending jobs that are no longer valid', (done) => {
         const graph = createGraph({
@@ -192,7 +192,7 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should handle cyclic graphs 1', () => {
         const graph = createGraph({
@@ -201,7 +201,7 @@ describe('directed-dependency-graph/graph', () => {
           `)
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
 
         assert.equal(graph.getNodes(), Map());
       });
@@ -212,7 +212,7 @@ describe('directed-dependency-graph/graph', () => {
           `)
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
 
         assert.equal(graph.getNodes(), Map());
       });
@@ -224,7 +224,7 @@ describe('directed-dependency-graph/graph', () => {
           `)
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
 
         assert.equal(graph.getNodes(), Map());
       });
@@ -250,7 +250,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.setNodeAsEntry('a');
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
 
         assert.equal(graph.getNodes(), Map());
       });
@@ -264,7 +264,7 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.setNodeAsEntry('a');
 
-        graph.pruneNode('b');
+        graph.pruneFromNode('b');
 
         assert.equal(
           graph.getNodes(),
@@ -314,7 +314,7 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('a');
+        graph.pruneFromNode('a');
       });
       it('should not be removed when pruning dependencies', (done) => {
         const graph = createGraph({
@@ -332,7 +332,7 @@ describe('directed-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneNode('b');
+        graph.pruneFromNode('b');
       });
     });
   });

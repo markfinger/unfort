@@ -5,7 +5,7 @@ import {pull} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
 import {
-  addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneFromNode
+  addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
 } from './node';
 
 /*
@@ -180,21 +180,19 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     setNodeAsEntry(name) {
       nodes = defineEntryNode(nodes, name);
     },
-    // TODO: rename pruneFromNode to pruneNodeAndUniqueDependencies
-    // TODO: rename to pruneFromNode
-    pruneNode(name) {
+    pruneFromNode(name) {
       // TODO: should indicate the nodes that had a dependency pruned
 
       if (isNodeDefined(nodes, name)) {
         let {
           nodes: updatedNodes,
           pruned
-        } = pruneFromNode(nodes, name);
+        } = pruneNodeAndUniqueDependencies(nodes, name);
 
         const disconnectedNodes = findNodesDisconnectedFromEntryNodes(updatedNodes);
         disconnectedNodes.forEach(name => {
           if (isNodeDefined(updatedNodes, name)) {
-            const data = pruneFromNode(updatedNodes, name);
+            const data = pruneNodeAndUniqueDependencies(updatedNodes, name);
             updatedNodes = data.nodes;
             pruned.push.apply(pruned, data.pruned);
           }
