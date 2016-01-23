@@ -80,6 +80,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
   // so executing this check asynchronously enables code to respond to
   // state changes by enqueueing more jobs before the 'complete' signal
   // is emitted
+  let previousState = nodes;
   const signalIfCompleted = callOnceAfterTick(
     function signalIfCompleted() {
       const hasPendingJobs = pendingJobs.some(job => job.isActive);
@@ -87,7 +88,12 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
         return;
       }
 
-      events.emit('complete');
+      events.emit('complete', {
+        state: nodes,
+        previousState: previousState
+      });
+
+      previousState = nodes;
     }
   );
 
@@ -163,6 +169,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
   return {
     pendingJobs,
     events,
+    // TODO: rename to getState
     getNodes() {
       return nodes;
     },

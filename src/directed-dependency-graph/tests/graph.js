@@ -1,3 +1,4 @@
+import EventEmitter from 'events';
 import {Map, Set} from 'immutable';
 import {isNodePending, isNodeDefined, ensureNodeIsPermanent, createGraph} from '../graph';
 import {Node, addNode, removeNode, addEdge, removeEdge} from '../node';
@@ -6,6 +7,53 @@ import {assert} from '../../utils/assert';
 
 describe('directed-dependency-graph/graph', () => {
   describe('#createGraph', () => {
+    describe('.events', () => {
+      it('should be an instance of EventEmitter', () => {
+        const graph = createGraph();
+        assert.instanceOf(graph.events, EventEmitter);
+      });
+      describe('`complete`', () => {
+        it('should be emitted once tracing has completed', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          graph.events.on('complete', () => {
+            done();
+          });
+
+          graph.traceNode('test');
+        });
+        it('should provide the current and previous state of the nodes', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          const initialState = graph.getNodes();
+
+          graph.events.once('complete', ({state: firstState, previousState: firstPreviousState}) => {
+            assert.equal(firstState, graph.getNodes());
+            assert.equal(firstPreviousState, initialState);
+            assert.notEqual(firstState, firstPreviousState);
+
+            graph.events.once('complete', ({state: secondState, previousState: secondPreviousState}) => {
+              assert.equal(secondState, graph.getNodes());
+              assert.equal(secondPreviousState, firstState);
+              assert.notEqual(secondState, secondPreviousState);
+              done();
+            });
+
+            graph.traceNode('b');
+          });
+
+          graph.traceNode('a');
+        });
+      });
+    });
     describe('.traceNode', () => {
       it('should allow call the provided `getDependencies` function', (done) => {
         const graph = createGraph({getDependencies});
@@ -224,6 +272,25 @@ describe('directed-dependency-graph/graph', () => {
 
         assert.equal(graph.getNodes(), Map());
       });
+      it('should handle cyclic graphs 4', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> d -> b
+            c -> b
+          `)
+        });
+
+        graph.setNodeAsEntry('a');
+
+        graph.pruneFromNode('b');
+
+        assert.equal(
+          graph.getNodes(),
+          Map({
+            a: Node({name: 'a', isEntryNode: true})
+          })
+        );
+      });
       it('should successfully prune a graph representing a tournament', () => {
         // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
 
@@ -249,25 +316,6 @@ describe('directed-dependency-graph/graph', () => {
         graph.pruneFromNode('a');
 
         assert.equal(graph.getNodes(), Map());
-      });
-      it('should handle cyclic graphs 4', () => {
-        const graph = createGraph({
-          nodes: createNodesFromNotation(`
-            a -> b -> c -> d -> b
-            c -> b
-          `)
-        });
-
-        graph.setNodeAsEntry('a');
-
-        graph.pruneFromNode('b');
-
-        assert.equal(
-          graph.getNodes(),
-          Map({
-            a: Node({name: 'a', isEntryNode: true})
-          })
-        );
       });
     });
     describe('.hasNodeCompleted', () => {
