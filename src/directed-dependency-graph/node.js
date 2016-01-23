@@ -7,7 +7,8 @@ import {Record, List, Set} from 'immutable';
 export const Node = Record({
   name: '',
   dependencies: Set(),
-  dependents: Set()
+  dependents: Set(),
+  isEntryNode: false
 });
 
 export function addNode(nodes, name) {
@@ -98,7 +99,17 @@ export function removeEdge(nodes, head, tail) {
   return nodes;
 }
 
-export function pruneFromNode(nodes, name, ignore=[]) {
+export function defineEntryNode(nodes, name) {
+  const node = nodes.get(name);
+
+  if (!node) {
+    throw new Error(`Cannot define entry node "${name}" as it does not exist`);
+  }
+
+  return nodes.set(name, node.set('isEntryNode', true));
+}
+
+export function pruneFromNode(nodes, name) {
   const node = nodes.get(name);
 
   if (!node) {
@@ -120,9 +131,9 @@ export function pruneFromNode(nodes, name, ignore=[]) {
 
       if (
         dependency.dependents.size === 0 &&
-        !contains(ignore, dependencyName)
+        !dependency.isEntryNode
       ) {
-        const data = pruneFromNode(nodes, dependencyName, ignore);
+        const data = pruneFromNode(nodes, dependencyName);
         pruned.push.apply(pruned, data.pruned);
         nodes = data.nodes;
       }

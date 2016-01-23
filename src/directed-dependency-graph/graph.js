@@ -4,7 +4,7 @@ import {isArray} from 'lodash/lang';
 import {pull} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
-import {addNode, addEdge, pruneFromNode} from './node';
+import {addNode, addEdge, defineEntryNode, pruneFromNode} from './node';
 
 /*
 Events
@@ -70,7 +70,6 @@ pruned => <nodes removed>, <nodes impacted>
  */
 
 export function createGraph({nodes=Map(), getDependencies}={}) {
-  const permanentNodes = [];
   const events = new EventEmitter;
   const pendingJobs = [];
 
@@ -159,7 +158,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     }
   }
 
-  function _pruneNode(node) {
+  function _clearNode(node) {
     pendingJobs
       .filter(job => job.node === node)
       .forEach(job => job.isValid = false);
@@ -170,24 +169,27 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
   }
 
   return {
-    permanentNodes,
     pendingJobs,
     events,
     getNodes() {
       return nodes;
     },
     traceNode,
-    setNodeAsPermanent(node) {
-      return ensureNodeIsPermanent(permanentNodes, node);
+    setNodeAsEntry(name) {
+      nodes = defineEntryNode(nodes, name);
     },
+    // TODO: rename pruneFromNode to pruneNodeAndUniqueDependencies
+    // TODO: rename to pruneFromNode
     pruneNode(name) {
-      if (isNodeDefined(nodes, name)) {
-        const data = pruneFromNode(nodes, name, permanentNodes);
+      // TODO: should indicate the nodes that had a dependency pruned
 
-        data.pruned.forEach(_pruneNode);
+      if (isNodeDefined(nodes, name)) {
+        const data = pruneFromNode(nodes, name);
+
+        data.pruned.forEach(_clearNode);
         nodes = data.nodes;
       } else if (isNodePending(pendingJobs, name)) {
-        _pruneNode(name);
+        _clearNode(name);
       }
     },
     // TODO: rename to `hasNodeCompleted`. Should it check pending too?
@@ -195,12 +197,6 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
       return isNodeDefined(nodes, node);
     }
   };
-}
-
-export function ensureNodeIsPermanent(permanentNodes, node) {
-  if (!contains(permanentNodes, node)) {
-    permanentNodes.push(node);
-  }
 }
 
 export function isNodeDefined(nodes, node) {

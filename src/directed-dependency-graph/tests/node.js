@@ -1,5 +1,5 @@
 import {Map, List, Set} from 'immutable';
-import {Node, addNode, removeNode, addEdge, removeEdge, pruneFromNode} from '../node';
+import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, pruneFromNode} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
@@ -12,6 +12,7 @@ describe('directed-dependency-graph/node', () => {
       assert.equal(node.name, 'test');
       assert.instanceOf(node.dependencies, Set);
       assert.instanceOf(node.dependents, Set);
+      assert.isFalse(node.isEntryNode);
     });
   });
   describe('#addNode', () => {
@@ -119,6 +120,30 @@ describe('directed-dependency-graph/node', () => {
       );
     });
   });
+  describe('#defineEntryNode', () => {
+    it('should set the node\'s isEntryNode property to true', () => {
+      let nodes = createNodesFromNotation(`a`);
+      nodes = defineEntryNode(nodes, 'a');
+      assert.isTrue(
+        nodes.get('a').isEntryNode
+      )
+    });
+    it('should preserve the node\'s other values', () => {
+      let nodes = createNodesFromNotation(`a -> b`);
+
+      nodes = defineEntryNode(nodes, 'a');
+      assert.equal(nodes.get('a').dependencies, Set(['b']));
+
+      nodes = defineEntryNode(nodes, 'b');
+      assert.equal(nodes.get('b').dependents, Set(['a']));
+    });
+    it('should throw if the node has not been defined', () => {
+      assert.throw(
+        () => defineEntryNode(Map(), 'a'),
+        'Cannot define entry node "a" as it does not exist'
+      )
+    });
+  });
   describe('#pruneFromNode', () => {
     it('should prune the specified node', () => {
       const nodes = createNodesFromNotation(`
@@ -175,30 +200,39 @@ describe('directed-dependency-graph/node', () => {
         ['c']
       );
     });
-    it('should be able to ignore nodes when pruning nodes', () => {
-      const nodes = createNodesFromNotation(`
+    it('should not prune entry nodes when pruning unique dependencies 1', () => {
+      let nodes = createNodesFromNotation(`
         a -> b -> c
       `);
+      nodes = defineEntryNode(nodes, 'b');
 
       assert.deepEqual(
         pruneFromNode(nodes, 'a').pruned,
-        ['a', 'b', 'c']
-      );
-
-      assert.deepEqual(
-        pruneFromNode(nodes, 'a', ['b']).pruned,
         ['a']
       );
+    });
+    it('should not prune entry nodes when pruning unique dependencies 2', () => {
+      let nodes = createNodesFromNotation(`
+        a -> b -> c
+      `);
+      nodes = defineEntryNode(nodes, 'c');
 
       assert.deepEqual(
-        pruneFromNode(nodes, 'a', ['c']).pruned,
+        pruneFromNode(nodes, 'a').pruned,
         ['a', 'b']
       );
+    });
+    it('should prune from an entry node if has been explicitly specified', () => {
+      let nodes = createNodesFromNotation(`
+        a -> b -> c
+      `);
+      nodes = defineEntryNode(nodes, 'a');
 
+      console.log(nodes);
       // Even when specified as an ignored node, calling `pruneFromNode`
       // with the node's name should still prune it (and any dependencies)
       assert.deepEqual(
-        pruneFromNode(nodes, 'a', ['a']).pruned,
+        pruneFromNode(nodes, 'a').pruned,
         ['a', 'b', 'c']
       );
     });

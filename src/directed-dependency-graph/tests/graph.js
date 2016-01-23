@@ -189,40 +189,40 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
-      it('should handle cyclic graphs 1', () => {
-        const graph = createGraph({
-          nodes: createNodesFromNotation(`
-            a -> b -> c -> b
-          `)
-        });
-
-        graph.pruneNode('a');
-
-        assert.equal(graph.getNodes(), Map());
-      });
-      it('should handle cyclic graphs 2', () => {
-        const graph = createGraph({
-          nodes: createNodesFromNotation(`
-            a -> b -> c -> d -> b
-          `)
-        });
-
-        graph.pruneNode('a');
-
-        assert.equal(graph.getNodes(), Map());
-      });
-      it('should handle cyclic graphs 3', () => {
-        const graph = createGraph({
-          nodes: createNodesFromNotation(`
-            a -> b -> c -> d -> b
-            c -> b
-          `)
-        });
-
-        graph.pruneNode('a');
-
-        assert.equal(graph.getNodes(), Map());
-      });
+      //it('should handle cyclic graphs 1', () => {
+      //  const graph = createGraph({
+      //    nodes: createNodesFromNotation(`
+      //      a -> b -> c -> b
+      //    `)
+      //  });
+      //
+      //  graph.pruneNode('a');
+      //
+      //  assert.equal(graph.getNodes(), Map());
+      //});
+      //it('should handle cyclic graphs 2', () => {
+      //  const graph = createGraph({
+      //    nodes: createNodesFromNotation(`
+      //      a -> b -> c -> d -> b
+      //    `)
+      //  });
+      //
+      //  graph.pruneNode('a');
+      //
+      //  assert.equal(graph.getNodes(), Map());
+      //});
+      //it('should handle cyclic graphs 3', () => {
+      //  const graph = createGraph({
+      //    nodes: createNodesFromNotation(`
+      //      a -> b -> c -> d -> b
+      //      c -> b
+      //    `)
+      //  });
+      //
+      //  graph.pruneNode('a');
+      //
+      //  assert.equal(graph.getNodes(), Map());
+      //});
       it('should handle cyclic graphs 4', () => {
         const graph = createGraph({
           nodes: createNodesFromNotation(`
@@ -237,22 +237,6 @@ describe('directed-dependency-graph/graph', () => {
           graph.getNodes(),
           Map({a: Node({name: 'a'})}));
       });
-  //    it('should trigger `dependency-pruned` when pruning a node with dependents', (done) => {
-  //      const graph = createGraph();
-  //
-  //      addNode(graph.nodes, 'a');
-  //      addNode(graph.nodes, 'b');
-  //      addEdge(graph.nodes, 'a', 'b');
-  //
-  //      graph.events.on('dependency-pruned', (node, dependency) => {
-  //        assert.equal(node, 'a');
-  //        assert.equal(dependency, 'b');
-  //        done();
-  //      });
-  //
-  //      graph.pruneNode('b');
-  //    });
-  //    // TODO should only emit the event if the dependent node itself is not being pruned
     });
     describe('.isNodeDefined', () => {
       it('should indicate if a node has been defined', (done) => {
@@ -274,25 +258,20 @@ describe('directed-dependency-graph/graph', () => {
         });
       });
     });
-    describe('.setNodeAsPermanent', () => {
-      it('should allow nodes to be denoted as permanent', () => {
-        const graph = createGraph();
-        assert.deepEqual(graph.permanentNodes, []);
-
-        graph.setNodeAsPermanent('test');
-        assert.deepEqual(graph.permanentNodes, ['test']);
-
-        graph.setNodeAsPermanent('test');
-        assert.deepEqual(graph.permanentNodes, ['test']);
-      });
-      it('should be removed when pruned', (done) => {
+    describe('.setNodeAsEntry', () => {
+      it('should allow nodes to be denoted as entry nodes', () => {
         const graph = createGraph({
-          nodes: Map({
-            a: Node()
-          })
+          nodes: createNodesFromNotation(`a -> b`)
+        });
+        graph.setNodeAsEntry('a');
+        assert.isTrue(graph.getNodes().get('a').isEntryNode);
+      });
+      it('should be removed when pruned directly', (done) => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation('a')
         });
 
-        graph.setNodeAsPermanent('a');
+        graph.setNodeAsEntry('a');
 
         graph.events.on('pruned', node => {
           assert.equal(node, 'a');
@@ -303,34 +282,22 @@ describe('directed-dependency-graph/graph', () => {
       });
       it('should not be removed when pruning dependencies', (done) => {
         const graph = createGraph({
-          nodes: createNodesFromNotation('a -> b')
+          nodes: createNodesFromNotation(`
+            a
+            b -> a
+          `)
         });
 
-        graph.setNodeAsPermanent('b');
+        graph.setNodeAsEntry('a');
 
         graph.events.on('pruned', node => {
-          assert.equal(node, 'a');
-          assert.isTrue(graph.isNodeDefined('b'));
+          assert.equal(node, 'b');
+          assert.isTrue(graph.isNodeDefined('a'));
           done();
         });
 
-        graph.pruneNode('a');
+        graph.pruneNode('b');
       });
-    });
-  });
-  describe('#ensureNodeIsPermanent', () => {
-    it('should add a node to the provided array, if it is not already contained', () => {
-      let permanentNodes = [];
-      ensureNodeIsPermanent(permanentNodes, 'test');
-      assert.deepEqual(permanentNodes, ['test']);
-
-      permanentNodes = ['test'];
-      ensureNodeIsPermanent(permanentNodes, 'test');
-      assert.deepEqual(permanentNodes, ['test']);
-
-      permanentNodes = ['foo'];
-      ensureNodeIsPermanent(permanentNodes, 'bar');
-      assert.deepEqual(permanentNodes, ['foo', 'bar']);
     });
   });
   describe('#isNodeDefined', () => {
