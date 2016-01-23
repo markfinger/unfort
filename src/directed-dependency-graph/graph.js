@@ -4,7 +4,9 @@ import {isArray} from 'lodash/lang';
 import {pull} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
-import {addNode, addEdge, defineEntryNode, pruneFromNode} from './node';
+import {
+  addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneFromNode
+} from './node';
 
 /*
 Events
@@ -184,10 +186,23 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
       // TODO: should indicate the nodes that had a dependency pruned
 
       if (isNodeDefined(nodes, name)) {
-        const data = pruneFromNode(nodes, name);
+        let {
+          nodes: updatedNodes,
+          pruned
+        } = pruneFromNode(nodes, name);
 
-        data.pruned.forEach(_clearNode);
-        nodes = data.nodes;
+        const disconnectedNodes = findNodesDisconnectedFromEntryNodes(updatedNodes);
+        disconnectedNodes.forEach(name => {
+          if (isNodeDefined(updatedNodes, name)) {
+            const data = pruneFromNode(updatedNodes, name);
+            updatedNodes = data.nodes;
+            pruned.push.apply(pruned, data.pruned);
+          }
+        });
+
+        pruned.forEach(_clearNode);
+
+        nodes = updatedNodes;
       } else if (isNodePending(pendingJobs, name)) {
         _clearNode(name);
       }

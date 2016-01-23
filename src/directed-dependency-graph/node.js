@@ -109,6 +109,36 @@ export function defineEntryNode(nodes, name) {
   return nodes.set(name, node.set('isEntryNode', true));
 }
 
+/**
+ * Given a Map containing nodes, returns an array of node names
+ * where each node is disconnected from the defined entry nodes
+ *
+ * @param {Map} nodes
+ * @returns {Array}
+ */
+export function findNodesDisconnectedFromEntryNodes(nodes) {
+  const entries = nodes.filter(node => node.isEntryNode);
+
+  const disconnected = Object.create(null);
+  nodes.keySeq().forEach(name => disconnected[name] = true);
+
+  function checkFromNode(node) {
+    disconnected[node.name] = false;
+
+    node.dependencies.forEach(name => {
+      if (disconnected[name]) {
+        checkFromNode(nodes.get(name));
+      }
+    });
+  }
+
+  entries.forEach(checkFromNode);
+
+  return Object
+    .keys(disconnected)
+    .filter(name => disconnected[name]);
+}
+
 export function pruneFromNode(nodes, name) {
   const node = nodes.get(name);
 

@@ -1,5 +1,6 @@
+import {difference} from 'lodash/array';
 import {Map, List, Set} from 'immutable';
-import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, pruneFromNode} from '../node';
+import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneFromNode} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
@@ -144,6 +145,67 @@ describe('directed-dependency-graph/node', () => {
       )
     });
   });
+  describe('#findNodesDisconnectedFromEntryNodes', () => {
+    it('should return all nodes if there no entry nodes', () => {
+      const nodes = createNodesFromNotation(`
+        a -> b -> c
+        d -> c
+      `);
+
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const expected = ['a', 'b', 'c', 'd'];
+
+      assert.deepEqual(
+        difference(disconnectedNodes, expected),
+        []
+      );
+    });
+    it('should list all dependents of an entry node that are not indirect dependencies of the entry', () => {
+      let nodes = createNodesFromNotation(`
+        a -> b -> c
+        d -> c
+      `);
+
+      nodes = defineEntryNode(nodes, 'd');
+
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const expected = ['a', 'b'];
+
+      assert.deepEqual(
+        difference(disconnectedNodes, expected),
+        []
+      );
+    });
+    it('should list all nodes which are disconnected from the entry nodes', () => {
+      let nodes = createNodesFromNotation(`
+        a
+        b
+        c -> d
+      `);
+
+      nodes = defineEntryNode(nodes, 'a');
+      nodes = defineEntryNode(nodes, 'b');
+
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const expected = ['c', 'd'];
+
+      assert.deepEqual(
+        difference(disconnectedNodes, expected),
+        []
+      );
+    });
+    it('should return an empty list if all nodes are connected to an entry', () => {
+      let nodes = createNodesFromNotation(`
+        a -> b -> c
+      `);
+
+      nodes = defineEntryNode(nodes, 'a');
+
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+
+      assert.deepEqual(disconnectedNodes, []);
+    });
+  });
   describe('#pruneFromNode', () => {
     it('should prune the specified node', () => {
       const nodes = createNodesFromNotation(`
@@ -228,9 +290,6 @@ describe('directed-dependency-graph/node', () => {
       `);
       nodes = defineEntryNode(nodes, 'a');
 
-      console.log(nodes);
-      // Even when specified as an ignored node, calling `pruneFromNode`
-      // with the node's name should still prune it (and any dependencies)
       assert.deepEqual(
         pruneFromNode(nodes, 'a').pruned,
         ['a', 'b', 'c']

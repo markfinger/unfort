@@ -111,6 +111,9 @@ describe('directed-dependency-graph/graph', () => {
           `)
         });
 
+        graph.setNodeAsEntry('a');
+        graph.setNodeAsEntry('c');
+
         graph.events.on('pruned', (node) => {
           assert.equal(node, 'a');
           done();
@@ -189,40 +192,66 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.pruneNode('a');
       });
-      //it('should handle cyclic graphs 1', () => {
-      //  const graph = createGraph({
-      //    nodes: createNodesFromNotation(`
-      //      a -> b -> c -> b
-      //    `)
-      //  });
-      //
-      //  graph.pruneNode('a');
-      //
-      //  assert.equal(graph.getNodes(), Map());
-      //});
-      //it('should handle cyclic graphs 2', () => {
-      //  const graph = createGraph({
-      //    nodes: createNodesFromNotation(`
-      //      a -> b -> c -> d -> b
-      //    `)
-      //  });
-      //
-      //  graph.pruneNode('a');
-      //
-      //  assert.equal(graph.getNodes(), Map());
-      //});
-      //it('should handle cyclic graphs 3', () => {
-      //  const graph = createGraph({
-      //    nodes: createNodesFromNotation(`
-      //      a -> b -> c -> d -> b
-      //      c -> b
-      //    `)
-      //  });
-      //
-      //  graph.pruneNode('a');
-      //
-      //  assert.equal(graph.getNodes(), Map());
-      //});
+      it('should handle cyclic graphs 1', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> b
+          `)
+        });
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
+      it('should handle cyclic graphs 2', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> d -> b
+          `)
+        });
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
+      it('should handle cyclic graphs 3', () => {
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b -> c -> d -> b
+            c -> b
+          `)
+        });
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
+      it('should successfully prune a graph representing a tournament', () => {
+        // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
+
+        const graph = createGraph({
+          nodes: createNodesFromNotation(`
+            a -> b
+            a -> c
+            a -> d
+            b -> a
+            b -> c
+            b -> d
+            c -> a
+            c -> b
+            c -> d
+            d -> a
+            d -> b
+            d -> c
+          `)
+        });
+
+        graph.setNodeAsEntry('a');
+
+        graph.pruneNode('a');
+
+        assert.equal(graph.getNodes(), Map());
+      });
       it('should handle cyclic graphs 4', () => {
         const graph = createGraph({
           nodes: createNodesFromNotation(`
@@ -231,11 +260,16 @@ describe('directed-dependency-graph/graph', () => {
           `)
         });
 
+        graph.setNodeAsEntry('a');
+
         graph.pruneNode('b');
 
         assert.equal(
           graph.getNodes(),
-          Map({a: Node({name: 'a'})}));
+          Map({
+            a: Node({name: 'a', isEntryNode: true})
+          })
+        );
       });
     });
     describe('.isNodeDefined', () => {
