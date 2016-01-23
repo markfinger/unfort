@@ -81,8 +81,8 @@ describe('directed-dependency-graph/graph', () => {
           })
         });
 
-        graph.events.on('pruned', (node) => {
-          assert.equal(node, 'test');
+        graph.events.on('pruned', ({pruned}) => {
+          assert.deepEqual(pruned, ['test']);
           done();
         });
 
@@ -93,14 +93,10 @@ describe('directed-dependency-graph/graph', () => {
           nodes: createNodesFromNotation('a -> b')
         });
 
-        let count = 0;
-        graph.events.on('pruned', (node) => {
-          count++;
-          assert.include(['a', 'b'], node, 'should indicate that nodes "a" and "b" have been pruned');
-          assert.include([1, 2], count);
-          if (count > 1) {
-            done();
-          }
+        graph.events.on('pruned', ({pruned}) => {
+          assert.include(pruned, 'a');
+          assert.include(pruned, 'b');
+          done();
         });
 
         graph.pruneFromNode('a');
@@ -116,8 +112,8 @@ describe('directed-dependency-graph/graph', () => {
         graph.setNodeAsEntry('a');
         graph.setNodeAsEntry('c');
 
-        graph.events.on('pruned', (node) => {
-          assert.equal(node, 'a');
+        graph.events.on('pruned', ({pruned}) => {
+          assert.deepEqual(pruned, ['a']);
           done();
         });
 
@@ -309,8 +305,8 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.setNodeAsEntry('a');
 
-        graph.events.on('pruned', node => {
-          assert.equal(node, 'a');
+        graph.events.on('pruned', ({pruned}) => {
+          assert.deepEqual(pruned, ['a']);
           done();
         });
 
@@ -326,8 +322,8 @@ describe('directed-dependency-graph/graph', () => {
 
         graph.setNodeAsEntry('a');
 
-        graph.events.on('pruned', node => {
-          assert.equal(node, 'b');
+        graph.events.on('pruned', ({pruned}) => {
+          assert.deepEqual(pruned, ['b']);
           assert.isTrue(graph.hasNodeCompleted('a'));
           done();
         });

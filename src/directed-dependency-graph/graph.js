@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
 import {Map} from 'immutable';
 import {isArray} from 'lodash/lang';
-import {pull} from 'lodash/array';
+import {pull, unique} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
 import {
@@ -160,16 +160,6 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     }
   }
 
-  function _clearNode(node) {
-    pendingJobs
-      .filter(job => job.node === node)
-      .forEach(job => job.isValid = false);
-
-    events.emit('pruned', node);
-
-    signalIfCompleted();
-  }
-
   return {
     pendingJobs,
     events,
@@ -181,8 +171,6 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
       nodes = defineEntryNode(nodes, name);
     },
     pruneFromNode(name) {
-      // TODO: should indicate the nodes that had a dependency pruned
-
       if (isNodeDefined(nodes, name)) {
         let {
           nodes: updatedNodes,
@@ -198,11 +186,32 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
           }
         });
 
-        pruned.forEach(_clearNode);
+        pruned.forEach(name => {
+          invalidatePendingJobsForNode(pendingJobs, name)
+        });
 
+        const previousState = nodes;
         nodes = updatedNodes;
-      } else if (isNodePending(pendingJobs, name)) {
-        _clearNode(name);
+
+        let nodesImpacted = [];
+        pruned.forEach(name => {
+          const node = previousState.get(name);
+          node.dependents.forEach(dependentName => {
+            if (nodes.has(dependentName)) {
+              nodesImpacted.push(dependentName);
+            }
+          });
+        });
+        nodesImpacted = unique(nodesImpacted);
+
+        events.emit('pruned', {pruned, nodesImpacted});
+
+        return signalIfCompleted();
+      }
+
+      if (isNodePending(pendingJobs, name)) {
+        invalidatePendingJobsForNode(pendingJobs, name);
+        return signalIfCompleted();
       }
     },
     hasNodeCompleted(node) {
@@ -211,10 +220,18 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
   };
 }
 
-export function isNodeDefined(nodes, node) {
-  return nodes.has(node);
+export function isNodeDefined(nodes, name) {
+  return nodes.has(name);
 }
 
-export function isNodePending(pendingJobs, node) {
-  return pendingJobs.some(job => job.isValid && job.node === node);
+export function isNodePending(pendingJobs, name) {
+  return pendingJobs.some(job => {
+    return job.isValid && job.node === name;
+  });
+}
+
+function invalidatePendingJobsForNode(pendingJobs, name) {
+  pendingJobs
+    .filter(job => job.node === name)
+    .forEach(job => job.isValid = false);
 }
