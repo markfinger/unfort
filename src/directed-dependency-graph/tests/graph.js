@@ -272,8 +272,61 @@ describe('directed-dependency-graph/graph', () => {
         });
       });
       describe('`pruned`', () => {
-        it('should ', (done) => {
-          throw new Error('TODO')
+        it('should be emitted when a file is pruned', (done) => {
+          const graph = createGraph({
+            nodes: createNodesFromNotation(`a`)
+          });
+
+          graph.events.on('pruned', ({pruned}) => {
+            assert.deepEqual(pruned, ['a']);
+            done();
+          });
+
+          graph.pruneFromNode('a');
+        });
+        it('should be emitted when multiple files are pruned', (done) => {
+          const graph = createGraph({
+            nodes: createNodesFromNotation(`a -> b`)
+          });
+
+          graph.events.on('pruned', ({pruned}) => {
+            assert.deepEqual(pruned, ['a', 'b']);
+            done();
+          });
+
+          graph.pruneFromNode('a');
+        });
+        it('should indicate the current and previous states', (done) => {
+          const graph = createGraph({
+            nodes: createNodesFromNotation(`a`)
+          });
+
+          const initialState = graph.getNodes();
+          graph.events.on('pruned', ({state, previousState}) => {
+            assert.equal(state, Map());
+            assert.equal(previousState, initialState);
+            done();
+          });
+
+          graph.pruneFromNode('a');
+        });
+        it('should indicate the nodes that were impacted by the pruning', (done) => {
+          const graph = createGraph({
+            nodes: createNodesFromNotation(`
+              a -> b
+              c -> b
+            `)
+          });
+
+          graph.setNodeAsEntry('a');
+          graph.setNodeAsEntry('c');
+
+          graph.events.on('pruned', ({nodesImpacted}) => {
+            assert.deepEqual(nodesImpacted, ['a', 'c']);
+            done();
+          });
+
+          graph.pruneFromNode('b');
         });
       });
     });

@@ -247,8 +247,14 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
       });
       nodesImpacted = unique(nodesImpacted);
 
-      // TODO: provide state and previousState
-      events.emit('pruned', {pruned, nodesImpacted});
+      const signal = {
+        state: nodes,
+        previousState,
+        pruned,
+        nodesImpacted
+      };
+
+      events.emit('pruned', signal);
 
       signalIfCompleted();
     },
