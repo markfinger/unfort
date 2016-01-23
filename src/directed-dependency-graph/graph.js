@@ -238,13 +238,14 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
       // pruning
       let nodesImpacted = [];
       pruned.forEach(name => {
-        const node = previousState.get(name);
-        node.dependents.forEach(dependentName => {
+        const prunedNode = previousState.get(name);
+        prunedNode.dependents.forEach(dependentName => {
           if (nodes.has(dependentName)) {
             nodesImpacted.push(dependentName);
           }
         });
       });
+      // The iteration over `pruned` can produce duplicate node names
       nodesImpacted = unique(nodesImpacted);
 
       const signal = {
