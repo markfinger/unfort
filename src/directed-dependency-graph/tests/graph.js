@@ -1,6 +1,6 @@
 import EventEmitter from 'events';
 import {Map, Set} from 'immutable';
-import {isNodePending, isNodeDefined, ensureNodeIsPermanent, createGraph} from '../graph';
+import {isNodePending, isNodeDefined, createGraph} from '../graph';
 import {Node, addNode, removeNode, addEdge, removeEdge} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
@@ -11,6 +11,49 @@ describe('directed-dependency-graph/graph', () => {
       it('should be an instance of EventEmitter', () => {
         const graph = createGraph();
         assert.instanceOf(graph.events, EventEmitter);
+      });
+      describe('`started`', () => {
+        it('should emit during the first traceNode call', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          graph.events.on('started', () => {
+            done();
+          });
+
+          graph.traceNode('test');
+        });
+        it('should only be emitted once per run', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          let called = 0;
+          graph.events.on('started', () => {
+            called++;
+          });
+
+          graph.events.once('complete', () => {
+            graph.traceNode('a');
+            graph.traceNode('b');
+            graph.traceNode('c');
+
+            graph.events.once('complete', () => {
+              assert.equal(called, 2);
+
+              done();
+            });
+          });
+
+          graph.traceNode('a');
+          graph.traceNode('b');
+          graph.traceNode('c');
+        });
       });
       describe('`complete`', () => {
         it('should be emitted once all tracing has completed', (done) => {
@@ -97,7 +140,10 @@ describe('directed-dependency-graph/graph', () => {
 
           graph.traceNode('a');
         });
-        it('should not the same errors on separate runs', (done) => {
+        it('should not produce the same errors for separate runs', (done) => {
+          // This is mostly to check that the graph cleans its internal state
+          // after emitting complete
+
           const graph = createGraph({
             getDependencies(name, cb) {
               cb(`Error: ${name}`);
@@ -123,6 +169,24 @@ describe('directed-dependency-graph/graph', () => {
           });
 
           graph.traceNode('a');
+        });
+        it('should handle multiple errors in one run', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(`Error: ${name}`);
+            }
+          });
+
+          graph.events.on('error', () => {});
+
+          graph.events.once('complete', ({errors}) => {
+            assert.equal(errors[0].error, 'Error: a');
+            assert.equal(errors[1].error, 'Error: b');
+            done();
+          });
+
+          graph.traceNode('a');
+          graph.traceNode('b');
         });
       });
       describe('`traced`', () => {
@@ -168,6 +232,26 @@ describe('directed-dependency-graph/graph', () => {
 
           graph.traceNode('1');
         });
+        it('should not be emitted if an error is encountered', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb('some error');
+            }
+          });
+
+          // No-op to prevent the EventEmitter from throwing an exception
+          graph.events.on('error', () => {});
+
+          graph.events.on('traced', () => {
+            throw new Error('should not be reached');
+          });
+
+          graph.events.on('complete', () => {
+            done();
+          });
+
+          graph.traceNode('test');
+        });
       });
       describe('`error`', () => {
         it('should be emitted if getDependencies provides an error', (done) => {
@@ -185,6 +269,11 @@ describe('directed-dependency-graph/graph', () => {
           });
 
           graph.traceNode('test');
+        });
+      });
+      describe('`pruned`', () => {
+        it('should ', (done) => {
+          throw new Error('TODO')
         });
       });
     });
@@ -251,6 +340,17 @@ describe('directed-dependency-graph/graph', () => {
         graph.traceNode('test');
 
         assert.isFalse(job.isValid);
+      });
+      it('should not call getDependencies if the associate job was invalidated', (done) => {
+        const graph = createGraph({getDependencies: () => {
+          throw new Error('This should not be reached');
+        }});
+
+        graph.traceNode('test');
+
+        graph.pendingJobs[0].isValid = false;
+
+        process.nextTick(done);
       });
     });
     describe('.pruneNodeAndUniqueDependencies', () => {
