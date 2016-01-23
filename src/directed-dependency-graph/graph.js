@@ -81,6 +81,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
   // state changes by enqueueing more jobs before the 'complete' signal
   // is emitted
   let previousState = nodes;
+  let errors = [];
   const signalIfCompleted = callOnceAfterTick(
     function signalIfCompleted() {
       const hasPendingJobs = pendingJobs.some(job => job.isActive);
@@ -90,20 +91,28 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
 
       events.emit('complete', {
         state: nodes,
-        previousState: previousState
+        previousState: previousState,
+        errors
       });
 
+      errors = [];
       previousState = nodes;
     }
   );
 
-  function traceNode(node) {
+  function traceNode(name) {
     const job = {
-      node,
+      node: name,
       isValid: true
     };
 
-    // TODO: invalidate any pending jobs for the node
+    // Invalidate any currently pending jobs for the same node
+    pendingJobs.forEach(job => {
+      if (job.node === name) {
+        job.isValid = false;
+      }
+    });
+
     pendingJobs.push(job);
 
     process.nextTick(startTracingNode);
@@ -118,11 +127,18 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
         return removeJob();
       }
 
-      getDependencies(node, (err, dependencies) => {
+      getDependencies(name, (err, dependencies) => {
         removeJob();
 
         if (err) {
-          return events.emit('error', err, node);
+          const errorObject = {
+            error: err,
+            node: name,
+            state: nodes
+          };
+          errors.push(errorObject);
+          events.emit('error', errorObject);
+          return signalIfCompleted();
         }
 
         if (!isArray(dependencies)) {
@@ -134,11 +150,9 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
           return;
         }
 
-        const nodesAdded = [];
-
-        if (!isNodeDefined(nodes, node)) {
-          nodes = addNode(nodes, node);
-          nodesAdded.push(node);
+        const previousState = nodes;
+        if (!isNodeDefined(nodes, name)) {
+          nodes = addNode(nodes, name);
         }
 
         dependencies.forEach(depName => {
@@ -151,14 +165,15 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
 
           if (!isNodeDefined(nodes, depName)) {
             nodes = addNode(nodes, depName);
-            nodesAdded.push(depName);
           }
 
-          nodes = addEdge(nodes, node, depName);
+          nodes = addEdge(nodes, name, depName);
         });
 
-        nodesAdded.forEach(node => {
-          events.emit('added', node);
+        events.emit('traced', {
+          node: name,
+          state: nodes,
+          previousState
         });
 
         signalIfCompleted();
