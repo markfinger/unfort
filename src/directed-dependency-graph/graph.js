@@ -8,18 +8,6 @@ import {
   addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
 } from './node';
 
-/*
-Events
-------
-
-started <nodes>
-traced => <node name>
-error => err, <node name>
-complete <nodes>
-pruned => <nodes removed>, <nodes impacted>
-
-*/
-
 export function createGraph({nodes=Map(), getDependencies}={}) {
   const events = new EventEmitter;
   const pendingJobs = [];
