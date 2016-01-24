@@ -1,7 +1,7 @@
 import EventEmitter from 'events';
 import {Map, Set} from 'immutable';
 import {isNodePending, isNodeDefined, createGraph} from '../graph';
-import {Node, addNode, removeNode, addEdge, removeEdge} from '../node';
+import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
@@ -13,7 +13,7 @@ describe('cyclic-dependency-graph/graph', () => {
         assert.instanceOf(graph.events, EventEmitter);
       });
       describe('`started`', () => {
-        it('should emit during the first traceNode call', (done) => {
+        it('should emit during the first traceFromNode call', (done) => {
           const graph = createGraph({
             getDependencies(name, cb) {
               cb(null, []);
@@ -24,7 +24,7 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('test');
+          graph.traceFromNode('test');
         });
         it('should only be emitted once per run', (done) => {
           const graph = createGraph({
@@ -39,9 +39,9 @@ describe('cyclic-dependency-graph/graph', () => {
           });
 
           graph.events.once('complete', () => {
-            graph.traceNode('a');
-            graph.traceNode('b');
-            graph.traceNode('c');
+            graph.traceFromNode('a');
+            graph.traceFromNode('b');
+            graph.traceFromNode('c');
 
             graph.events.once('complete', () => {
               assert.equal(called, 2);
@@ -50,9 +50,9 @@ describe('cyclic-dependency-graph/graph', () => {
             });
           });
 
-          graph.traceNode('a');
-          graph.traceNode('b');
-          graph.traceNode('c');
+          graph.traceFromNode('a');
+          graph.traceFromNode('b');
+          graph.traceFromNode('c');
         });
       });
       describe('`complete`', () => {
@@ -67,7 +67,7 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('test');
+          graph.traceFromNode('test');
         });
         it('should provide the current and previous state of the nodes', (done) => {
           const graph = createGraph({
@@ -90,10 +90,10 @@ describe('cyclic-dependency-graph/graph', () => {
               done();
             });
 
-            graph.traceNode('b');
+            graph.traceFromNode('b');
           });
 
-          graph.traceNode('a');
+          graph.traceFromNode('a');
         });
         it('should emit if an error occurred', (done) => {
           const graph = createGraph({
@@ -117,7 +117,7 @@ describe('cyclic-dependency-graph/graph', () => {
             });
           });
 
-          graph.traceNode('a');
+          graph.traceFromNode('a');
         });
         it('should not emit if an error occurred and pending jobs exist', (done) => {
           const graph = createGraph({
@@ -138,7 +138,7 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('a');
+          graph.traceFromNode('a');
         });
         it('should not produce the same errors for separate runs', (done) => {
           // This is mostly to check that the graph cleans its internal state
@@ -164,11 +164,11 @@ describe('cyclic-dependency-graph/graph', () => {
                 });
               });
 
-              graph.traceNode('b');
+              graph.traceFromNode('b');
             });
           });
 
-          graph.traceNode('a');
+          graph.traceFromNode('a');
         });
         it('should handle multiple errors in one run', (done) => {
           const graph = createGraph({
@@ -185,8 +185,8 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('a');
-          graph.traceNode('b');
+          graph.traceFromNode('a');
+          graph.traceFromNode('b');
         });
       });
       describe('`traced`', () => {
@@ -201,7 +201,7 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('test');
+          graph.traceFromNode('test');
         });
         it('should be provide the node, the current state, and the previous state', (done) => {
           const graph = createGraph({
@@ -227,10 +227,10 @@ describe('cyclic-dependency-graph/graph', () => {
               done();
             });
 
-            graph.traceNode('2');
+            graph.traceFromNode('2');
           });
 
-          graph.traceNode('1');
+          graph.traceFromNode('1');
         });
         it('should not be emitted if an error is encountered', (done) => {
           const graph = createGraph({
@@ -250,7 +250,7 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('test');
+          graph.traceFromNode('test');
         });
       });
       describe('`error`', () => {
@@ -268,7 +268,7 @@ describe('cyclic-dependency-graph/graph', () => {
             done();
           });
 
-          graph.traceNode('test');
+          graph.traceFromNode('test');
         });
       });
       describe('`pruned`', () => {
@@ -330,7 +330,7 @@ describe('cyclic-dependency-graph/graph', () => {
         });
       });
     });
-    describe('.traceNode', () => {
+    describe('.traceFromNode', () => {
       it('should allow call the provided `getDependencies` function', (done) => {
         const graph = createGraph({getDependencies});
 
@@ -339,12 +339,12 @@ describe('cyclic-dependency-graph/graph', () => {
           done();
         }
 
-        graph.traceNode('test');
+        graph.traceFromNode('test');
       });
       it('should create a pending job for the node', () => {
         const graph = createGraph({getDependencies(){}});
 
-        graph.traceNode('test');
+        graph.traceFromNode('test');
 
         assert.isObject(graph.pendingJobs[0]);
         assert.equal(graph.pendingJobs[0].node, 'test');
@@ -361,7 +361,7 @@ describe('cyclic-dependency-graph/graph', () => {
           done();
         });
 
-        graph.traceNode('test');
+        graph.traceFromNode('test');
       });
       it('should populate the graph with the provided dependencies', (done) => {
         const graph = createGraph({getDependencies});
@@ -381,7 +381,7 @@ describe('cyclic-dependency-graph/graph', () => {
           done();
         });
 
-        graph.traceNode('a');
+        graph.traceFromNode('a');
       });
       it('should invalidate any pending jobs for the node', () => {
         const graph = createGraph({getDependencies: () => {}});
@@ -390,7 +390,7 @@ describe('cyclic-dependency-graph/graph', () => {
 
         graph.pendingJobs.push(job);
 
-        graph.traceNode('test');
+        graph.traceFromNode('test');
 
         assert.isFalse(job.isValid);
       });
@@ -399,7 +399,7 @@ describe('cyclic-dependency-graph/graph', () => {
           throw new Error('This should not be reached');
         }});
 
-        graph.traceNode('test');
+        graph.traceFromNode('test');
 
         graph.pendingJobs[0].isValid = false;
 
@@ -627,7 +627,7 @@ describe('cyclic-dependency-graph/graph', () => {
         assert.isFalse(graph.getNodes().has('test'));
         assert.isFalse(graph.hasNodeCompleted('test'));
 
-        graph.traceNode('test');
+        graph.traceFromNode('test');
 
         process.nextTick(() => {
           assert.isTrue(graph.getNodes().has('test'));
@@ -675,6 +675,32 @@ describe('cyclic-dependency-graph/graph', () => {
         });
 
         graph.pruneFromNode('b');
+      });
+      it('should allow nodes to be denoted as entry nodes before they are traced', (done) => {
+        const graph = createGraph({
+          getDependencies(node, cb) {
+            if (node === 'a') {
+              cb(null, ['b', 'c']);
+            } else {
+              cb(null, []);
+            }
+          }
+        });
+
+        graph.setNodeAsEntry('a');
+
+        graph.events.on('complete', ({state}) => {
+          let nodes = createNodesFromNotation(`
+            a -> b
+            a -> c
+          `);
+          nodes = defineEntryNode(nodes, 'a');
+          assert.equal(state, nodes);
+
+          done();
+        });
+
+        graph.traceFromNode('a');
       });
     });
   });
