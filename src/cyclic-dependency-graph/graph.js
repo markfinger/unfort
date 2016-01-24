@@ -166,7 +166,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
     //
     // To get around this problem, we need to walk the graph from the entry
-    // nodes, find any that are unreachable, and then prune them directly
+    // nodes, note any that are unreachable, and then prune them directly
     const disconnectedNodes = findNodesDisconnectedFromEntryNodes(updatedNodes);
     disconnectedNodes.forEach(name => {
       if (isNodeDefined(updatedNodes, name)) {
@@ -232,12 +232,8 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     // has a dependent `d`. However, if we don't prune them, then they are
     // left disconnected from the other nodes.
     //
-    // Our solution to the problem is to prune all dependencies which are no
-    // longer needed, then walk the graph from the entries and look for
-    // sub-graphs which we can't reach. Once we've identified these, we know
-    // we can safely prune them.
-    //
-    // In summary, always denote the entry nodes before pruning
+    // Hence we need to know a graph's entry points so that we can traverse it
+    // from the entries and find the nodes which are disconnected
 
     if (!isNodeDefined(nodes, name)) {
       nodes = addNode(nodes, name);

@@ -696,7 +696,7 @@ describe('cyclic-dependency-graph/graph', () => {
           `);
           nodes = defineEntryNode(nodes, 'a');
           assert.equal(state, nodes);
-
+          assert.isTrue(state.get('a').isEntryNode);
           done();
         });
 
