@@ -12,7 +12,7 @@ import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {forOwn} from 'lodash/object';
 import {sample} from 'lodash/collection';
-import {hashNpmDependencyTree} from '../env-hash';
+import {nodeEnvHash} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
@@ -20,7 +20,7 @@ import {
 import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
-import * as graph from '../cyclic-dependency-graph';
+import {createGraph} from '../cyclic-dependency-graph';
 
 sourceMapSupport.install();
 
@@ -319,23 +319,7 @@ function traceFile(file, tree, caches, cb) {
   });
 }
 
-function updateNodesFromFileTree(fileTree) {
-  forOwn(fileTree, (deps, file) => {
-    if (deps) { // Handle files removed from the tree
-      if (!nodes[file]) {
-        graph.addNode(nodes, file);
-      }
-      deps.forEach(([id, depFile]) => {
-        if (!nodes[depFile]) {
-          graph.addNode(nodes, depFile);
-        }
-        graph.addEdge(nodes, file, depFile);
-      });
-    }
-  });
-}
-
-hashNpmDependencyTree(process.cwd(), (err, hash) => {
+nodeEnvHash(process.cwd(), (err, hash) => {
   if (err) throw err;
 
   async.parallel([
@@ -348,8 +332,6 @@ hashNpmDependencyTree(process.cwd(), (err, hash) => {
     if (err) throw err;
     const end = (new Date()).getTime() - start;
     console.log(`traced ${Object.keys(tree).length} records in ${end}ms`);
-
-    updateNodesFromFileTree(tree);
 
     startWatcher();
 
