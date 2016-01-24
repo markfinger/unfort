@@ -33,7 +33,6 @@ const hmrRuntimeFile = require.resolve('./hmr-runtime');
 const tree = Object.create(null);
 const files = Object.create(null);
 const transformedFiles = Object.create(null);
-const nodes = Object.create(null);
 const sockets = [];
 
 const caches = createMockCaches();
