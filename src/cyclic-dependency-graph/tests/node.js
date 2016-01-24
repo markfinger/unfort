@@ -4,7 +4,7 @@ import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, findNod
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
-describe('directed-dependency-graph/node', () => {
+describe('cyclic-dependency-graph/node', () => {
   describe('#Node', () => {
     it('should have name, dependencies and dependents properties', () => {
       const node = Node({

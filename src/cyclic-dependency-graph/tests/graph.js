@@ -5,7 +5,7 @@ import {Node, addNode, removeNode, addEdge, removeEdge} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
-describe('directed-dependency-graph/graph', () => {
+describe('cyclic-dependency-graph/graph', () => {
   describe('#createGraph', () => {
     describe('.events', () => {
       it('should be an instance of EventEmitter', () => {

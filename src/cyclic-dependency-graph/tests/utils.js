@@ -3,7 +3,7 @@ import {Node} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 
-describe('directed-dependency-graph/utils', () => {
+describe('cyclic-dependency-graph/utils', () => {
   describe('#createNodesFromNotation', () => {
     it('should create a single node', () => {
       assert.equal(

@@ -20,7 +20,7 @@ import {
 import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
-import * as graph from '../directed-dependency-graph';
+import * as graph from '../cyclic-dependency-graph';
 
 sourceMapSupport.install();
 
