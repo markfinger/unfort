@@ -15,8 +15,7 @@ export function mergeDiffs(diff1, diff2) {
 }
 
 export function getNewNodesFromDiff(diff) {
-  const from = diff.from;
-  const to = diff.to;
+  const {from, to} = diff;
 
   const newNodes = [];
   to.forEach((value, key) => {
@@ -29,8 +28,7 @@ export function getNewNodesFromDiff(diff) {
 }
 
 export function getPrunedNodesFromDiff(diff) {
-  const from = diff.from;
-  const to = diff.to;
+  const {from, to} = diff;
 
   const prunedNodes = [];
   from.forEach((value, key) => {
@@ -43,8 +41,7 @@ export function getPrunedNodesFromDiff(diff) {
 }
 
 export function getChangedNodes(diff) {
-  const from = diff.from;
-  const to = diff.to;
+  const {from, to} = diff;
 
   const changedNodes = [];
   to.forEach((toValue, key) => {
