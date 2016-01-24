@@ -25,13 +25,11 @@ describe('cyclic-dependency-graph/diff', () => {
     it('should accept a number of Diff records and merge the changes', () => {
       const mergedDiff = mergeDiffs(
         Diff({from: 'from1', to: 'to1'}),
-        Diff({from: 'from2', to: 'to2'}),
-        Diff({from: 'from3', to: 'to3'}),
-        Diff({from: 'from4', to: 'to4'})
+        Diff({from: 'from2', to: 'to2'})
       );
 
       assert.equal(mergedDiff.from, 'from1');
-      assert.equal(mergedDiff.to, 'to4');
+      assert.equal(mergedDiff.to, 'to2');
     });
   });
   describe('#getNewNodesFromDiff', () => {

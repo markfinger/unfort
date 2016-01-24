@@ -1,4 +1,3 @@
-import {first, last} from 'lodash/array';
 import {Record, Map, is} from 'immutable';
 
 export const Diff = Record({
@@ -6,12 +5,12 @@ export const Diff = Record({
   to: null
 });
 
-export function mergeDiffs(...diffs) {
+export function mergeDiffs(diff1, diff2) {
   // For now, this just creates a new diff from the first and last,
   // but it may do more later if/when our needs change
   return Diff({
-    from: first(diffs).from,
-    to: last(diffs).to
+    from: diff1.from,
+    to: diff2.to
   });
 }
 
