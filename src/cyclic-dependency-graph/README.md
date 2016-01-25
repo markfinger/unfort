@@ -1,12 +1,9 @@
 cyclic-dependency-graph
 =======================
 
-A state machine that handles creating, manipulating, and responding to a cyclic
-directed graph that represents the dependencies in a codebase.
+A simple state machine that handles building a cyclic directed graph from
+the dependencies in a codebase.
 
-- Handles circular dependencies in files
-- Exposes as event system so that it can operate as the core of a build system
-- Exposes a pruning functionality designed to invalidate large sections of a graph
 
 
 Example usage
@@ -15,12 +12,14 @@ Example usage
 ```js
 import {createGraph} from 'cyclic-dependency-graph';
 
-// Initialize the graph
 const graph = createGraph({
   getDependencies(node, cb) {
     console.log(`Dependencies requested for ${node}`);
 
-    // Provide a list of files that the node depends on
+    // Get the dependencies for the node
+    // ...
+
+    // Provide an array of other nodes are depended upon
     cb(null, ['/path/to/dependency', '...']);
   }
 });
@@ -37,52 +36,54 @@ graph.setNodeAsEntry(entryPoint2);
 graph.traceFromNode(entryPoint1);
 graph.traceFromNode(entryPoint2);
 
-// Hook in a file watcher which tells us when to prune nodes
-fileWatcher.on('change', file => {
-  // Prune `file` and any dependencies which are no longer needed
-  graph.pruneFromNode(file);
-});
-
-// Once a node has been traced, ensure that the watcher is observing it
-graph.events.on('traced', ({node}) => {
-  if (!fileWatcher.isWatching(node)) {
-    fileWatcher.watch(node);
-  }
-});
-
-// If the watcher ever invalidates a file, we should invalidate any associated data
-graph.events.on('pruned', ({pruned, impactedNodes}) => {
-  pruned.forEach(node => {
-    // ...
-  });
-
-  // These nodes are the dependents of the pruned nodes, so it's
-  // quite likely that we'll need to rebuild them again
-  impactedNodes.forEach(node => {
-    graph.traceFromNode(node);
-  });
-});
-
-graph.events.on('started', () => {
-  console.log('Started tracing');
-});
-
 graph.events.on('error', ({error, node}) => {
   console.error(
     `Error when tracing ${node}: ${error.message}\n\n${error.stack}`
   );
 });
 
-graph.events.on('complete', ({state, errors}) => {
+graph.events.on('complete', ({diff, errors}) => {
   if (errors.length) {
     return console.error('Errors during tracing!');
   }
 
-  const nodeNames = state.keySeq().toArray();
+  const nodeNames = diff.to.keySeq().toArray();
 
-  console.log(`Traced ${nodeNames.length} nodes...`);
-  console.log('\n\n' + nodeNames.join('\n'));
+  console.log(`Traced ${nodeNames.length} nodes:\n ${nodeNames.join('\n ')}`);
 });
+```
+
+
+Data structures
+---------------
+
+### Graph state
+
+Stored as a flat `Map` structure (using the Map implementation from `immutable`).
+
+A map structure was used primarily for simplicity and the low costs associated with
+node lookup and traversal.
+
+
+### Node
+
+```js
+{
+  name: '...',
+  dependencies: Set(),
+  dependents: Set()
+  isEntryNode: Bool()
+}
+```
+
+
+### Diff
+
+```js
+{
+  from: Map(),
+  to: Map()
+}
 ```
 
 
@@ -101,12 +102,11 @@ Events
 
 ```js
 {
-  state: Map(),
-  previousState: Map(),
   errors: [
     Error(),
     // ...
-  ]
+  ],
+  diff: Diff()
 }
 ```
 
@@ -114,9 +114,8 @@ Events
 
 ```js
 {
-  state: Map(),
-  previousState: Map(),
-  node: '...'
+  node: '...',
+  diff: Diff()
 }
 ```
 
@@ -124,25 +123,8 @@ Events
 
 ```js
 {
-  error: Map(),
-  state: Map(),
-  node: '...'
-}
-```
-
-### pruned
-
-```js
-{
-  pruned: [
-    '<node name>',
-    // ...
-  ],
-  nodesImpacted: [
-    '<node name>',
-    // ...
-  ],
-  state: Map(),
-  previousState: Map(),
+  node: '...',
+  error: Error(),
+  diff: Diff()
 }
 ```
