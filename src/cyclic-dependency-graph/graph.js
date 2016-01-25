@@ -1,5 +1,5 @@
 import EventEmitter from 'events';
-import {Map} from 'immutable';
+import {Map, is} from 'immutable';
 import {isArray} from 'lodash/lang';
 import {pull, unique} from 'lodash/array';
 import {contains} from 'lodash/collection';
@@ -18,10 +18,10 @@ export function createGraph({state=Map(), getDependencies}={}) {
   let hasSignalledStart = false;
 
   /**
-   * Enable multiple call sites to enqueue a 'complete' check that
+   * Enable multiple call sites to enqueue a `complete` check that
    * will occur asynchronously. Our events are emitted synchronously,
    * so executing this check asynchronously enables code to respond to
-   * state changes by enqueueing more jobs before the 'complete' signal
+   * state changes by enqueueing more jobs before the `complete` signal
    * is emitted
    *
    * @type {Function}
@@ -183,9 +183,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
       state = updatedState;
     }
 
-    if (previousState !== state) {
-      signalIfCompleted();
-    }
+    signalIfCompleted();
 
     return Diff({
       from: previousState,

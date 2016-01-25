@@ -13,400 +13,336 @@ describe('cyclic-dependency-graph/graph', () => {
         const graph = createGraph();
         assert.instanceOf(graph.events, EventEmitter);
       });
-//      describe('`started`', () => {
-//        it('should emit during the first traceFromNode call', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(null, []);
-//            }
-//          });
-//
-//          graph.events.on('started', () => {
-//            done();
-//          });
-//
-//          graph.traceFromNode('test');
-//        });
-//        it('should only be emitted once per run', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(null, []);
-//            }
-//          });
-//
-//          let called = 0;
-//          graph.events.on('started', () => {
-//            called++;
-//          });
-//
-//          graph.events.once('complete', () => {
-//            graph.traceFromNode('a');
-//            graph.traceFromNode('b');
-//            graph.traceFromNode('c');
-//
-//            graph.events.once('complete', () => {
-//              assert.equal(called, 2);
-//
-//              done();
-//            });
-//          });
-//
-//          graph.traceFromNode('a');
-//          graph.traceFromNode('b');
-//          graph.traceFromNode('c');
-//        });
-//      });
-//      describe('`complete`', () => {
-//        it('should be emitted once all tracing has completed', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(null, []);
-//            }
-//          });
-//
-//          graph.events.on('complete', () => {
-//            done();
-//          });
-//
-//          graph.traceFromNode('test');
-//        });
-//        it('should provide the current and previous state of the nodes', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(null, []);
-//            }
-//          });
-//
-//          const initialState = graph.getState();
-//
-//          graph.events.once('complete', ({state: firstState, previousState: firstPreviousState}) => {
-//            assert.equal(firstState, graph.getState());
-//            assert.equal(firstPreviousState, initialState);
-//            assert.notEqual(firstState, firstPreviousState);
-//
-//            graph.events.once('complete', ({state: secondState, previousState: secondPreviousState}) => {
-//              assert.equal(secondState, graph.getState());
-//              assert.equal(secondPreviousState, firstState);
-//              assert.notEqual(secondState, secondPreviousState);
-//              done();
-//            });
-//
-//            graph.traceFromNode('b');
-//          });
-//
-//          graph.traceFromNode('a');
-//        });
-//        it('should emit if an error occurred', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb('some error');
-//            }
-//          });
-//
-//          graph.events.on('error', ({error, node, state}) => {
-//            assert.equal(error, 'some error');
-//            assert.equal(node, 'a');
-//            assert.equal(state, graph.getState());
-//
-//            graph.events.on('complete', ({errors}) => {
-//              assert.isArray(errors);
-//              assert.equal(errors.length, 1);
-//              assert.equal(errors[0].error, 'some error');
-//              assert.equal(errors[0].node, 'a');
-//              assert.equal(errors[0].state, state);
-//              done();
-//            });
-//          });
-//
-//          graph.traceFromNode('a');
-//        });
-//        it('should not emit if an error occurred and pending jobs exist', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb('some error');
-//            }
-//          });
-//
-//          graph.events.on('error', ({error}) => {
-//            assert.equal(error, 'some error');
-//
-//            graph.pendingJobs.push({node: 'test', isValid: true});
-//
-//            graph.events.on('complete', () => {
-//              throw new Error('This should not be reached');
-//            });
-//
-//            done();
-//          });
-//
-//          graph.traceFromNode('a');
-//        });
-//        it('should not produce the same errors for separate runs', (done) => {
-//          // This is mostly to check that the graph cleans its internal state
-//          // after emitting complete
-//
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(`Error: ${name}`);
-//            }
-//          });
-//
-//          graph.events.once('error', ({error}) => {
-//            assert.equal(error, 'Error: a');
-//
-//            graph.events.once('complete', ({errors: firstErrors}) => {
-//              graph.events.once('error', ({error}) => {
-//                assert.equal(error, 'Error: b');
-//
-//                graph.events.once('complete', ({errors: secondErrors}) => {
-//                  assert.notStrictEqual(firstErrors, secondErrors);
-//                  assert.notStrictEqual(firstErrors[0], secondErrors[0]);
-//                  done();
-//                });
-//              });
-//
-//              graph.traceFromNode('b');
-//            });
-//          });
-//
-//          graph.traceFromNode('a');
-//        });
-//        it('should handle multiple errors in one run', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(`Error: ${name}`);
-//            }
-//          });
-//
-//          graph.events.on('error', () => {});
-//
-//          graph.events.once('complete', ({errors}) => {
-//            assert.equal(errors[0].error, 'Error: a');
-//            assert.equal(errors[1].error, 'Error: b');
-//            done();
-//          });
-//
-//          graph.traceFromNode('a');
-//          graph.traceFromNode('b');
-//        });
-//      });
-//      describe('`traced`', () => {
-//        it('should be emitted once a node has been traced has completed', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(null, []);
-//            }
-//          });
-//
-//          graph.events.on('traced', () => {
-//            done();
-//          });
-//
-//          graph.traceFromNode('test');
-//        });
-//        it('should be provide the node, the current state, and the previous state', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb(null, []);
-//            }
-//          });
-//
-//          const initialState = graph.getState();
-//
-//          graph.events.once('traced', ({node: firstNode, state: firstState, previousState: firstPreviousState}) => {
-//            assert.equal(firstNode, '1');
-//            assert.equal(firstState, graph.getState());
-//            assert.equal(firstPreviousState, initialState);
-//            assert.notEqual(firstState, firstPreviousState);
-//
-//            graph.events.once('traced', ({node: secondNode, state: secondState, previousState: secondPreviousState}) => {
-//              assert.equal(secondNode, '2');
-//              assert.equal(secondState, graph.getState());
-//              assert.equal(secondPreviousState, firstState);
-//              assert.notEqual(secondState, secondPreviousState);
-//
-//              done();
-//            });
-//
-//            graph.traceFromNode('2');
-//          });
-//
-//          graph.traceFromNode('1');
-//        });
-//        it('should not be emitted if an error is encountered', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb('some error');
-//            }
-//          });
-//
-//          // No-op to prevent the EventEmitter from throwing an exception
-//          graph.events.on('error', () => {});
-//
-//          graph.events.on('traced', () => {
-//            throw new Error('should not be reached');
-//          });
-//
-//          graph.events.on('complete', () => {
-//            done();
-//          });
-//
-//          graph.traceFromNode('test');
-//        });
-//      });
-//      describe('`error`', () => {
-//        it('should be emitted if getDependencies provides an error', (done) => {
-//          const graph = createGraph({
-//            getDependencies(name, cb) {
-//              cb('expected error');
-//            }
-//          });
-//
-//          graph.events.on('error', ({error, node, state}) => {
-//            assert.equal(error, 'expected error');
-//            assert.equal(node, 'test');
-//            assert.equal(state, graph.getState());
-//            done();
-//          });
-//
-//          graph.traceFromNode('test');
-//        });
-//      });
-//      describe('`pruned`', () => {
-//        it('should be emitted when a file is pruned', (done) => {
-//          const graph = createGraph({
-//            state: createNodesFromNotation(`a`)
-//          });
-//
-//          graph.events.on('pruned', ({pruned}) => {
-//            assert.deepEqual(pruned, ['a']);
-//            done();
-//          });
-//
-//          graph.pruneFromNode('a');
-//        });
-//        it('should be emitted when multiple files are pruned', (done) => {
-//          const graph = createGraph({
-//            state: createNodesFromNotation(`a -> b`)
-//          });
-//
-//          graph.events.on('pruned', ({pruned}) => {
-//            assert.deepEqual(pruned, ['a', 'b']);
-//            done();
-//          });
-//
-//          graph.pruneFromNode('a');
-//        });
-//        it('should indicate the current and previous states', (done) => {
-//          const graph = createGraph({
-//            state: createNodesFromNotation(`a`)
-//          });
-//
-//          const initialState = graph.getState();
-//          graph.events.on('pruned', ({state, previousState}) => {
-//            assert.equal(state, Map());
-//            assert.equal(previousState, initialState);
-//            done();
-//          });
-//
-//          graph.pruneFromNode('a');
-//        });
-//        it('should indicate the nodes that were impacted by the pruning', (done) => {
-//          const graph = createGraph({
-//            state: createNodesFromNotation(`
-//              a -> b
-//              c -> b
-//            `)
-//          });
-//
-//          graph.setNodeAsEntry('a');
-//          graph.setNodeAsEntry('c');
-//
-//          graph.events.on('pruned', ({nodesImpacted}) => {
-//            assert.deepEqual(nodesImpacted, ['a', 'c']);
-//            done();
-//          });
-//
-//          graph.pruneFromNode('b');
-//        });
+      describe('`started`', () => {
+        it('should emit during the first traceFromNode call', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          graph.events.on('started', () => {
+            done();
+          });
+
+          graph.traceFromNode('test');
+        });
+        it('should only be emitted once per run', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          let called = 0;
+          graph.events.on('started', () => {
+            called++;
+          });
+
+          graph.events.once('complete', () => {
+            graph.traceFromNode('a');
+            graph.traceFromNode('b');
+            graph.traceFromNode('c');
+
+            graph.events.once('complete', () => {
+              assert.equal(called, 2);
+
+              done();
+            });
+          });
+
+          graph.traceFromNode('a');
+          graph.traceFromNode('b');
+          graph.traceFromNode('c');
+        });
+      });
+      describe('`complete`', () => {
+        it('should be emitted once all tracing has completed', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          graph.events.on('complete', () => {
+            done();
+          });
+
+          graph.traceFromNode('test');
+        });
+        it('should provide a diff', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          const initialState = graph.getState();
+
+          graph.traceFromNode('a');
+
+          graph.events.once('complete', ({diff: diff1}) => {
+            assert.equal(diff1.from, initialState);
+            assert.equal(diff1.to, graph.getState());
+
+            graph.events.once('complete', ({diff: diff2}) => {
+              assert.equal(diff2.from, diff1.to);
+              assert.equal(diff2.to, graph.getState());
+              done();
+            });
+
+            graph.traceFromNode('b');
+          });
+        });
+        it('should emit if an error occurred', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb('some error');
+            }
+          });
+
+          graph.traceFromNode('a');
+
+          graph.events.on('error', ({error, diff}) => {
+            assert.equal(error, 'some error');
+
+            graph.events.on('complete', ({errors}) => {
+              assert.isArray(errors);
+              assert.equal(errors.length, 1);
+              assert.equal(errors[0].error, 'some error');
+              assert.equal(errors[0].node, 'a');
+              assert.equal(errors[0].diff, diff);
+              done();
+            });
+          });
+        });
+        it('should not emit if an error occurred and pending jobs exist', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb('some error');
+            }
+          });
+
+          graph.events.on('error', ({error}) => {
+            assert.equal(error, 'some error');
+
+            graph.pendingJobs.push({node: 'test', isValid: true});
+
+            graph.events.on('complete', () => {
+              throw new Error('This should not be reached');
+            });
+
+            done();
+          });
+
+          graph.traceFromNode('a');
+        });
+        it('should not produce the same errors for separate runs', (done) => {
+          // This checks to ensure that the graph resets its internal state
+          // after emitting complete
+
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(`Error: ${name}`);
+            }
+          });
+
+          graph.events.once('error', ({error}) => {
+            assert.equal(error, 'Error: a');
+
+            graph.events.once('complete', ({errors: firstErrors}) => {
+              graph.events.once('error', ({error}) => {
+                assert.equal(error, 'Error: b');
+
+                graph.events.once('complete', ({errors: secondErrors}) => {
+                  assert.notStrictEqual(firstErrors, secondErrors);
+                  assert.notStrictEqual(firstErrors[0], secondErrors[0]);
+                  done();
+                });
+              });
+
+              graph.traceFromNode('b');
+            });
+          });
+
+          graph.traceFromNode('a');
+        });
+        it('should handle multiple errors in one run', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(`Error: ${name}`);
+            }
+          });
+
+          graph.events.on('error', () => {});
+
+          graph.events.once('complete', ({errors}) => {
+            assert.equal(errors[0].error, 'Error: a');
+            assert.equal(errors[1].error, 'Error: b');
+            done();
+          });
+
+          graph.traceFromNode('a');
+          graph.traceFromNode('b');
+        });
+      });
+      describe('`traced`', () => {
+        it('should be emitted once a node has been traced has completed', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          graph.events.on('traced', () => {
+            done();
+          });
+
+          graph.traceFromNode('test');
+        });
+        it('should be provide the node and a state diff', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb(null, []);
+            }
+          });
+
+          const initialState = graph.getState();
+
+          graph.events.once('traced', ({node: node1, diff: diff1}) => {
+            assert.equal(node1, '1');
+            assert.equal(diff1.from, initialState);
+            assert.equal(diff1.to, graph.getState());
+
+            graph.events.once('traced', ({node: node2, diff: diff2}) => {
+              assert.equal(node2, '2');
+              assert.equal(diff2.from, diff1.to);
+              assert.equal(diff2.to, graph.getState());
+
+              done();
+            });
+
+            graph.traceFromNode('2');
+          });
+
+          graph.traceFromNode('1');
+        });
+        it('should not be emitted if an error is encountered', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb('some error');
+            }
+          });
+
+          // No-op to prevent the EventEmitter from throwing an exception
+          graph.events.on('error', () => {});
+
+          graph.events.on('traced', () => {
+            throw new Error('should not be reached');
+          });
+
+          graph.events.on('complete', () => {
+            done();
+          });
+
+          graph.traceFromNode('test');
+        });
+      });
+      describe('`error`', () => {
+        it('should be emitted if getDependencies provides an error', (done) => {
+          const graph = createGraph({
+            getDependencies(name, cb) {
+              cb('expected error');
+            }
+          });
+
+          graph.events.on('error', ({error, node, state}) => {
+            assert.equal(error, 'expected error');
+            assert.equal(node, 'test');
+            assert.equal(state, graph.getState());
+            done();
+          });
+
+          graph.traceFromNode('test');
+        });
       });
     });
-//    describe('.traceFromNode', () => {
-//      it('should allow call the provided `getDependencies` function', (done) => {
-//        const graph = createGraph({getDependencies});
-//
-//        function getDependencies(node) {
-//          assert.equal(node, 'test');
-//          done();
-//        }
-//
-//        graph.traceFromNode('test');
-//      });
-//      it('should create a pending job for the node', () => {
-//        const graph = createGraph({getDependencies(){}});
-//
-//        graph.traceFromNode('test');
-//
-//        assert.isObject(graph.pendingJobs[0]);
-//        assert.equal(graph.pendingJobs[0].node, 'test');
-//        assert.isTrue(graph.pendingJobs[0].isValid);
-//      });
-//      it('should emit a `complete` signal once all the dependencies have been resolved', (done) => {
-//        const graph = createGraph({getDependencies});
-//
-//        function getDependencies(name, cb) {
-//          cb(null, []);
-//        }
-//
-//        graph.events.on('complete', () => {
-//          done();
-//        });
-//
-//        graph.traceFromNode('test');
-//      });
-//      it('should populate the graph with the provided dependencies', (done) => {
-//        const graph = createGraph({getDependencies});
-//
-//        function getDependencies(file, cb) {
-//          if (file === 'a') {
-//            cb(null, ['b', 'c']);
-//          } else {
-//            cb(null, []);
-//          }
-//        }
-//
-//        graph.events.on('complete', () => {
-//          assert.isTrue(graph.hasNodeCompleted('a'));
-//          assert.isTrue(graph.hasNodeCompleted('b'));
-//          assert.isTrue(graph.hasNodeCompleted('c'));
-//          done();
-//        });
-//
-//        graph.traceFromNode('a');
-//      });
-//      it('should invalidate any pending jobs for the node', () => {
-//        const graph = createGraph({getDependencies: () => {}});
-//
-//        const job = {node: 'test', isValid: true};
-//
-//        graph.pendingJobs.push(job);
-//
-//        graph.traceFromNode('test');
-//
-//        assert.isFalse(job.isValid);
-//      });
-//      it('should not call getDependencies if the associate job was invalidated', (done) => {
-//        const graph = createGraph({getDependencies: () => {
-//          throw new Error('This should not be reached');
-//        }});
-//
-//        graph.traceFromNode('test');
-//
-//        graph.pendingJobs[0].isValid = false;
-//
-//        process.nextTick(done);
-//      });
-//    });
+    describe('.traceFromNode', () => {
+      it('should call the provided `getDependencies` function', (done) => {
+        const graph = createGraph({getDependencies});
+
+        function getDependencies(node) {
+          assert.equal(node, 'test');
+          done();
+        }
+
+        graph.traceFromNode('test');
+      });
+      it('should create a pending job for the node', () => {
+        const graph = createGraph({getDependencies(){}});
+
+        graph.traceFromNode('test');
+
+        assert.isObject(graph.pendingJobs[0]);
+        assert.equal(graph.pendingJobs[0].node, 'test');
+        assert.isTrue(graph.pendingJobs[0].isValid);
+      });
+      it('should emit a `complete` signal once all the dependencies have been resolved', (done) => {
+        const graph = createGraph({getDependencies});
+
+        function getDependencies(name, cb) {
+          cb(null, []);
+        }
+
+        graph.events.on('complete', () => {
+          done();
+        });
+
+        graph.traceFromNode('test');
+      });
+      it('should populate the graph with the provided dependencies', (done) => {
+        const graph = createGraph({getDependencies});
+
+        function getDependencies(file, cb) {
+          if (file === 'a') {
+            cb(null, ['b', 'c']);
+          } else {
+            cb(null, []);
+          }
+        }
+
+        graph.events.on('complete', () => {
+          assert.isTrue(graph.hasNodeCompleted('a'));
+          assert.isTrue(graph.hasNodeCompleted('b'));
+          assert.isTrue(graph.hasNodeCompleted('c'));
+          done();
+        });
+
+        graph.traceFromNode('a');
+      });
+      it('should invalidate any pending jobs for the node', () => {
+        const graph = createGraph({getDependencies: () => {}});
+
+        const job = {node: 'test', isValid: true};
+
+        graph.pendingJobs.push(job);
+
+        graph.traceFromNode('test');
+
+        assert.isFalse(job.isValid);
+      });
+      it('should not call getDependencies if the associate job was invalidated', (done) => {
+        const graph = createGraph({getDependencies: () => {
+          throw new Error('This should not be reached');
+        }});
+
+        graph.traceFromNode('test');
+
+        graph.pendingJobs[0].isValid = false;
+
+        process.nextTick(done);
+      });
+    });
     describe('.pruneFromNode', () => {
       it('should allow nodes to be pruned', () => {
         const graph = createGraph({
