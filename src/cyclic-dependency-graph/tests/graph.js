@@ -174,7 +174,8 @@ describe('cyclic-dependency-graph/graph', () => {
             }
           });
 
-          graph.events.on('error', () => {});
+          graph.events.on('error', () => {
+          });
 
           graph.events.once('complete', ({errors}) => {
             assert.equal(errors[0].error, 'Error: a');
@@ -235,7 +236,8 @@ describe('cyclic-dependency-graph/graph', () => {
           });
 
           // No-op to prevent the EventEmitter from throwing an exception
-          graph.events.on('error', () => {});
+          graph.events.on('error', () => {
+          });
 
           graph.events.on('traced', () => {
             throw new Error('should not be reached');
@@ -279,7 +281,10 @@ describe('cyclic-dependency-graph/graph', () => {
         graph.traceFromNode('test');
       });
       it('should create a pending job for the node', () => {
-        const graph = createGraph({getDependencies(){}});
+        const graph = createGraph({
+          getDependencies(){
+          }
+        });
 
         graph.traceFromNode('test');
 
@@ -311,17 +316,20 @@ describe('cyclic-dependency-graph/graph', () => {
           }
         }
 
-        graph.events.on('complete', () => {
-          assert.isTrue(graph.hasNodeCompleted('a'));
-          assert.isTrue(graph.hasNodeCompleted('b'));
-          assert.isTrue(graph.hasNodeCompleted('c'));
+        graph.events.on('complete', ({diff}) => {
+          assert.isTrue(diff.to.has('a'));
+          assert.isTrue(diff.to.has('b'));
+          assert.isTrue(diff.to.has('c'));
           done();
         });
 
         graph.traceFromNode('a');
       });
       it('should invalidate any pending jobs for the node', () => {
-        const graph = createGraph({getDependencies: () => {}});
+        const graph = createGraph({
+          getDependencies: () => {
+          }
+        });
 
         const job = {node: 'test', isValid: true};
 
@@ -332,9 +340,11 @@ describe('cyclic-dependency-graph/graph', () => {
         assert.isFalse(job.isValid);
       });
       it('should not call getDependencies if the associate job was invalidated', (done) => {
-        const graph = createGraph({getDependencies: () => {
-          throw new Error('This should not be reached');
-        }});
+        const graph = createGraph({
+          getDependencies: () => {
+            throw new Error('This should not be reached');
+          }
+        });
 
         graph.traceFromNode('test');
 
@@ -563,6 +573,7 @@ describe('cyclic-dependency-graph/graph', () => {
         });
       });
     });
+  });
   describe('#isNodeDefined', () => {
     it('should indicate if a node has completed its dependency path', () => {
       let nodes = Map();
