@@ -8,6 +8,7 @@ export const Diff = Record({
 export function mergeDiffs(diff1, diff2) {
   // For now, this just creates a new diff from the first and last,
   // but it may do more later if/when our needs change
+
   return Diff({
     from: diff1.from,
     to: diff2.to
@@ -44,9 +45,8 @@ export function getChangedNodes(diff) {
   const {from, to} = diff;
   const changedNodes = [];
   
-  to.forEach((toValue, key) => {
-    const fromValue = from.get(key);
-    if (fromValue && !is(toValue, fromValue)) {
+  to.forEach((value, key) => {
+    if (!is(value, from.get(key))) {
       changedNodes.push(key);
     }
   });
