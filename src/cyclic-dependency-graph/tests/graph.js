@@ -423,85 +423,6 @@ describe('cyclic-dependency-graph/graph', () => {
 
         graph.pruneFromNode('a');
       });
-//      it('should handle cyclic graphs 1', () => {
-//        const graph = createGraph({
-//          state: createNodesFromNotation(`
-//            a -> b -> c -> b
-//          `)
-//        });
-//
-//        graph.pruneFromNode('a');
-//
-//        assert.equal(graph.getState(), Map());
-//      });
-//      it('should handle cyclic graphs 2', () => {
-//        const graph = createGraph({
-//          state: createNodesFromNotation(`
-//            a -> b -> c -> d -> b
-//          `)
-//        });
-//
-//        graph.pruneFromNode('a');
-//
-//        assert.equal(graph.getState(), Map());
-//      });
-//      it('should handle cyclic graphs 3', () => {
-//        const graph = createGraph({
-//          state: createNodesFromNotation(`
-//            a -> b -> c -> d -> b
-//            c -> b
-//          `)
-//        });
-//
-//        graph.pruneFromNode('a');
-//
-//        assert.equal(graph.getState(), Map());
-//      });
-//      it('should handle cyclic graphs 4', () => {
-//        const graph = createGraph({
-//          state: createNodesFromNotation(`
-//            a -> b -> c -> d -> b
-//            c -> b
-//          `)
-//        });
-//
-//        graph.setNodeAsEntry('a');
-//
-//        graph.pruneFromNode('b');
-//
-//        assert.equal(
-//          graph.getState(),
-//          Map({
-//            a: Node({name: 'a', isEntryNode: true})
-//          })
-//        );
-//      });
-//      it('should successfully prune a graph representing a tournament', () => {
-//        // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
-//
-//        const graph = createGraph({
-//          state: createNodesFromNotation(`
-//            a -> b
-//            a -> c
-//            a -> d
-//            b -> a
-//            b -> c
-//            b -> d
-//            c -> a
-//            c -> b
-//            c -> d
-//            d -> a
-//            d -> b
-//            d -> c
-//          `)
-//        });
-//
-//        graph.setNodeAsEntry('a');
-//
-//        graph.pruneFromNode('a');
-//
-//        assert.equal(graph.getState(), Map());
-//      });
     });
     describe('.setNodeAsEntry', () => {
       it('should allow nodes to be denoted as entry nodes', () => {
@@ -599,6 +520,91 @@ describe('cyclic-dependency-graph/graph', () => {
 
       pendingJobs = [];
       assert.isFalse(isNodePending(pendingJobs, 'test'));
+    });
+  });
+  describe('pruning cyclic graphs', () => {
+    it('should handle cyclic graphs 1', () => {
+      const graph = createGraph({
+        state: createNodesFromNotation(`
+          a -> b -> c -> b
+        `)
+      });
+
+      graph.pruneFromNode('a');
+      graph.pruneDisconnectedNodes();
+
+      assert.equal(graph.getState(), Map());
+    });
+    it('should handle cyclic graphs 2', () => {
+      const graph = createGraph({
+        state: createNodesFromNotation(`
+          a -> b -> c -> d -> b
+        `)
+      });
+
+      graph.pruneFromNode('a');
+      graph.pruneDisconnectedNodes();
+
+      assert.equal(graph.getState(), Map());
+    });
+    it('should handle cyclic graphs 3', () => {
+      const graph = createGraph({
+        state: createNodesFromNotation(`
+          a -> b -> c -> d -> b
+          c -> b
+        `)
+      });
+
+      graph.pruneFromNode('a');
+      graph.pruneDisconnectedNodes();
+
+      assert.equal(graph.getState(), Map());
+    });
+    it('should handle cyclic graphs 4', () => {
+      const graph = createGraph({
+        state: createNodesFromNotation(`
+          a -> b -> c -> d -> b
+          c -> b
+        `)
+      });
+
+      graph.setNodeAsEntry('a');
+
+      graph.pruneFromNode('b');
+
+      assert.equal(
+        graph.getState(),
+        Map({
+          a: Node({name: 'a', isEntryNode: true})
+        })
+      );
+    });
+    it('should successfully prune a graph representing a tournament', () => {
+      // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
+
+      const graph = createGraph({
+        state: createNodesFromNotation(`
+          a -> b
+          a -> c
+          a -> d
+          b -> a
+          b -> c
+          b -> d
+          c -> a
+          c -> b
+          c -> d
+          d -> a
+          d -> b
+          d -> c
+        `)
+      });
+
+      graph.setNodeAsEntry('a');
+
+      graph.pruneFromNode('a');
+      graph.pruneDisconnectedNodes();
+
+      assert.equal(graph.getState(), Map());
     });
   });
 });

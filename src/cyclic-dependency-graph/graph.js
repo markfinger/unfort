@@ -211,8 +211,10 @@ export function createGraph({state=Map(), getDependencies}={}) {
 
     let updatedState = previousState;
     disconnected.forEach(name => {
-      const data = pruneNodeAndUniqueDependencies(updatedState, name);
-      updatedState = data.nodes;
+      if (updatedState.has(name)) {
+        const data = pruneNodeAndUniqueDependencies(updatedState, name);
+        updatedState = data.nodes;
+      }
     });
     state = updatedState;
 
