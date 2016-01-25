@@ -5,21 +5,27 @@ import {pull, unique} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
 import {
-  addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
+  addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes,
+  pruneNodeAndUniqueDependencies
 } from './node';
+import {Diff} from './diff';
 
-export function createGraph({nodes=Map(), getDependencies}={}) {
+export function createGraph({state=Map(), getDependencies}={}) {
   const events = new EventEmitter;
   const pendingJobs = [];
-  let previousState = nodes;
+  let previousCompleteState = state;
   let errors = [];
   let hasSignalledStart = false;
 
-  // Enable multiple call sites to enqueue a 'complete' check that
-  // will occur asynchronously. Our events are emitted synchronously,
-  // so executing this check asynchronously enables code to respond to
-  // state changes by enqueueing more jobs before the 'complete' signal
-  // is emitted
+  /**
+   * Enable multiple call sites to enqueue a 'complete' check that
+   * will occur asynchronously. Our events are emitted synchronously,
+   * so executing this check asynchronously enables code to respond to
+   * state changes by enqueueing more jobs before the 'complete' signal
+   * is emitted
+   *
+   * @type {Function}
+   */
   const signalIfCompleted = callOnceAfterTick(
     function signalIfCompleted() {
       const hasPendingJobs = pendingJobs.some(job => job.isActive);
@@ -28,19 +34,27 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
       }
 
       const signal = {
-        state: nodes,
-        previousState: previousState,
+        diff: Diff({
+          from: previousCompleteState,
+          to: state
+        }),
         errors
       };
 
       errors = [];
-      previousState = nodes;
+      previousCompleteState = state;
       hasSignalledStart = false;
 
       events.emit('complete', signal);
     }
   );
 
+  /**
+   * Invoke the specified `getDependencies` function and build the
+   * graph by recursively traversing unknown nodes
+   *
+   * @param {String} name
+   */
   function traceFromNode(name) {
     const job = {
       node: name,
@@ -64,7 +78,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
 
     if (!hasSignalledStart) {
       hasSignalledStart = true;
-      events.emit('started', {state: nodes});
+      events.emit('started', {state: state});
     }
 
     function startTracingNode() {
@@ -87,7 +101,7 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
           const signal = {
             error: err,
             node: name,
-            state: nodes
+            state: state
           };
           errors.push(signal);
           events.emit('error', signal);
@@ -96,37 +110,41 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
 
         // Sanity check
         if (!isArray(dependencies)) {
-          throw new Error(`Dependencies should be specified in an array. Received ${dependencies}`);
+          throw new Error(
+            `Dependencies should be specified in an array. Received ${dependencies}`
+          );
         }
 
-        const previousState = nodes;
+        const previousState = state;
 
-        if (!isNodeDefined(nodes, name)) {
-          nodes = addNode(nodes, name);
+        if (!isNodeDefined(state, name)) {
+          state = addNode(state, name);
         }
 
         // If there are any dependencies encountered that we don't already
         // know about, we start tracing them
         dependencies.forEach(depName => {
           if (
-            !isNodeDefined(nodes, depName) &&
+            !isNodeDefined(state, depName) &&
             !isNodePending(pendingJobs, depName)
           ) {
             traceFromNode(depName);
           }
 
-          if (!isNodeDefined(nodes, depName)) {
-            nodes = addNode(nodes, depName);
+          if (!isNodeDefined(state, depName)) {
+            state = addNode(state, depName);
           }
 
-          nodes = addEdge(nodes, name, depName);
+          state = addEdge(state, name, depName);
         });
 
         // Enable progress updates
         events.emit('traced', {
           node: name,
-          state: nodes,
-          previousState
+          diff: Diff({
+            from: previousState,
+            to: state
+          })
         });
 
         signalIfCompleted();
@@ -134,126 +152,135 @@ export function createGraph({nodes=Map(), getDependencies}={}) {
     }
   }
 
+  /**
+   * Removes a node from the graph, then traverses its dependencies
+   * and removes any dependencies which are not dependencies of other
+   * nodes.
+   *
+   * @param {String} name
+   * @returns {Diff}
+   */
   function pruneFromNode(name) {
-    const isDefined = isNodeDefined(nodes, name);
-    const isPending = isNodePending(pendingJobs, name);
+    const previousState = state;
 
-    // If we don't know about the node and there are no pending jobs,
-    // then there's nothing to do
-    if (!isDefined && !isPending) {
-      return;
-    }
-
-    // If the node is still pending, we just invalidate the associated
-    // job so that it becomes a no-op
-    if (isPending && !isDefined) {
+    // If the node is still pending, invalidate the associated job so
+    // that it becomes a no-op
+    if (isNodePending(pendingJobs, name)) {
       invalidatePendingJobsForNode(pendingJobs, name);
-      return signalIfCompleted();
     }
 
-    // We prune the node from the graph, then walk through its dependencies
-    // and try to prune any that aren't depended on by other nodes
-    let {
-      nodes: updatedNodes,
-      pruned
-      } = pruneNodeAndUniqueDependencies(nodes, name);
+    if (isNodeDefined(state, name)) {
+      // We prune the node from the graph, then walk through its dependencies
+      // and try to prune any that aren't depended on by other nodes
+      let {nodes: updatedState, pruned} = pruneNodeAndUniqueDependencies(state, name);
 
-    // There are edge-cases where particular circular graphs may not have
-    // been pruned completely at this point, so we may still be persisting
-    // references to nodes which are disconnected to the entry nodes.
-    //
-    // An easy example of a situation that would cause this is a tournament.
-    // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
-    //
-    // To get around this problem, we need to walk the graph from the entry
-    // nodes, note any that are unreachable, and then prune them directly
-    const disconnectedNodes = findNodesDisconnectedFromEntryNodes(updatedNodes);
-    disconnectedNodes.forEach(name => {
-      if (isNodeDefined(updatedNodes, name)) {
-        const data = pruneNodeAndUniqueDependencies(updatedNodes, name);
-        updatedNodes = data.nodes;
-        pruned.push.apply(pruned, data.pruned);
-      }
-    });
-
-    // If a node's associated data is invalid and we're pruning it, it is
-    // more than likely that any pending jobs are equally invalid
-    pruned.forEach(name => {
-      invalidatePendingJobsForNode(pendingJobs, name)
-    });
-
-    const previousState = nodes;
-    nodes = updatedNodes;
-
-    // If a node has been invalidated, it's possible that a dependent may
-    // also need to be invalidated if its state depends the dependencies.
-    // So, we also indicate the nodes that are likely to impacted by the
-    // pruning
-    let nodesImpacted = [];
-    pruned.forEach(name => {
-      const prunedNode = previousState.get(name);
-      prunedNode.dependents.forEach(dependentName => {
-        if (nodes.has(dependentName)) {
-          nodesImpacted.push(dependentName);
-        }
+      // If a node's associated data is invalid and we're pruning it, it is
+      // more than likely that any pending jobs are equally invalid
+      pruned.forEach(name => {
+        invalidatePendingJobsForNode(pendingJobs, name)
       });
+
+      state = updatedState;
+    }
+
+    if (previousState !== state) {
+      signalIfCompleted();
+    }
+
+    return Diff({
+      from: previousState,
+      to: state
     });
-    // The iteration over `pruned` can produce duplicate node names
-    nodesImpacted = unique(nodesImpacted);
-
-    const signal = {
-      state: nodes,
-      previousState,
-      pruned,
-      nodesImpacted
-    };
-
-    events.emit('pruned', signal);
-
-    signalIfCompleted();
   }
 
-  function setNodeAsEntry(name) {
-    // Dependency graphs emerge from one or more entry nodes. The ability to
-    // distinguish an entry node from a normal dependency node allows us to
-    // aggressively prune a node and all of its dependencies.
-    //
-    // As a basic example of why the concept is important, if `a -> b -> c`
-    // and we want to prune `b`, we know that we can safely prune `c` as well.
-    //
-    // But if `a -> b -> c -> a` and we want to prune `b`, then we need to know
-    // that `a` is an entry node, so that we don't traverse the cyclic graph
-    // and prune every node.
-    //
-    // This concept becomes increasingly important once we start dealing with
-    // more complicated cyclic graphs, as pruning can result in disconnected
-    // sub-graphs. For example, if we have `a -> b -> c -> d -> b` and we want
-    // to prune `a`, we can't safely prune `b -> c -> d -> b` as well, as `b`
-    // has a dependent `d`. However, if we don't prune them, then they are
-    // left disconnected from the other nodes.
-    //
-    // Hence we need to know a graph's entry points so that we can traverse it
-    // from the entries and find the nodes which are disconnected
+  /**
+   * There are edge-cases where particular circular graphs may not have
+   * been pruned completely, so we may still be persisting references to
+   * nodes which are disconnected to the entry nodes.
+   *
+   * An easy example of a situation that can cause this is a tournament.
+   * https://en.wikipedia.org/wiki/Tournament_(graph_theory)
+   *
+   * To get around this problem, we need to walk the graph from the entry
+   * nodes, note any that are unreachable, and then prune them directly
+   *
+   * @returns {Diff}
+   */
+  function pruneDisconnectedNodes() {
+    const previousState = state;
 
-    if (!isNodeDefined(nodes, name)) {
-      nodes = addNode(nodes, name);
+    const disconnected = findNodesDisconnectedFromEntryNodes(state);
+
+    let updatedState = previousState;
+    disconnected.forEach(name => {
+      const data = pruneNodeAndUniqueDependencies(updatedState, name);
+      updatedState = data.nodes;
+    });
+    state = updatedState;
+
+    return Diff({
+      from: previousState,
+      to: state
+    });
+  }
+
+  /**
+   * Dependency graphs emerge from one or more entry nodes. The ability to
+   * distinguish an entry node from a normal dependency node allows us to
+   * aggressively prune a node and all of its dependencies.
+   *
+   * As a basic example of why the concept is important, if `a -> b -> c`
+   * and we want to prune `b`, we know that we can safely prune `c` as well.
+   *
+   * But if `a -> b -> c -> a` and we want to prune `b`, then we need to know
+   * that `a` is an entry node, so that we don't traverse the cyclic graph
+   * and prune every node.
+   *
+   * This concept becomes increasingly important once we start dealing with
+   * more complicated cyclic graphs, as pruning can result in disconnected
+   * sub-graphs. For example, if we have `a -> b -> c -> d -> b` and we want
+   * to prune `a`, we can't safely prune `b -> c -> d -> b` as well, as `b`
+   * has a dependent `d`. However, if we don't prune them, then they are
+   * left disconnected from the other nodes.
+   *
+   * Hence we need to know a graph's entry points so that we can traverse it
+   * from the entries and find the nodes which are disconnected
+   *
+   * @param {String} name
+   * @returns {Diff}
+   */
+  function setNodeAsEntry(name) {
+    const previousState = state;
+
+    if (!isNodeDefined(state, name)) {
+      state = addNode(state, name);
     }
 
-    nodes = defineEntryNode(nodes, name);
+    state = defineEntryNode(state, name);
+
+    return Diff({
+      from: previousState,
+      to: state
+    });
+  }
+
+  /**
+   * Returns the current state of the graph
+   *
+   * @returns {Map}
+   */
+  function getState() {
+    return state;
   }
 
   return {
     pendingJobs,
     events,
-    getNodes() {
-      return nodes;
-    },
-    traceFromNode,
+    getState,
     setNodeAsEntry,
+    traceFromNode,
     pruneFromNode,
-    hasNodeCompleted(name) {
-      return isNodeDefined(nodes, name);
-    }
+    pruneDisconnectedNodes
   };
 }
 
