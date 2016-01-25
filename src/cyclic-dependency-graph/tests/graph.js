@@ -424,6 +424,42 @@ describe('cyclic-dependency-graph/graph', () => {
         graph.pruneFromNode('a');
       });
     });
+    describe('.pruneDisconnectedNodes', () => {
+      it('should prune all nodes that are not connected to an entry', () => {
+        const graph = createGraph({
+          state: createNodesFromNotation(`
+            a -> b
+            c -> b
+            d
+          `)
+        });
+
+        graph.setNodeAsEntry('a');
+
+        const diff = graph.pruneDisconnectedNodes();
+
+        assert.deepEqual(
+          getPrunedNodesFromDiff(diff),
+          ['c', 'd']
+        );
+      });
+      it('should prune all nodes if there is no entry', () => {
+        const graph = createGraph({
+          state: createNodesFromNotation(`
+            a -> b
+            c -> b
+            d
+          `)
+        });
+
+        const diff = graph.pruneDisconnectedNodes();
+
+        assert.deepEqual(
+          getPrunedNodesFromDiff(diff),
+          ['a', 'b', 'c', 'd']
+        );
+      });
+    });
     describe('.setNodeAsEntry', () => {
       it('should allow nodes to be denoted as entry nodes', () => {
         const graph = createGraph({
