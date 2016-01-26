@@ -28,7 +28,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
    */
   const signalIfCompleted = callOnceAfterTick(
     function signalIfCompleted() {
-      const hasPendingJobs = pendingJobs.some(job => job.isActive);
+      const hasPendingJobs = pendingJobs.some(job => job.isValid);
       if (hasPendingJobs) {
         return;
       }
