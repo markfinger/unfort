@@ -382,22 +382,26 @@ describe('cyclic-dependency-graph/graph', () => {
       it('should invalidate any pending jobs related to the pruned nodes', () => {
         const graph = createGraph();
 
-        graph.pendingJobs.push({node: 'a', isValid: true});
+        const job = {node: 'a', isValid: true};
+        graph.pendingJobs.push(job);
 
         graph.pruneFromNode('a');
 
-        assert.isFalse(graph.pendingJobs[0].isValid);
+        assert.deepEqual(graph.pendingJobs, []);
+        assert.isFalse(job.isValid);
       });
       it('should invalidate any pending jobs for dependencies', () => {
         const graph = createGraph({
           state: createNodesFromNotation('a -> b')
         });
 
-        graph.pendingJobs.push({node: 'b', isValid: true});
+        const job = {node: 'b', isValid: true};
+        graph.pendingJobs.push(job);
 
         graph.pruneFromNode('a');
 
-        assert.isFalse(graph.pendingJobs[0].isValid);
+        assert.deepEqual(graph.pendingJobs, []);
+        assert.isFalse(job.isValid);
       });
       it('should trigger `complete` after pruning a node', (done) => {
         const graph = createGraph({
@@ -541,20 +545,13 @@ describe('cyclic-dependency-graph/graph', () => {
     });
   });
   describe('#isNodePending', () => {
-    it('should indicate if an active and pending job is associated with a node', () => {
+    it('should indicate if a pending job is associated with a node', () => {
       let pendingJobs = [{node: 'test', isValid: true}];
       assert.isTrue(isNodePending(pendingJobs, 'test'));
 
-      pendingJobs = [{node: 'test', isValid: false}, {node: 'test', isValid: true}];
-      assert.isTrue(isNodePending(pendingJobs, 'test'));
+      assert.isFalse(isNodePending([], 'test'));
 
-      pendingJobs = [{node: 'test', isValid: false}];
-      assert.isFalse(isNodePending(pendingJobs, 'test'));
-
-      pendingJobs = [{node: 'not test', isValid: false}];
-      assert.isFalse(isNodePending(pendingJobs, 'test'));
-
-      pendingJobs = [];
+      pendingJobs = [{node: 'not test', isValid: true}];
       assert.isFalse(isNodePending(pendingJobs, 'test'));
     });
   });

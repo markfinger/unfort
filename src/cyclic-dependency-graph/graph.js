@@ -28,8 +28,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
    */
   const signalIfCompleted = callOnceAfterTick(
     function signalIfCompleted() {
-      const hasPendingJobs = pendingJobs.some(job => job.isValid);
-      if (hasPendingJobs) {
+      if (pendingJobs.length) {
         return;
       }
 
@@ -61,14 +60,9 @@ export function createGraph({state=Map(), getDependencies}={}) {
       isValid: true
     };
 
-    // Invalidate any currently pending jobs for the same node
-    pendingJobs.forEach(job => {
-      if (job.node === name) {
-        job.isValid = false;
-      }
-    });
+    invalidatePendingJobsForNode(pendingJobs, name);
 
-    // Ensure the job can be tracked elsewhere
+    // Ensure the job can be tracked
     pendingJobs.push(job);
 
     // Force an asynchronous start to the tracing so that other parts of a
@@ -83,19 +77,18 @@ export function createGraph({state=Map(), getDependencies}={}) {
 
     function startTracingNode() {
       if (!job.isValid) {
-        pull(pendingJobs, job);
         return;
       }
 
       getDependencies(name, (err, dependencies) => {
-        // Indicate that this job is no longer blocking the `complete` stage
-        pull(pendingJobs, job);
-
         // If this job has been invalidated, we can ignore anything that may
         // have resulted from it
         if (!job.isValid) {
           return;
         }
+
+        // Indicate that this job is no longer blocking the `complete` stage
+        pull(pendingJobs, job);
 
         if (err) {
           const signal = {
@@ -155,7 +148,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
   /**
    * Removes a node from the graph, then traverses its dependencies
    * and removes any dependencies which are not dependencies of other
-   * nodes.
+   * nodes. Any pending jobs for the pruned nodes will be invalidated
    *
    * @param {String} name
    * @returns {Diff}
@@ -289,13 +282,14 @@ export function isNodeDefined(nodes, name) {
 }
 
 export function isNodePending(pendingJobs, name) {
-  return pendingJobs.some(job => {
-    return job.isValid && job.node === name;
-  });
+  return pendingJobs.some(job => job.node === name);
 }
 
 function invalidatePendingJobsForNode(pendingJobs, name) {
   pendingJobs
     .filter(job => job.node === name)
-    .forEach(job => job.isValid = false);
+    .forEach(job => {
+      job.isValid = false;
+      pull(pendingJobs, job);
+    });
 }
