@@ -12,7 +12,7 @@ import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {forOwn} from 'lodash/object';
 import {sample} from 'lodash/collection';
-import {nodeEnvHash} from '../env-hash';
+import {envHash} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
@@ -318,7 +318,7 @@ function traceFile(file, tree, caches, cb) {
   });
 }
 
-nodeEnvHash(process.cwd(), (err, hash) => {
+envHash(process.cwd(), (err, hash) => {
   if (err) throw err;
 
   async.parallel([

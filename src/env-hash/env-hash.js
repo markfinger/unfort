@@ -101,7 +101,7 @@ export function getOptions(overrides={}) {
   };
 }
 
-export function nodeEnvHash(options, cb) {
+export function envHash(options, cb) {
   if (!cb && isFunction(options)) {
     cb = options;
     options = getOptions();
