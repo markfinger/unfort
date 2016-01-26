@@ -7,55 +7,16 @@ import murmur from 'imurmurhash';
 import {startsWith} from 'lodash/string';
 import {assert} from '../utils/assert';
 import {createFileCache, createMockCache} from '../kv-cache';
-import {hashNpmDependencyTree} from '../env-hash';
+import {envHash} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
 } from '../dependencies/cached-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
+import {createGraph} from '../cyclic-dependency-graph';
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
-
-export function traceFile(file, tree, caches, cb) {
-  tree[file] = [];
-
-  fs.stat(file, (err, stat) => {
-    if (err) return cb(err);
-
-    getResolvedDependencies(file, stat, caches, (err, resolved) => {
-      if (err) {
-        err.message = `File: ${file}\n\n${err.message}`;
-        return cb(err);
-      }
-
-      tree[file] = resolved;
-
-      const untracedFiles = [];
-
-      resolved.forEach(dep => {
-        const filename = dep[1];
-        if (!tree[filename]) {
-          untracedFiles.push(filename);
-        }
-      });
-
-      if (untracedFiles.length) {
-        untracedFiles.forEach(file => {
-          tree[file] = {};
-        });
-
-        async.map(
-          untracedFiles,
-          (file, cb) => traceFile(file, tree, caches, cb),
-          cb
-        );
-      } else {
-        cb(null);
-      }
-    });
-  });
-}
 
 export function getResolvedDependencies(file, stat, caches, cb) {
   const key = file + stat.mtime.getTime();
@@ -129,46 +90,63 @@ export function createMockCaches() {
   }
 }
 
-export function _tracerPerf(caches, cb) {
-  const tree = Object.create(null);
-
-  async.parallel([
-    (cb) => traceFile(require.resolve('redux'), tree, caches, cb),
-    (cb) => traceFile(require.resolve('react'), tree, caches, cb),
-    (cb) => traceFile(require.resolve('imurmurhash'), tree, caches, cb),
-    (cb) => traceFile(require.resolve('whatwg-fetch'), tree, caches, cb),
-    (cb) => traceFile(require.resolve('glob'), tree, caches, cb)
-  ], (err) => {
-    cb(err, tree);
-  });
-}
-
 export function tracerPerf(useFileCache, cb) {
   const start = (new Date).getTime();
 
-  if (useFileCache) {
-    hashNpmDependencyTree(sourceRoot, (err, npmDependencyTreeHash) => {
-      if (err) return cb(err);
+  const entryPoints = [
+    require.resolve('redux'),
+    require.resolve('react'),
+    require.resolve('imurmurhash'),
+    require.resolve('whatwg-fetch'),
+    require.resolve('glob')
+  ];
 
-      _tracerPerf(createFileCaches(npmDependencyTreeHash), (err, tree) => {
-        assert.isNull(err);
-        assert.isObject(tree);
+  envHash(sourceRoot, (err, npmDependencyTreeHash) => {
+    if (err) return cb(err);
 
-        const end = (new Date).getTime() - start;
-        console.log(`Traced ${Object.keys(tree).length} records in ${end}ms with file caches`);
+    let caches;
+    if (useFileCache) {
+      caches = createFileCaches(npmDependencyTreeHash);
+    } else {
+      caches = createMockCaches();
+    }
 
-        cb();
-      });
+    const graph = createGraph({
+      getDependencies(file, cb) {
+        fs.stat(file, (err, stat) => {
+          if (err) return cb(err);
+
+          getResolvedDependencies(file, stat, caches, (err, resolved) => {
+            if (err) {
+              return cb(err);
+            }
+
+            cb(null, resolved.map(dep => dep[1]));
+          });
+        });
+      }
     });
-  } else {
-    _tracerPerf(createMockCaches(), (err, tree) => {
-      assert.isNull(err);
-      assert.isObject(tree);
 
+    graph.events.on('error', ({node, error}) => {
+      console.error(`Error while tracing ${node}\n\n${error.message}\n\n${error.stack}`);
+    });
+
+    graph.events.on('traced', () => process.stdout.write('.'));
+
+    graph.events.on('complete', ({errors, diff}) => {
+      process.stdout.write('\n');
+
+      if (errors.length) {
+        console.error('Errors while tracing');
+      }
+
+      const nodes = diff.to.keySeq().toArray();
+      const cacheDescription = useFileCache ? 'file' : 'mock';
       const end = (new Date).getTime() - start;
-      console.log(`Traced ${Object.keys(tree).length} records in ${end}ms with mock caches`);
 
-      cb();
+      console.log(`Traced ${nodes.length} records in ${end}ms with ${cacheDescription} caches`);
     });
-  }
+
+    entryPoints.forEach(file => graph.traceFromNode(file));
+  });
 }
