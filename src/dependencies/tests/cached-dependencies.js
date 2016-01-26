@@ -118,10 +118,10 @@ describe('dependencies/cached-dependencies', () => {
 
         assert.deepEqual(
           resolved,
-          [
-            ['./foo', require.resolve('./cached-dependencies/foo.js')],
-            ['bar', require.resolve('./cached-dependencies/node_modules/bar/browser.js')]
-          ]
+          {
+            './foo': require.resolve('./cached-dependencies/foo.js'),
+            'bar': require.resolve('./cached-dependencies/node_modules/bar/browser.js')
+          }
         );
 
         done();
@@ -176,10 +176,10 @@ describe('dependencies/cached-dependencies', () => {
 
         assert.deepEqual(
           resolved,
-          [
-            ['./foo', require.resolve('./cached-dependencies/foo.js')],
-            ['bar', require.resolve('./cached-dependencies/node_modules/bar/browser.js')]
-          ]
+          {
+            './foo': require.resolve('./cached-dependencies/foo.js'),
+            bar: require.resolve('./cached-dependencies/node_modules/bar/browser.js')
+          }
         );
 
         done();
@@ -190,7 +190,7 @@ describe('dependencies/cached-dependencies', () => {
       const file = require.resolve('./cached-dependencies/resolve-test');
       const key = 'test';
 
-      cache.set(key, [['bar', 'test']], (err) => {
+      cache.set(key, {'bar': 'test'}, (err) => {
         assert.isNull(err);
 
         function getFile(cb) {
@@ -217,7 +217,7 @@ describe('dependencies/cached-dependencies', () => {
 
         getCachedResolvedDependencies({
           cache,
-          key: 'test',
+          key,
           getDependencyIdentifiers,
           resolveIdentifier
         }, (err, resolved) => {
@@ -225,10 +225,10 @@ describe('dependencies/cached-dependencies', () => {
 
           assert.deepEqual(
             resolved,
-            [
-              ['./foo', require.resolve('./cached-dependencies/foo.js')],
-              ['bar', 'test']
-            ]
+            {
+              './foo': require.resolve('./cached-dependencies/foo.js'),
+              'bar': 'test'
+            }
           );
 
           done();

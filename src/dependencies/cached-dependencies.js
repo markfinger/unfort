@@ -1,7 +1,7 @@
 import path from 'path';
 import * as babylon from 'babylon';
 import async from 'async';
-import {zip, flatten} from 'lodash/array';
+import {assign} from 'lodash/object';
 import {analyzeBabelAstDependencies} from './analyze-babel-ast-dependencies';
 import {getCachedData} from './cache-utils';
 
@@ -44,6 +44,14 @@ export function getCachedDependencyIdentifiers({cache, key, getAst}, cb) {
   getCachedData({cache, key, compute}, cb);
 }
 
+function createObjectFromArrays(array1, array2) {
+  const obj = {};
+  array1.forEach((key, i) => {
+    obj[key] = array2[i];
+  });
+  return obj;
+}
+
 export function getAggressivelyCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}, cb) {
   function compute(cb) {
     getDependencyIdentifiers((err, identifiers) => {
@@ -52,10 +60,10 @@ export function getAggressivelyCachedResolvedDependencies({cache, key, getDepend
       async.map(
         identifiers,
         (identifier, cb) => resolveIdentifier(identifier, cb),
-        (err, resolvedIdentifiers) => {
+        (err, resolved) => {
           if (err) return cb(err);
 
-          cb(null, zip(identifiers, resolvedIdentifiers));
+          cb(null, createObjectFromArrays(identifiers, resolved));
         }
       );
     });
@@ -89,10 +97,10 @@ export function getCachedResolvedDependencies({cache, key, getDependencyIdentifi
         async.map(
           pathIdentifiers,
           (identifier, cb) => resolveIdentifier(identifier, cb),
-          (err, resolvedIdentifiers) => {
+          (err, resolved) => {
             if (err) return cb(err);
 
-            cb(null, zip(pathIdentifiers, resolvedIdentifiers));
+            cb(null, createObjectFromArrays(pathIdentifiers, resolved));
           }
         )
       },
@@ -103,20 +111,20 @@ export function getCachedResolvedDependencies({cache, key, getDependencyIdentifi
           async.map(
             packageIdentifiers,
             (identifier, cb) => resolveIdentifier(identifier, cb),
-            (err, resolvedIdentifiers) => {
+            (err, resolved) => {
               if (err) return cb(err);
 
-              cb(null, zip(packageIdentifiers, resolvedIdentifiers));
+              cb(null, createObjectFromArrays(packageIdentifiers, resolved));
             }
           );
         }
 
         getCachedData({cache, key, compute}, cb);
       }
-    ], (err, data) => {
+    ], (err, [resolvedPathIdentifiers, resolvedPackageIdentifiers]) => {
       if (err) return cb(err);
 
-      cb(null, flatten(data));
+      cb(null, assign(resolvedPathIdentifiers, resolvedPackageIdentifiers));
     });
   });
 }
