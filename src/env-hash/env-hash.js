@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import async from 'async';
 import murmur from 'imurmurhash';
-import {isFunction} from 'lodash/lang';
+import {isFunction, isObject} from 'lodash/lang';
 
 export function join(root, file) {
   if (path.isAbsolute(file)) {
@@ -106,6 +106,9 @@ export function envHash(options, cb) {
     cb = options;
     options = getOptions();
   } else {
+    if (!isObject(options)) {
+      throw new Error(`Options must be specified in an object. Received: ${options}`);
+    }
     options = getOptions(options);
   }
 
