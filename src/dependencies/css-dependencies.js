@@ -26,11 +26,18 @@ export function getCachedStyleSheetImports({cache, key, getAst}, cb) {
 }
 
 export function getDependencyIdentifiersFromStyleSheetAst(ast, cb) {
-  const identifiers = [];
+  const dependencies = [];
+
+  function addDependency(source) {
+    // Ensure that dependencies are only identified once
+    if (!dependencies.some(dep => dep.source === source)) {
+      dependencies.push({source});
+    }
+  }
 
   function accumulateDependencyIdentifiers(rule) {
-    const identifer = getDependencyIdentifierFromImportRule(rule);
-    identifiers.push(identifer);
+    const identifier = getDependencyIdentifierFromImportRule(rule);
+    addDependency(identifier);
   }
 
   try {
@@ -39,7 +46,7 @@ export function getDependencyIdentifiersFromStyleSheetAst(ast, cb) {
     return cb(err);
   }
 
-  cb(null, identifiers);
+  cb(null, dependencies);
 }
 
 export function getDependencyIdentifierFromImportRule(rule) {

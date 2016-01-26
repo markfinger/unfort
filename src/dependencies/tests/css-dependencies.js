@@ -46,7 +46,9 @@ describe('dependencies/css-dependencies', () => {
         assert.isNull(err);
         assert.deepEqual(
           imports,
-          ['foo.css']
+          [
+            {source: 'foo.css'}
+          ]
         );
         done();
       });
@@ -85,12 +87,12 @@ describe('dependencies/css-dependencies', () => {
         assert.deepEqual(
           identifiers,
           [
-            'fineprint.css',
-            'bluish.css',
-            'custom.css',
-            'chrome://communicator/skin/',
-            'common.css',
-            'landscape.css'
+            {source: 'fineprint.css'},
+            {source: 'bluish.css'},
+            {source: 'custom.css'},
+            {source: 'chrome://communicator/skin/'},
+            {source: 'common.css'},
+            {source: 'landscape.css'}
           ]
         );
 
