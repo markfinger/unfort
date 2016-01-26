@@ -145,6 +145,8 @@ export function tracerPerf(useFileCache, cb) {
       const end = (new Date).getTime() - start;
 
       console.log(`Traced ${nodes.length} records in ${end}ms with ${cacheDescription} caches`);
+
+      cb();
     });
 
     entryPoints.forEach(file => graph.traceFromNode(file));
