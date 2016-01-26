@@ -10,6 +10,7 @@ import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
 import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
+import {pull} from 'lodash/array';
 import {forOwn} from 'lodash/object';
 import {sample} from 'lodash/collection';
 import {envHash} from '../env-hash';
@@ -20,7 +21,7 @@ import {
 import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
-import {createGraph} from '../cyclic-dependency-graph';
+import {createGraph, getNewNodesFromDiff} from '../cyclic-dependency-graph';
 
 sourceMapSupport.install();
 
@@ -30,75 +31,70 @@ const entryFile = path.join(sourceRoot, 'src', 'server-test', 'entry.js');
 const runtimeFile = require.resolve('./runtime');
 const hmrRuntimeFile = require.resolve('./hmr-runtime');
 
+const graph = createGraph({
+  getDependencies
+});
+
+const entryPoints = [
+  runtimeFile,
+  hmrRuntimeFile,
+  entryFile
+];
+
 const tree = Object.create(null);
 const files = Object.create(null);
 const transformedFiles = Object.create(null);
 const sockets = [];
-
 const caches = createMockCaches();
 
-const watcher = chokidar.watch([], {
-  persistent: true
-});
+startServer(3000);
 
-watcher.on('change', (file) => {
-  console.log(`File changed: ${file}`);
-  onFileChange(file);
-});
+//const watcher = chokidar.watch([], {
+//  persistent: true
+//});
+//
+//watcher.on('change', (file) => {
+//  console.log(`File changed: ${file}`);
+//  onFileChange(file);
+//});
 
-const start = (new Date()).getTime();
+//function onFileChange(file) {
+//  transformedFiles[file] = undefined;
+//  files[file] = undefined;
+//
+//  traceFile(file, tree, caches, (err) => {
+//    if (err) throw err;
+//
+//    console.log(`traced ${file}`);
+//    sockets.forEach(socket => {
+//      socket.emit('hmr', {file, url: file.split(sourceRoot)[1]});
+//    });
+//  });
+//}
 
-function onFileChange(file) {
-  transformedFiles[file] = undefined;
-  files[file] = undefined;
-
-  traceFile(file, tree, caches, (err) => {
-    if (err) throw err;
-
-    console.log(`traced ${file}`);
-    sockets.forEach(socket => {
-      socket.emit('hmr', {file, url: file.split(sourceRoot)[1]});
-    });
-  });
-}
-
-function startWatcher() {
-  const files = Object.keys(tree).filter(file => {
-    return (
-      tree[file] && !startsWith(file, rootNodeModules)
-    );
-  });
-  watcher.add(files);
-  console.log('Watching', files);
-}
-
-const fileRefs = Object.create(null);
-function startServer(port, portPool) {
+//const fileRefs = Object.create(null);
+function startServer(port) {
   const app = express();
   const server = http.createServer(app);
   const io = socketIo(server);
 
   io.on('connection', (socket) => {
-    sockets.push(socket);
-
-    console.log('a user connected');
+    console.log('hmr connection opened');
 
     socket.on('disconnect', () => {
-      if (sockets.indexOf(socket)) {
-        sockets.splice(sockets.indexOf(socket), 1);
-      }
+      console.log('hmr connection closed');
 
-      console.log('user disconnected');
+      pull(sockets, socket);
     });
+
+    sockets.push(socket);
   });
 
   app.get('/', (req, res) => {
 
     function getUrl(file) {
       if (!fileRefs[file]) {
-        const relPath = file.split(sourceRoot)[1];
-        const selectedPort = sample(portPool);
-        fileRefs[file] = `http://127.0.0.1:${selectedPort}${relPath}`;
+        fileRefs[file] = file.split(sourceRoot)[1];
       }
       return fileRefs[file];
     }
@@ -182,7 +178,7 @@ function startServer(port, portPool) {
   });
 
   server.listen(port, '0.0.0.0', () => {
-    console.log(`listening at http://127.0.0.1:${port}`);
+    console.log(`Server: http://127.0.0.1:${port}`);
   });
 }
 
@@ -200,19 +196,7 @@ ${code}
 });`;
 }
 
-function traceFile(file, tree, caches, cb) {
-  process.stdout.write('.'); // progress
-
-  tree[file] = [];
-
-  function onTraceComplete(err) {
-    if (err) {
-      err.message = `Error in file: ${file}\n\n${err.message}`;
-      return cb(err);
-    }
-    cb(null);
-  }
-
+function getDependencies(file, cb) {
   fs.stat(file, (err, stat) => {
     if (err) return cb(err);
 
@@ -293,48 +277,49 @@ function traceFile(file, tree, caches, cb) {
     }
 
     function onDependenciesResolved(err, resolved) {
-      if (err) return onTraceComplete(err);
+      if (err) return cb(err);
 
-      tree[file] = resolved;
-
-      const untracedFiles = resolved
-        .filter(dep => !tree[dep[1]])
-        .map(dep => dep[1]);
-
-      if (!untracedFiles.length) {
-        return onTraceComplete(null);
-      }
-
-      untracedFiles.forEach(file => {
-        tree[file] = {};
-      });
-
-      async.map(
-        untracedFiles,
-        (file, cb) => traceFile(file, tree, caches, cb),
-        onTraceComplete
-      );
+      cb(null, resolved.map(dep => dep[1]));
     }
   });
 }
 
-envHash(process.cwd(), (err, hash) => {
+envHash((err, hash) => {
   if (err) throw err;
 
-  async.parallel([
-    (cb) => traceFile(runtimeFile, tree, caches, cb),
-    (cb) => traceFile(hmrRuntimeFile, tree, caches, cb),
-    (cb) => traceFile(entryFile, tree, caches, cb)
-  ], (err) => {
+  console.log(`Env hash: ${hash}`);
+
+  let traceStart;
+  graph.events.on('started', () => {
+    traceStart = (new Date()).getTime();
+    process.stdout.write('Tracing: ');
+  });
+
+  graph.events.on('traced', () => {
+    process.stdout.write('.');
+  });
+
+  graph.events.on('error', ({node, error}) => {
+    process.stdout.write('*');
+  });
+
+  graph.events.on('completed', ({errors, diff}) => {
     process.stdout.write('\n'); // clear the progress line
 
-    if (err) throw err;
-    const end = (new Date()).getTime() - start;
-    console.log(`traced ${Object.keys(tree).length} records in ${end}ms`);
+    const traceEnd = (new Date()).getTime();
+    const newNodes = getNewNodesFromDiff(diff);
+    console.log(`Traced: ${newNodes.length} file(s) in ${traceEnd - traceStart}ms`);
 
-    startWatcher();
+    if (errors.length) {
+      console.error(`Errors: ${errors.length} error(s) encountered during trace...`);
+      errors.forEach(({node, error}) => {
+        console.error(`\nFile: ${node}\nMessage: ${error.message}\nStack: ${error.stack}\n`);
+      });
+    }
+  });
 
-    const portPool = [3000, 3001];
-    portPool.forEach(port => startServer(port, portPool));
+  entryPoints.forEach(file => {
+    graph.setNodeAsEntry(file);
+    graph.traceFromNode(file);
   });
 });

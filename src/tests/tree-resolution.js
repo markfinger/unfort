@@ -24,8 +24,10 @@ describe('tests/tree-resolution', () => {
         const ast = babylon.parse(content, {sourceType: 'module'});
         const dependencies = analyzeBabelAstDependencies(ast);
 
+        const identifiers = dependencies.map(dep => dep.source);
+
         async.map(
-          dependencies,
+          identifiers,
           (dependency, cb) => {
             browserResolver(
               dependency,
@@ -38,7 +40,7 @@ describe('tests/tree-resolution', () => {
 
             const resolvedDependencies = {};
             resolved.forEach((dep, i) => {
-              resolvedDependencies[dependencies[i]] = dep;
+              resolvedDependencies[identifiers[i]] = dep;
             });
 
             record.resolvedDependencies = resolvedDependencies;

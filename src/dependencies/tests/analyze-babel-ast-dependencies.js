@@ -12,7 +12,13 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
       `);
 
       const dependencies = analyzeBabelAstDependencies(ast);
-      assert.deepEqual(dependencies, ['foo', 'bar']);
+      assert.deepEqual(
+        dependencies,
+        [
+          {source: 'foo'},
+          {source: 'bar'}
+        ]
+      );
     });
     it('should produce errors if `require` calls contain variables', () => {
       const ast = babylon.parse(`
@@ -51,7 +57,13 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
         {sourceType: 'module'}
       );
 
-      assert.deepEqual(analyzeBabelAstDependencies(ast), ['foo', 'bar']);
+      assert.deepEqual(
+        analyzeBabelAstDependencies(ast),
+        [
+          {source: 'foo'},
+          {source: 'bar'}
+        ]
+      );
     });
     it('should only identify a dependency once', () => {
       const ast = babylon.parse(
@@ -59,7 +71,12 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
         {sourceType: 'module'}
       );
 
-      assert.deepEqual(analyzeBabelAstDependencies(ast), ['foo']);
+      assert.deepEqual(
+        analyzeBabelAstDependencies(ast),
+        [
+          {source: 'foo'}
+        ]
+      );
     });
     it('should identify dependencies in export ... from \'...\' statements', () => {
       const ast = babylon.parse(`
@@ -70,7 +87,12 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
         {sourceType: 'module'}
       );
 
-      assert.deepEqual(analyzeBabelAstDependencies(ast), ['foo']);
+      assert.deepEqual(
+        analyzeBabelAstDependencies(ast),
+        [
+          {source: 'foo'}
+        ]
+      );
     });
   });
 });

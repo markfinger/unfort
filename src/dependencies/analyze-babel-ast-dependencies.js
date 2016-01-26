@@ -2,24 +2,32 @@ import {uniq} from 'lodash/array';
 import {isObject, isString} from 'lodash/lang';
 import traverse from 'babel-traverse';
 import * as types from 'babel-types';
+import {contains} from 'lodash/collection';
 
 export function analyzeBabelAstDependencies(ast) {
   if (!isObject(ast)) {
-    throw new Error(`An \`ast\` option must be provided`);
+    throw new Error(`An \`ast\` must be provided`);
   }
 
   const dependencies = [];
   const errors = [];
 
+  function addDependency(source) {
+    // Ensure that dependencies are only identified once
+    if (!dependencies.some(dep => dep.source === source)) {
+      dependencies.push({source});
+    }
+  }
+
   traverse(ast, {
     // `import ... from '...';
     ImportDeclaration(node) {
-      dependencies.push(node.node.source.value);
+      addDependency(node.node.source.value);
     },
     // `export ... from '...';
     ExportDeclaration(node) {
       if (node.node.source) {
-        dependencies.push(node.node.source.value);
+        addDependency(node.node.source.value);
       }
     },
     // `require('...');
@@ -28,7 +36,7 @@ export function analyzeBabelAstDependencies(ast) {
       if (callNode.callee.name === 'require') {
         const arg = callNode.arguments[0];
         if (types.isLiteral(arg)) {
-          dependencies.push(arg.value);
+          addDependency(arg.value);
         } else {
           let err = `Non-literal (${arg.type}) passed to \`require\` call`;
           if (arg.loc && arg.loc.start) {
@@ -44,6 +52,5 @@ export function analyzeBabelAstDependencies(ast) {
     throw new Error(errors.join('\n\n'));
   }
 
-  // Ensure that dependencies are only identified once
-  return uniq(dependencies);
+  return dependencies;
 }

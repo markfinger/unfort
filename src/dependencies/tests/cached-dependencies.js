@@ -59,8 +59,12 @@ describe('dependencies/cached-dependencies', () => {
       getCachedDependencyIdentifiers({file, cache, key: 'test', getAst}, (err, identifiers) => {
         assert.isNull(err);
         assert.deepEqual(
-          ['foo', 'bar', 'test'],
-          identifiers
+          identifiers,
+          [
+            {source: 'foo'},
+            {source: 'bar'},
+            {source: 'test'}
+          ]
         );
         done();
       });
@@ -94,7 +98,10 @@ describe('dependencies/cached-dependencies', () => {
       }
 
       function getDependencyIdentifiers(cb) {
-        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, cb);
+        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, (err, identifiers) => {
+          if (err) return cb(err);
+          cb(null, identifiers.map(identifier => identifier.source));
+        });
       }
 
       function resolveIdentifier(identifier, cb) {
@@ -149,7 +156,10 @@ describe('dependencies/cached-dependencies', () => {
       }
 
       function getDependencyIdentifiers(cb) {
-        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, cb);
+        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, (err, identifiers) => {
+          if (err) return cb(err);
+          cb(null, identifiers.map(identifier => identifier.source));
+        });
       }
 
       function resolveIdentifier(identifier, cb) {
@@ -192,7 +202,13 @@ describe('dependencies/cached-dependencies', () => {
         }
 
         function getDependencyIdentifiers(cb) {
-          getCachedDependencyIdentifiers({cache: createMockCache(), key: 'test', getAst}, cb);
+          getCachedDependencyIdentifiers(
+            {cache: createMockCache(), key: 'test', getAst},
+            (err, identifiers) => {
+              if (err) return cb(err);
+              cb(null, identifiers.map(identifier => identifier.source));
+            }
+          );
         }
 
         function resolveIdentifier(identifier, cb) {
