@@ -101,7 +101,7 @@ export function tracerPerf(useFileCache, cb) {
     require.resolve('glob')
   ];
 
-  envHash(sourceRoot, (err, npmDependencyTreeHash) => {
+  envHash({root: sourceRoot}, (err, npmDependencyTreeHash) => {
     if (err) return cb(err);
 
     let caches;
@@ -133,7 +133,7 @@ export function tracerPerf(useFileCache, cb) {
 
     graph.events.on('traced', () => process.stdout.write('.'));
 
-    graph.events.on('complete', ({errors, diff}) => {
+    graph.events.on('completed', ({errors, diff}) => {
       process.stdout.write('\n');
 
       if (errors.length) {
