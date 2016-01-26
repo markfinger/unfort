@@ -18,10 +18,10 @@ export function createGraph({state=Map(), getDependencies}={}) {
   let hasSignalledStart = false;
 
   /**
-   * Enable multiple call sites to enqueue a `complete` check that
+   * Enable multiple call sites to enqueue a `completed` check that
    * will occur asynchronously. Our events are emitted synchronously,
    * so executing this check asynchronously enables code to respond to
-   * state changes by enqueueing more jobs before the `complete` signal
+   * state changes by enqueueing more jobs before the `completed` signal
    * is emitted
    *
    * @type {Function}
@@ -44,7 +44,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
       previousCompleteState = state;
       hasSignalledStart = false;
 
-      events.emit('complete', signal);
+      events.emit('completed', signal);
     }
   );
 
@@ -87,7 +87,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
           return;
         }
 
-        // Indicate that this job is no longer blocking the `complete` stage
+        // Indicate that this job is no longer blocking the `completed` stage
         pull(pendingJobs, job);
 
         if (err) {

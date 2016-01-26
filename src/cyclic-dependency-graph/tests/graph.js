@@ -39,12 +39,12 @@ describe('cyclic-dependency-graph/graph', () => {
             called++;
           });
 
-          graph.events.once('complete', () => {
+          graph.events.once('completed', () => {
             graph.traceFromNode('a');
             graph.traceFromNode('b');
             graph.traceFromNode('c');
 
-            graph.events.once('complete', () => {
+            graph.events.once('completed', () => {
               assert.equal(called, 2);
 
               done();
@@ -56,7 +56,7 @@ describe('cyclic-dependency-graph/graph', () => {
           graph.traceFromNode('c');
         });
       });
-      describe('`complete`', () => {
+      describe('`completed`', () => {
         it('should be emitted once all tracing has completed', (done) => {
           const graph = createGraph({
             getDependencies(name, cb) {
@@ -64,7 +64,7 @@ describe('cyclic-dependency-graph/graph', () => {
             }
           });
 
-          graph.events.on('complete', () => {
+          graph.events.on('completed', () => {
             done();
           });
 
@@ -81,11 +81,11 @@ describe('cyclic-dependency-graph/graph', () => {
 
           graph.traceFromNode('a');
 
-          graph.events.once('complete', ({diff: diff1}) => {
+          graph.events.once('completed', ({diff: diff1}) => {
             assert.equal(diff1.from, initialState);
             assert.equal(diff1.to, graph.getState());
 
-            graph.events.once('complete', ({diff: diff2}) => {
+            graph.events.once('completed', ({diff: diff2}) => {
               assert.equal(diff2.from, diff1.to);
               assert.equal(diff2.to, graph.getState());
               done();
@@ -106,7 +106,7 @@ describe('cyclic-dependency-graph/graph', () => {
           graph.events.on('error', ({error, diff}) => {
             assert.equal(error, 'some error');
 
-            graph.events.on('complete', ({errors}) => {
+            graph.events.on('completed', ({errors}) => {
               assert.isArray(errors);
               assert.equal(errors.length, 1);
               assert.equal(errors[0].error, 'some error');
@@ -128,7 +128,7 @@ describe('cyclic-dependency-graph/graph', () => {
 
             graph.pendingJobs.push({node: 'test', isValid: true});
 
-            graph.events.on('complete', () => {
+            graph.events.on('completed', () => {
               throw new Error('This should not be reached');
             });
 
@@ -139,7 +139,7 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should not produce the same errors for separate runs', (done) => {
           // This checks to ensure that the graph resets its internal state
-          // after emitting complete
+          // after emitting completed
 
           const graph = createGraph({
             getDependencies(name, cb) {
@@ -150,11 +150,11 @@ describe('cyclic-dependency-graph/graph', () => {
           graph.events.once('error', ({error}) => {
             assert.equal(error, 'Error: a');
 
-            graph.events.once('complete', ({errors: firstErrors}) => {
+            graph.events.once('completed', ({errors: firstErrors}) => {
               graph.events.once('error', ({error}) => {
                 assert.equal(error, 'Error: b');
 
-                graph.events.once('complete', ({errors: secondErrors}) => {
+                graph.events.once('completed', ({errors: secondErrors}) => {
                   assert.notStrictEqual(firstErrors, secondErrors);
                   assert.notStrictEqual(firstErrors[0], secondErrors[0]);
                   done();
@@ -177,7 +177,7 @@ describe('cyclic-dependency-graph/graph', () => {
           graph.events.on('error', () => {
           });
 
-          graph.events.once('complete', ({errors}) => {
+          graph.events.once('completed', ({errors}) => {
             assert.equal(errors[0].error, 'Error: a');
             assert.equal(errors[1].error, 'Error: b');
             done();
@@ -243,7 +243,7 @@ describe('cyclic-dependency-graph/graph', () => {
             throw new Error('should not be reached');
           });
 
-          graph.events.on('complete', () => {
+          graph.events.on('completed', () => {
             done();
           });
 
@@ -299,7 +299,7 @@ describe('cyclic-dependency-graph/graph', () => {
           cb(null, []);
         }
 
-        graph.events.on('complete', () => {
+        graph.events.on('completed', () => {
           done();
         });
 
@@ -316,7 +316,7 @@ describe('cyclic-dependency-graph/graph', () => {
           }
         }
 
-        graph.events.on('complete', ({diff}) => {
+        graph.events.on('completed', ({diff}) => {
           assert.isTrue(diff.to.has('a'));
           assert.isTrue(diff.to.has('b'));
           assert.isTrue(diff.to.has('c'));
@@ -408,7 +408,7 @@ describe('cyclic-dependency-graph/graph', () => {
           state: createNodesFromNotation('a')
         });
 
-        graph.events.on('complete', () => {
+        graph.events.on('completed', () => {
           done();
         });
 
@@ -421,7 +421,7 @@ describe('cyclic-dependency-graph/graph', () => {
 
         graph.pendingJobs.push({node: 'b', isValid: true});
 
-        graph.events.on('complete', () => {
+        graph.events.on('completed', () => {
           throw new Error('Should not be called');
         });
 
@@ -521,7 +521,7 @@ describe('cyclic-dependency-graph/graph', () => {
         graph.setNodeAsEntry('a');
         graph.traceFromNode('a');
 
-        graph.events.on('complete', () => {
+        graph.events.on('completed', () => {
           const state = graph.getState();
           let nodes = createNodesFromNotation(`
             a -> b

@@ -37,7 +37,7 @@ graph.setNodeAsEntry(entryPoint1);
 graph.setNodeAsEntry(entryPoint2);
 
 // Wait for the graph to be built from each dependency
-graph.events.on('complete', ({diff, errors}) => {
+graph.events.on('completed', ({diff, errors}) => {
   if (errors.length) {
     return console.error('Errors during tracing!');
   }
@@ -107,7 +107,7 @@ Events
 }
 ```
 
-### complete
+### completed
 
 ```js
 {
