@@ -19,8 +19,12 @@ const graph = createGraph({
     // Get the dependencies for the node
     // ...
 
-    // Provide an array of other nodes are depended upon
-    cb(null, ['/path/to/dependency', '...']);
+    if (anErrorOccurred) {
+      return cb(err);
+    } else {
+      // Provide an array of other nodes are depended upon
+      cb(null, ['/path/to/dependency', '...']);
+    }
   }
 });
 
@@ -32,16 +36,7 @@ const entryPoint2 = '/path/to/file_2';
 graph.setNodeAsEntry(entryPoint1);
 graph.setNodeAsEntry(entryPoint2);
 
-// Start the process of building the graph
-graph.traceFromNode(entryPoint1);
-graph.traceFromNode(entryPoint2);
-
-graph.events.on('error', ({error, node}) => {
-  console.error(
-    `Error when tracing ${node}: ${error.message}\n\n${error.stack}`
-  );
-});
-
+// Wait for the graph to be built from each dependency
 graph.events.on('complete', ({diff, errors}) => {
   if (errors.length) {
     return console.error('Errors during tracing!');
@@ -51,6 +46,20 @@ graph.events.on('complete', ({diff, errors}) => {
 
   console.log(`Traced ${nodeNames.length} nodes:\n ${nodeNames.join('\n ')}`);
 });
+
+graph.events.on('error', ({error, node}) => {
+  console.error(
+    `Error when tracing ${node}: ${error.message}\n\n${error.stack}`
+  );
+});
+
+graph.events.on('traced', ({node}) => {
+  console.log(`Traced: ${node}`);
+});
+
+// Start the process of building the graph
+graph.traceFromNode(entryPoint1);
+graph.traceFromNode(entryPoint2);
 ```
 
 
