@@ -5,6 +5,7 @@ import * as babylon from 'babylon';
 import crypto from 'crypto';
 import murmur from 'imurmurhash';
 import {startsWith} from 'lodash/string';
+import {values} from 'lodash/object';
 import {assert} from '../utils/assert';
 import {createFileCache, createMockCache} from '../kv-cache';
 import {envHash} from '../env-hash';
@@ -30,7 +31,13 @@ export function getResolvedDependencies(file, stat, caches, cb) {
   }
 
   function getDependencyIdentifiers(cb) {
-    getCachedDependencyIdentifiers({cache: caches.dependencyIdentifiers, key, getAst}, cb)
+    getCachedDependencyIdentifiers(
+      {cache: caches.dependencyIdentifiers, key, getAst},
+      (err, identifiers) => {
+        if (err) return cb;
+        cb(null, identifiers.map(identifier => identifier.source));
+      }
+    );
   }
 
   function resolveIdentifier(identifier, cb) {
@@ -121,7 +128,7 @@ export function tracerPerf(useFileCache, cb) {
               return cb(err);
             }
 
-            cb(null, resolved.map(dep => dep[1]));
+            cb(null, values(resolved));
           });
         });
       }
