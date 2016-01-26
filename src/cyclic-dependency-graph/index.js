@@ -1,3 +1,10 @@
 export {createGraph} from './graph'
-export * from './node';
-export * from './utils';
+export {Node} from './node';
+export {
+  Diff,
+  mergeDiffs,
+  getNewNodesFromDiff,
+  getChangedNodes,
+  getPrunedNodesFromDiff
+} from './diff';
+export {createNodesFromNotation} from './utils';
