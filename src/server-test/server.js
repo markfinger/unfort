@@ -11,7 +11,7 @@ import murmur from 'imurmurhash';
 import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {pull} from 'lodash/array';
-import {forOwn} from 'lodash/object';
+import {forOwn, values} from 'lodash/object';
 import {sample} from 'lodash/collection';
 import {envHash} from '../env-hash';
 import {
@@ -245,15 +245,20 @@ function getDependencies(file, cb) {
     function getDependencyIdentifiers(cb) {
       const pathObj = path.parse(file);
 
+      function processDependencyIdentifiers(err, identifiers) {
+        if (err) return cb(err);
+        cb(null, identifiers.map(identifier => identifier.source));
+      }
+
       if (pathObj.ext === '.css') {
         getCachedStyleSheetImports(
           {cache: caches.dependencyIdentifiers, key, getAst: getCssAst},
-          cb
+          processDependencyIdentifiers
         );
       } else {
         getCachedDependencyIdentifiers(
           {cache: caches.dependencyIdentifiers, key, getAst: getJsAst},
-          cb
+          processDependencyIdentifiers
         );
       }
     }
@@ -279,7 +284,7 @@ function getDependencies(file, cb) {
     function onDependenciesResolved(err, resolved) {
       if (err) return cb(err);
 
-      cb(null, resolved.map(dep => dep[1]));
+      cb(null, values(resolved));
     }
   });
 }
