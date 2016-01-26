@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import async from 'async';
 import murmur from 'imurmurhash';
+import {assign} from 'lodash/object';
 import {isFunction, isObject} from 'lodash/lang';
 
 export function join(root, file) {
@@ -93,12 +94,11 @@ export function hashFileSystemDataLists(data) {
 }
 
 export function getOptions(overrides={}) {
-  return {
+  return assign({
     root: process.cwd(),
     files: ['package.json'],
-    directories: ['node_modules'],
-    ...overrides
-  };
+    directories: ['node_modules']
+  }, overrides);
 }
 
 export function envHash(options, cb) {
