@@ -107,7 +107,7 @@ export function envHash(options, cb) {
     options = getOptions();
   } else {
     if (!isObject(options)) {
-      throw new Error(`Options must be specified in an object. Received: ${options}`);
+      throw new Error(`Options must be specified in an object. Received: ${typeof options}`);
     }
     options = getOptions(options);
   }

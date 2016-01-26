@@ -4,7 +4,7 @@ import rimraf from 'rimraf';
 import mkdirp from 'mkdirp';
 import async from 'async';
 import {assert} from '../../utils/assert';
-import {hashFileSystemDataLists, readFileData, readDirectoryData} from '../env-hash';
+import {hashFileSystemDataLists, readFileData, readDirectoryData, envHash} from '../env-hash';
 import murmur from 'imurmurhash';
 
 describe('env-hash', () => {
@@ -143,6 +143,14 @@ describe('env-hash', () => {
     });
     it('should produce an empty string for no data', () => {
       assert.equal(hashFileSystemDataLists([]), '');
+    });
+  });
+  describe('#envHash', () => {
+    it('should throw if the options is specified, but not an object', () => {
+      assert.throw(
+        () => envHash('test', () => {}),
+        'Options must be specified in an object. Received: string'
+      );
     });
   });
 });
