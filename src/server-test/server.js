@@ -9,10 +9,10 @@ import * as babel from 'babel-core';
 import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
 import postcss from 'postcss';
-import {startsWith} from 'lodash/string';
+import {startsWith, repeat} from 'lodash/string';
 import {pull} from 'lodash/array';
 import {forOwn, values} from 'lodash/object';
-import {sample} from 'lodash/collection';
+import {contains} from 'lodash/collection';
 import {envHash} from '../env-hash';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
@@ -21,7 +21,9 @@ import {
 import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
-import {createGraph, getNewNodesFromDiff} from '../cyclic-dependency-graph';
+import {
+  createGraph, getNewNodesFromDiff, getPrunedNodesFromDiff, mergeDiffs
+} from '../cyclic-dependency-graph';
 
 sourceMapSupport.install();
 
@@ -45,18 +47,90 @@ const tree = Object.create(null);
 const files = Object.create(null);
 const transformedFiles = Object.create(null);
 const sockets = [];
-const caches = createMockCaches();
+//const caches = createMockCaches();
+let caches;
 
-startServer(3000);
+const watcher = chokidar.watch([], {
+  persistent: true
+});
 
-//const watcher = chokidar.watch([], {
-//  persistent: true
-//});
-//
-//watcher.on('change', (file) => {
-//  console.log(`File changed: ${file}`);
-//  onFileChange(file);
-//});
+watcher.on('change', (file) => {
+  console.log(`File changed: ${file}`);
+
+  graph.pruneNode(file);
+
+  if (contains(entryPoints, file)) {
+    graph.setNodeAsEntry(file);
+  }
+  graph.traceFromNode(file);
+});
+
+//startServer(3000);
+
+envHash((err, hash) => {
+  if (err) throw err;
+
+  caches = createFileCaches(hash);
+
+  console.log(`Env hash: ${hash}`);
+
+  let traceStart;
+  graph.events.on('started', () => {
+    traceStart = (new Date()).getTime();
+    process.stdout.write('Tracing: ');
+  });
+
+  graph.events.on('traced', ({node}) => {
+    process.stdout.write('.');
+    if (!startsWith(rootNodeModules, node)) {
+      watcher.add(node);
+    }
+  });
+
+  graph.events.on('error', () => {
+    process.stdout.write('*');
+  });
+
+  graph.events.on('completed', ({errors, diff}) => {
+    process.stdout.write('\n'); // clear the progress line
+
+    const elapsed = (new Date()).getTime() - traceStart;
+
+    const disconnectedDiff = graph.pruneDisconnectedNodes();
+
+    logGraphDiff(mergeDiffs(diff, disconnectedDiff), elapsed);
+
+    if (errors.length) {
+      console.error(`Errors: ${errors.length} error(s) encountered during trace...`);
+      errors.forEach(({node, error}) => {
+        console.error(`\nFile: ${node}\nMessage: ${error.message}\nStack: ${error.stack}\n`);
+      });
+    }
+  });
+
+  entryPoints.forEach(file => {
+    graph.setNodeAsEntry(file);
+    graph.traceFromNode(file);
+  });
+});
+
+function logGraphDiff(diff, elapsed) {
+  console.log(repeat('-', 80));
+
+  const newNodes = getNewNodesFromDiff(diff);
+  if (newNodes.length) {
+    console.log(`Traced: ${newNodes.length} file(s)`);
+  }
+
+  const prunedNodes = getPrunedNodesFromDiff(diff);
+  if (prunedNodes.length) {
+    console.log(`Pruned: ${prunedNodes.length} file(s)`);
+  }
+
+  console.log(`Tracing completed in ${elapsed}ms`);
+
+  console.log(repeat('-', 80));
+}
 
 //function onFileChange(file) {
 //  transformedFiles[file] = undefined;
@@ -196,7 +270,7 @@ ${code}
 });`;
 }
 
-function getDependencies(file, cb) {
+function buildJSFile(file, cb) {
   fs.stat(file, (err, stat) => {
     if (err) return cb(err);
 
@@ -289,42 +363,95 @@ function getDependencies(file, cb) {
   });
 }
 
-envHash((err, hash) => {
-  if (err) throw err;
+function getDependencies(file, cb) {
+  fs.stat(file, (err, stat) => {
+    if (err) return cb(err);
 
-  console.log(`Env hash: ${hash}`);
+    const key = file + stat.mtime.getTime();
 
-  let traceStart;
-  graph.events.on('started', () => {
-    traceStart = (new Date()).getTime();
-    process.stdout.write('Tracing: ');
-  });
+    function getFile(cb) {
+      fs.readFile(file, 'utf8', cb);
+    }
 
-  graph.events.on('traced', () => {
-    process.stdout.write('.');
-  });
+    function getJsAst(cb) {
+      if (startsWith(file, rootNodeModules) || file === runtimeFile) {
+        return getCachedAst({cache: caches.ast, key, getFile}, cb);
+      }
 
-  graph.events.on('error', ({node, error}) => {
-    process.stdout.write('*');
-  });
+      babel.transformFile(
+        file,
+        {
+          plugins: [
+            ['react-transform', {
+              transforms: [{
+                transform: 'react-transform-hmr',
+                imports: ['react'],
+                locals: ['module']
+              }]
+            }]
+          ]
+        },
+        (err, transformed) => {
+          if (err) return cb(err);
 
-  graph.events.on('completed', ({errors, diff}) => {
-    process.stdout.write('\n'); // clear the progress line
+          transformedFiles[file] = transformed.code;
 
-    const traceEnd = (new Date()).getTime();
-    const newNodes = getNewNodesFromDiff(diff);
-    console.log(`Traced: ${newNodes.length} file(s) in ${traceEnd - traceStart}ms`);
+          cb(null, transformed.ast);
+        }
+      );
+    }
 
-    if (errors.length) {
-      console.error(`Errors: ${errors.length} error(s) encountered during trace...`);
-      errors.forEach(({node, error}) => {
-        console.error(`\nFile: ${node}\nMessage: ${error.message}\nStack: ${error.stack}\n`);
+    function getCssAst(cb) {
+      fs.readFile(file, 'utf8', (err, text) => {
+        if (err) return cb(err);
+
+        buildPostCssAst({name: file, text}, cb);
       });
     }
-  });
 
-  entryPoints.forEach(file => {
-    graph.setNodeAsEntry(file);
-    graph.traceFromNode(file);
+    function getDependencyIdentifiers(cb) {
+      const pathObj = path.parse(file);
+
+      function processDependencyIdentifiers(err, identifiers) {
+        if (err) return cb(err);
+        cb(null, identifiers.map(identifier => identifier.source));
+      }
+
+      if (pathObj.ext === '.css') {
+        getCachedStyleSheetImports(
+          {cache: caches.dependencyIdentifiers, key, getAst: getCssAst},
+          processDependencyIdentifiers
+        );
+      } else {
+        getCachedDependencyIdentifiers(
+          {cache: caches.dependencyIdentifiers, key, getAst: getJsAst},
+          processDependencyIdentifiers
+        );
+      }
+    }
+
+    function resolveIdentifier(identifier, cb) {
+      browserResolver(identifier, path.dirname(file), cb);
+    }
+
+    // If the file is within the root node_modules, we can aggressively
+    // cache its resolved dependencies
+    if (startsWith(file, rootNodeModules)) {
+      getAggressivelyCachedResolvedDependencies(
+        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
+        onDependenciesResolved
+      );
+    } else {
+      getCachedResolvedDependencies(
+        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
+        onDependenciesResolved
+      );
+    }
+
+    function onDependenciesResolved(err, resolved) {
+      if (err) return cb(err);
+
+      cb(null, values(resolved));
+    }
   });
-});
+}
