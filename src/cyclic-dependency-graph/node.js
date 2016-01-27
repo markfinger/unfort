@@ -134,9 +134,8 @@ export function findNodesDisconnectedFromEntryNodes(nodes) {
 
   entries.forEach(checkFromNode);
 
-  return Object
-    .keys(disconnected)
-    .filter(name => disconnected[name]);
+  const keys = Object.keys(disconnected);
+  return keys.filter(name => disconnected[name]);
 }
 
 export function pruneNodeAndUniqueDependencies(nodes, name) {
