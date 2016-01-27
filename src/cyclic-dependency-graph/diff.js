@@ -46,7 +46,7 @@ export function getChangedNodes(diff) {
   const changedNodes = [];
   
   to.forEach((value, key) => {
-    if (!is(value, from.get(key))) {
+    if (from.has(key) && !is(value, from.get(key))) {
       changedNodes.push(key);
     }
   });
