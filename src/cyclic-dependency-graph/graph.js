@@ -5,12 +5,12 @@ import {pull, unique} from 'lodash/array';
 import {contains} from 'lodash/collection';
 import {callOnceAfterTick} from '../utils/call-once-after-tick';
 import {
-  addNode, addEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes,
-  pruneNodeAndUniqueDependencies
+  addNode, addEdge, removeEdge, removeNode, defineEntryNode,
+  findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
 } from './node';
 import {Diff} from './diff';
 
-export function createGraph({state=Map(), getDependencies}={}) {
+export function createGraph({state=Map(), getDependencies, trackStats=false}={}) {
   const events = new EventEmitter;
   const pendingJobs = [];
   let previousCompleteState = state;
@@ -146,14 +146,17 @@ export function createGraph({state=Map(), getDependencies}={}) {
   }
 
   /**
-   * Removes a node from the graph, then traverses its dependencies
-   * and removes any dependencies which are not dependencies of other
-   * nodes. Any pending jobs for the pruned nodes will be invalidated
+   * Removes a node and its edges from the graph. Any pending jobs for the
+   * node will be invalidated.
+   *
+   * Be aware that pruning a single node may leave other nodes disconnected
+   * from an entry node. You may want to call `pruneDisconnectedNodes` to
+   * clean the graph of unwanted dependencies.
    *
    * @param {String} name
    * @returns {Diff}
    */
-  function pruneFromNode(name) {
+  function pruneNode(name) {
     const previousState = state;
 
     // If the node is still pending, invalidate the associated job so
@@ -163,18 +166,23 @@ export function createGraph({state=Map(), getDependencies}={}) {
     }
 
     if (isNodeDefined(state, name)) {
-      // We prune the node from the graph, then walk through its dependencies
-      // and try to prune any that aren't depended on by other nodes
-      let {nodes: updatedState, pruned} = pruneNodeAndUniqueDependencies(state, name);
+      let updatedState = previousState;
 
-      // If a node's associated data is invalid and we're pruning it, it is
-      // more than likely that any pending jobs are equally invalid
-      pruned.forEach(name => {
-        invalidatePendingJobsForNode(pendingJobs, name)
+      const node = updatedState.get(name);
+
+      node.dependents.forEach(dependent => {
+        updatedState = removeEdge(updatedState, dependent, name);
       });
+
+      node.dependencies.forEach(dependency => {
+        updatedState = removeEdge(updatedState, name, dependency);
+      });
+
+      updatedState = removeNode(updatedState, name);
 
       state = updatedState;
     }
+
 
     signalIfCompleted();
 
@@ -272,7 +280,7 @@ export function createGraph({state=Map(), getDependencies}={}) {
     getState,
     setNodeAsEntry,
     traceFromNode,
-    pruneFromNode,
+    pruneNode,
     pruneDisconnectedNodes
   };
 }

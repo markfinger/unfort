@@ -353,30 +353,30 @@ describe('cyclic-dependency-graph/graph', () => {
         process.nextTick(done);
       });
     });
-    describe('.pruneFromNode', () => {
+    describe('.pruneNode', () => {
       it('should allow nodes to be pruned', () => {
         const graph = createGraph({
           state: createNodesFromNotation('a')
         });
 
-        const diff = graph.pruneFromNode('a');
+        const diff = graph.pruneNode('a');
 
         assert.deepEqual(
           getPrunedNodesFromDiff(diff),
           ['a']
         );
       });
-      it('should prune dependencies without dependents', () => {
+      it('should not prune dependencies without dependents', () => {
         const graph = createGraph({
           state: createNodesFromNotation('a -> b')
         });
 
 
-        const diff = graph.pruneFromNode('a');
+        const diff = graph.pruneNode('a');
 
         assert.deepEqual(
           getPrunedNodesFromDiff(diff),
-          ['a', 'b']
+          ['a']
         );
       });
       it('should invalidate any pending jobs related to the pruned nodes', () => {
@@ -385,20 +385,7 @@ describe('cyclic-dependency-graph/graph', () => {
         const job = {node: 'a', isValid: true};
         graph.pendingJobs.push(job);
 
-        graph.pruneFromNode('a');
-
-        assert.deepEqual(graph.pendingJobs, []);
-        assert.isFalse(job.isValid);
-      });
-      it('should invalidate any pending jobs for dependencies', () => {
-        const graph = createGraph({
-          state: createNodesFromNotation('a -> b')
-        });
-
-        const job = {node: 'b', isValid: true};
-        graph.pendingJobs.push(job);
-
-        graph.pruneFromNode('a');
+        graph.pruneNode('a');
 
         assert.deepEqual(graph.pendingJobs, []);
         assert.isFalse(job.isValid);
@@ -412,7 +399,7 @@ describe('cyclic-dependency-graph/graph', () => {
           done();
         });
 
-        graph.pruneFromNode('a');
+        graph.pruneNode('a');
       });
       it('should not trigger `complete` if there are pending jobs for un-pruned dependencies', () => {
         const graph = createGraph({
@@ -425,7 +412,7 @@ describe('cyclic-dependency-graph/graph', () => {
           throw new Error('Should not be called');
         });
 
-        graph.pruneFromNode('a');
+        graph.pruneNode('a');
       });
     });
     describe('.pruneDisconnectedNodes', () => {
@@ -485,7 +472,7 @@ describe('cyclic-dependency-graph/graph', () => {
 
         graph.setNodeAsEntry('a');
 
-        const diff = graph.pruneFromNode('a');
+        const diff = graph.pruneNode('a');
         assert.deepEqual(
           getPrunedNodesFromDiff(diff),
           ['a']
@@ -501,7 +488,7 @@ describe('cyclic-dependency-graph/graph', () => {
 
         graph.setNodeAsEntry('a');
 
-        const diff = graph.pruneFromNode('b');
+        const diff = graph.pruneNode('b');
         assert.deepEqual(
           getPrunedNodesFromDiff(diff),
           ['b']
@@ -563,7 +550,7 @@ describe('cyclic-dependency-graph/graph', () => {
         `)
       });
 
-      graph.pruneFromNode('a');
+      graph.pruneNode('a');
       graph.pruneDisconnectedNodes();
 
       assert.equal(graph.getState(), Map());
@@ -575,7 +562,7 @@ describe('cyclic-dependency-graph/graph', () => {
         `)
       });
 
-      graph.pruneFromNode('a');
+      graph.pruneNode('a');
       graph.pruneDisconnectedNodes();
 
       assert.equal(graph.getState(), Map());
@@ -588,7 +575,7 @@ describe('cyclic-dependency-graph/graph', () => {
         `)
       });
 
-      graph.pruneFromNode('a');
+      graph.pruneNode('a');
       graph.pruneDisconnectedNodes();
 
       assert.equal(graph.getState(), Map());
@@ -603,7 +590,8 @@ describe('cyclic-dependency-graph/graph', () => {
 
       graph.setNodeAsEntry('a');
 
-      graph.pruneFromNode('b');
+      graph.pruneNode('b');
+      graph.pruneDisconnectedNodes();
 
       assert.equal(
         graph.getState(),
@@ -634,7 +622,7 @@ describe('cyclic-dependency-graph/graph', () => {
 
       graph.setNodeAsEntry('a');
 
-      graph.pruneFromNode('a');
+      graph.pruneNode('a');
       graph.pruneDisconnectedNodes();
 
       assert.equal(graph.getState(), Map());
