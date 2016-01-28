@@ -22,7 +22,7 @@ export function readFileData(files, cb) {
         (cb) => fs.stat(file, cb)
       ], (err, data) => {
         if (err) {
-          err.message = `File: ${file}\n\n${err.message}`;
+          err.message = `File: ${file} - ${err.message}`;
           return cb(err);
         }
 
@@ -84,6 +84,7 @@ export function hashFileSystemDataLists(data) {
   let hash = new murmur(data[0][0]);
 
   data.forEach((entry, i) => {
+    // On the first iteration, skip the first cell as we applied it above
     if (i !== 0) {
       hash.hash(entry[0]);
     }
