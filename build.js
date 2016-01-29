@@ -14,7 +14,7 @@ const SOURCE_DIRS = [
 
 // Remove the previously built versions
 console.log('\nRemoving directories...');
-_.pluck(SOURCE_DIRS, 1).forEach(function(outputDir) {
+_.map(SOURCE_DIRS, 1).forEach(function(outputDir) {
   console.log(`Removing ${outputDir}`);
   const rm = child_process.spawnSync('rm', ['-rf', outputDir]);
 

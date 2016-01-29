@@ -31,7 +31,7 @@
     "express": "^4.13.3",
     "immutable": "^3.7.6",
     "imurmurhash": "^0.1.4",
-    "lodash": "^3.10.1",
+    "lodash": "^4.0.1",
     "mkdirp": "^0.5.1",
     "node-libs-browser": "^0.5.3",
     "postcss": "^5.0.14",
