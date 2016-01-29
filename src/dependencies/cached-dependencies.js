@@ -6,42 +6,38 @@ import {analyzeBabelAstDependencies} from './analyze-babel-ast-dependencies';
 import {getCachedData} from './cache-utils';
 
 
-export function getCachedAst({cache, key, getFile}, cb) {
-  function compute(cb) {
-    getFile((err, text) => {
-      if (err) return cb;
-
+export function getCachedAst({cache, key, getFile}) {
+  function compute() {
+    return getFile().then(text => {
       let ast;
       try {
         ast = babylon.parse(text, {sourceType: 'module'});
       } catch(err) {
-        return cb(err);
+        return Promise.reject(err);
       }
 
-      cb(null, ast);
+      return Promise.resolve(ast);
     });
   }
 
-  getCachedData({cache, key, compute}, cb);
+  return getCachedData({cache, key, compute});
 }
 
-export function getCachedDependencyIdentifiers({cache, key, getAst}, cb) {
-  function compute(cb) {
-    getAst((err, ast) => {
-      if (err) return cb(err);
-
+export function getCachedDependencyIdentifiers({cache, key, getAst}) {
+  function compute() {
+    return getAst().then(ast => {
       let identifiers;
       try {
         identifiers = analyzeBabelAstDependencies(ast);
       } catch(err) {
-        return cb(err);
+        return Promise.reject(err);
       }
 
-      cb(null, identifiers);
+      return Promise.resolve(identifiers);
     });
   }
 
-  getCachedData({cache, key, compute}, cb);
+  return getCachedData({cache, key, compute});
 }
 
 function createObjectFromArrays(array1, array2) {
@@ -52,30 +48,22 @@ function createObjectFromArrays(array1, array2) {
   return obj;
 }
 
-export function getAggressivelyCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}, cb) {
-  function compute(cb) {
-    getDependencyIdentifiers((err, identifiers) => {
-      if (err) return cb(err);
-
-      async.map(
-        identifiers,
-        (identifier, cb) => resolveIdentifier(identifier, cb),
-        (err, resolved) => {
-          if (err) return cb(err);
-
-          cb(null, createObjectFromArrays(identifiers, resolved));
-        }
-      );
+export function getAggressivelyCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}) {
+  function compute() {
+    return getDependencyIdentifiers().then(identifiers => {
+      return Promise.all(
+        identifiers.map(identifier => resolveIdentifier(identifier))
+      ).then(resolved => {
+        return createObjectFromArrays(identifiers, resolved);
+      });
     });
   }
 
-  getCachedData({cache, key, compute}, cb);
+  return getCachedData({cache, key, compute});
 }
 
-export function getCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}, cb) {
-  getDependencyIdentifiers((err, identifiers) => {
-    if (err) return cb(err);
-
+export function getCachedResolvedDependencies({cache, key, getDependencyIdentifiers, resolveIdentifier}) {
+  return getDependencyIdentifiers().then(identifiers => {
     const pathIdentifiers = [];
     const packageIdentifiers = [];
     identifiers.forEach(identifier => {
@@ -86,45 +74,34 @@ export function getCachedResolvedDependencies({cache, key, getDependencyIdentifi
       }
     });
 
-    async.parallel([
+    return Promise.all([
       // If a dependency identifier is relative (./ ../) or absolute (/), there are
       // edge-cases where caching the resolved path may produce the wrong result.
       // For example: an identifier "./foo" may resolve to either a "./foo.js" or
       // or "./foo/index.js". Detecting these cases is problematic, so we avoid the
       // problem by ensuring that the resolver always inspects the file system for
       // path-based identifiers
-      (cb) => {
-        async.map(
-          pathIdentifiers,
-          (identifier, cb) => resolveIdentifier(identifier, cb),
-          (err, resolved) => {
-            if (err) return cb(err);
+      Promise.all(
+        pathIdentifiers.map(identifier => resolveIdentifier(identifier))
+      ).then(
+        resolved => createObjectFromArrays(pathIdentifiers, resolved)
+      ),
 
-            cb(null, createObjectFromArrays(pathIdentifiers, resolved));
-          }
-        )
-      },
       // If a dependency identifier refers to a package (eg: is not a path-based identifier),
       // we can cache the resolved path and leave higher levels to perform cache invalidation
-      (cb) => {
-        function compute(cb) {
-          async.map(
-            packageIdentifiers,
-            (identifier, cb) => resolveIdentifier(identifier, cb),
-            (err, resolved) => {
-              if (err) return cb(err);
-
-              cb(null, createObjectFromArrays(packageIdentifiers, resolved));
-            }
-          );
+      Promise.resolve().then(() => {
+        function compute() {
+          return Promise.all(
+            packageIdentifiers.map(identifier => resolveIdentifier(identifier))
+          ).then(resolved => {
+            return createObjectFromArrays(packageIdentifiers, resolved);
+          });
         }
 
-        getCachedData({cache, key, compute}, cb);
-      }
-    ], (err, [resolvedPathIdentifiers, resolvedPackageIdentifiers]) => {
-      if (err) return cb(err);
-
-      cb(null, assign(resolvedPathIdentifiers, resolvedPackageIdentifiers));
+        return getCachedData({cache, key, compute});
+      })
+    ]).then(([resolvedPathIdentifiers, resolvedPackageIdentifiers]) => {
+      return assign(resolvedPathIdentifiers, resolvedPackageIdentifiers);
     });
   });
 }

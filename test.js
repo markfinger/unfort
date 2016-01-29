@@ -6,12 +6,14 @@ const tracerPerf = require('./lib/tests/tracer-perf');
 
 profiler.startProfiling('1', true);
 
-tracerPerf.tracerPerf(false, function() {
+tracerPerf.tracerPerf(false).then(function() {
   var profile1 = profiler.stopProfiling();
 
   profile1.export(function(error, result) {
     fs.writeFileSync(+new Date() + '.cpuprofile', result);
     profile1.delete();
   });
+}).catch(function(err) {
+  throw err;
 });
 

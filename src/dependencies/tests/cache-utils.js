@@ -4,30 +4,25 @@ import {getCachedData} from '../cache-utils';
 
 describe('dependencies/cache_utils', () => {
   describe('#getCachedData', () => {
-    it('should call the compute function if no data is available', (done) => {
+    it('should call the compute function if no data is available', () => {
       const cache = createMockCache();
-      function compute(cb) {
-        cb(null, 'foo');
+      function compute() {
+        return Promise.resolve('foo');
       }
-      getCachedData({cache, key: 'test', compute}, (err, data) => {
-        assert.isNull(err);
-        assert.equal(data, 'foo');
-        done();
-      });
+      return getCachedData({cache, key: 'test', compute})
+        .then(data => {
+          assert.equal(data, 'foo');
+        });
     });
-    it('should not call the compute function if data is available', (done) => {
+    it('should not call the compute function if data is available', () => {
       const cache = createMemoryCache();
       function compute() {
         throw new Error('should not be called');
       }
 
-      cache.set('test', 'foo', (err) => {
-        assert.isNull(err);
-
-        getCachedData({cache, key: 'test', compute}, (err, data) => {
-          assert.isNull(err);
+      return cache.set('test', 'foo').then(() => {
+        return getCachedData({cache, key: 'test', compute}).then(data => {
           assert.equal(data, 'foo');
-          done();
         });
       });
     });

@@ -13,35 +13,30 @@ describe('mock-cache', () => {
       assert.isFunction(cache.get);
       assert.isFunction(cache.set);
     });
-    it('should always return nulls for gets', (done) => {
+    it('should always return nulls for gets', () => {
       const cache = createMockCache();
 
-      cache.get('test', (err, value) => {
-        assert.isNull(err);
-        assert.isNull(value);
-        done();
-      });
-    });
-    it('should allow `set` calls', (done) => {
-      const cache = createMockCache();
-
-      cache.set('test', {}, (err) => {
-        assert.isNull(err);
-        done();
-      });
-    });
-    it('should not persist any data', (done) => {
-      const cache = createMockCache();
-
-      cache.set('test', {}, (err) => {
-        assert.isNull(err);
-
-        cache.get('test', (err, value) => {
-          assert.isNull(err);
+      return cache.get('test')
+        .then(value => {
           assert.isNull(value);
-          done();
         });
+    });
+    it('should allow `set` calls', () => {
+      const cache = createMockCache();
+      const value = {};
+
+      cache.set('test', value).then(_value => {
+        assert.strictEqual(_value, value);
       });
+    });
+    it('should not persist any data', () => {
+      const cache = createMockCache();
+
+      cache.set('test', {})
+        .then(() => cache.get('test'))
+        .then(value => {
+          assert.isNull(value);
+        });
     });
   });
 });

@@ -5,29 +5,24 @@ import {browserResolver} from '../browser-resolver';
 
 describe('dependencies/browser-resolver', () => {
   describe('#browserResolver', () => {
-    it('should correctly resolve `browser` dependencies', (done) => {
-      browserResolver('__resolve_test_case__', __dirname, (err, resolved) => {
-        assert.isNull(err);
+    it('should correctly resolve `browser` dependencies', () => {
+      return browserResolver('__resolve_test_case__', __dirname).then(resolved => {
         assert.equal(
           resolved,
           path.join(__dirname, 'node_modules', '__resolve_test_case__', 'browser.js')
         );
-        done();
       });
     });
-    it('should map to packages that replace node core libraries', (done) => {
-      browserResolver('path', __dirname, (err, resolved) => {
-        assert.isNull(err);
+    it('should map to packages that replace node core libraries', () => {
+      return browserResolver('path', __dirname).then(resolved => {
         assert.equal(resolved, nodeCoreLibs.path);
-        done();
       });
     });
-    it('should provide helpful error messages for failed lookups', (done) => {
-      browserResolver('__non_existent_package__', __dirname, (err) => {
+    it('should provide helpful error messages for failed lookups', () => {
+      return browserResolver('__non_existent_package__', __dirname).catch(err => {
         assert.instanceOf(err, Error);
         assert.include(err.message, '__non_existent_package');
         assert.include(err.message, __dirname);
-        done();
       });
     });
   });

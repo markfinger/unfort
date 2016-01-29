@@ -8,11 +8,11 @@ export function createMemoryCache(options={}) {
   const events = new EventEmitter();
 
   return {
-    get(key, cb) {
+    get(key) {
       key = generateHash(key);
 
       if (cache[key] === undefined) {
-        return cb(null, null);
+        return Promise.resolve(null);
       }
 
       const json = cache[key];
@@ -22,12 +22,12 @@ export function createMemoryCache(options={}) {
         data = JSON.parse(json);
       } catch(err) {
         events.emit('error', err);
-        return cb(err);
+        return Promise.reject(err);
       }
 
-      return cb(null, data);
+      return Promise.resolve(data);
     },
-    set(key, value, cb) {
+    set(key, value) {
       key = generateHash(key);
 
       let json;
@@ -35,25 +35,19 @@ export function createMemoryCache(options={}) {
         json = JSON.stringify(value);
       } catch(err) {
         events.emit('error', err);
-        if (cb) {
-          return cb(err);
-        }
+        return Promise.reject(err);
       }
 
       cache[key] = json;
 
-      if (cb) {
-        cb(null);
-      }
+      return Promise.resolve(value);
     },
-    invalidate(key, cb) {
+    invalidate(key) {
       key = generateHash(key);
 
       cache[key] = undefined;
 
-      if (cb) {
-        cb(null);
-      }
+      return Promise.resolve(null);
     },
     events,
     _memoryCache: cache

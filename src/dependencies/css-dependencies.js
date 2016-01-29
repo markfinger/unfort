@@ -2,30 +2,26 @@ import postcss from 'postcss';
 import {startsWith} from 'lodash/string';
 import {getCachedData} from './cache-utils';
 
-export function buildPostCssAst({name, text}, cb) {
+export function buildPostCssAst({name, text}) {
   let ast;
   try {
     ast = postcss.parse(text, {from: name});
   } catch(err) {
-    return cb(err);
+    return Promise.reject(err);
   }
 
-  cb(null, ast);
+  return Promise.resolve(ast);
 }
 
-export function getCachedStyleSheetImports({cache, key, getAst}, cb) {
-  function compute(cb) {
-    getAst((err, ast) => {
-      if (err) return cb(err);
-
-      getDependencyIdentifiersFromStyleSheetAst(ast, cb);
-    });
+export function getCachedStyleSheetImports({cache, key, getAst}) {
+  function compute() {
+    return getAst().then(ast => getDependencyIdentifiersFromStyleSheetAst(ast))
   }
 
-  getCachedData({cache, key, compute}, cb);
+  return getCachedData({cache, key, compute});
 }
 
-export function getDependencyIdentifiersFromStyleSheetAst(ast, cb) {
+export function getDependencyIdentifiersFromStyleSheetAst(ast) {
   const dependencies = [];
 
   function addDependency(source) {
@@ -43,10 +39,10 @@ export function getDependencyIdentifiersFromStyleSheetAst(ast, cb) {
   try {
     ast.walkAtRules('import', accumulateDependencyIdentifiers);
   } catch(err) {
-    return cb(err);
+    return Promise.reject(err);
   }
 
-  cb(null, dependencies);
+  return Promise.resolve(dependencies);
 }
 
 export function getDependencyIdentifierFromImportRule(rule) {

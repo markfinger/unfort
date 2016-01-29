@@ -1,15 +1,13 @@
-export function getCachedData({cache, key, compute}, cb) {
-  cache.get(key, (err, data) => {
-    if (err || data) return cb(err, data);
+export function getCachedData({cache, key, compute}) {
+  return cache.get(key).then(data => {
+    if (data) return data;
 
-    compute((err, data) => {
-      if (err) return cb(err);
-
+    return compute().then(data => {
       if (data) {
         cache.set(key, data);
       }
 
-      cb(null, data);
+      return data;
     });
   });
 }

@@ -29,7 +29,7 @@ describe('file-cache', () => {
       }
     });
 
-    it('should be able to read from a cache directory', (done) => {
+    it('should be able to read from a cache directory', () => {
       mkdirp.sync(dirname);
 
       fs.writeFileSync(
@@ -39,136 +39,106 @@ describe('file-cache', () => {
 
       const cache = createFileCache(dirname);
 
-      cache.get('test', (err, data) => {
-        assert.isNull(err);
+      return cache.get('test').then(data => {
         assert.deepEqual(data, {foo: 'bar'});
 
-        cache.get('missing', (err, data) => {
-          assert.isNull(err);
+        return cache.get('missing').then(data => {
           assert.isNull(data);
-          done();
         });
       });
     });
-    it('should be able to write to a cache directory', (done) => {
+    it('should be able to write to a cache directory', () => {
       const cache = createFileCache(dirname);
 
-      cache.set('test', {bar: 'foo'}, (err) => {
-        assert.isNull(err);
-
+      return cache.set('test', {bar: 'foo'}).then(() => {
         assert.equal(
           fs.readFileSync(TEST_KEY_FILENAME, 'utf8'),
           JSON.stringify({bar: 'foo'})
         );
-
-        done();
       });
     });
-    it('should be able to read and write from the cache', (done) => {
+    it('should be able to read and write from the cache', () => {
       const cache = createFileCache(dirname);
 
-      cache.get('test', (err, data) => {
-        assert.isNull(err);
+      return cache.get('test').then(data => {
         assert.isNull(data);
 
-        cache.set('test', {foo: 'bar'}, (err) => {
-          assert.isNull(err);
-
-          cache.get('test', (err, data) => {
-            assert.isNull(err);
+        return cache.set('test', {foo: 'bar'}).then(() => {
+          return cache.get('test').then(data => {
             assert.deepEqual(data, {foo: 'bar'});
-            done();
           });
         });
       });
     });
-    it('should be able to invalidate an entry in the cache', (done) => {
+    it('should be able to invalidate an entry in the cache', () => {
       const cache = createFileCache(dirname);
 
-      cache.set('test', {foo: 'bar'}, (err) => {
-        assert.isNull(err);
-
-        cache.invalidate('test', (err) => {
-          assert.isNull(err);
-
-          cache.get('test', (err, data) => {
-            assert.isNull(err);
-            assert.isNull(data);
-            done();
-          });
+      return cache.set('test', {foo: 'bar'})
+        .then(() => cache.invalidate('test'))
+        .then(() => cache.get('test'))
+        .then(data => {
+          assert.isNull(data);
         });
-      });
     });
     it('should remove the cache file when invalidating an entry', (done) => {
       const cache = createFileCache(dirname);
 
-      cache.set('test', {foo: 'bar'}, (err) => {
-        assert.isNull(err);
-
-        const stat = fs.statSync(TEST_KEY_FILENAME);
-        assert.isTrue(stat.isFile());
-
-        cache.invalidate('test', (err) => {
-          assert.isNull(err);
-
+      return cache.set('test', {foo: 'bar'})
+        .then(() => {
+          const stat = fs.statSync(TEST_KEY_FILENAME);
+          assert.isTrue(stat.isFile());
+        })
+        .then(() => cache.invalidate('test'))
+        .then(() => {
           fs.stat(TEST_KEY_FILENAME, (err) => {
             assert.instanceOf(err, Error);
             assert.equal(err.code, 'ENOENT');
             done();
           });
         });
-      });
     });
-    it('should populate an in-memory cache when setting entries', (done) => {
+    it('should populate an in-memory cache when setting entries', () => {
       const cache = createFileCache(dirname);
 
-      cache.set('test', {foo: 'bar'}, (err) => {
-        assert.isNull(err);
-
-        assert.equal(
-          cache._memoryCache[TEST_KEY_FILENAME],
-          JSON.stringify({foo: 'bar'})
-        );
-        done();
-      });
+      return cache.set('test', {foo: 'bar'})
+        .then(() => {
+          assert.equal(
+            cache._memoryCache[TEST_KEY_FILENAME],
+            JSON.stringify({foo: 'bar'})
+          );
+        });
     });
-    it('should fetch from the in-memory cache before hitting the FS', (done) => {
+    it('should fetch from the in-memory cache before hitting the FS', () => {
       const cache = createFileCache(dirname);
 
       cache._memoryCache[TEST_KEY_FILENAME] = '{"test": 1}';
 
-      cache.get('test', (err, data) => {
-        assert.isNull(err);
+      return cache.get('test').then(data => {
         assert.deepEqual(data, {test: 1});
-        done();
       });
     });
-    it('should remove entries from the in-memory cache when they are invalidated', (done) => {
+    it('should remove entries from the in-memory cache when they are invalidated', () => {
       const cache = createFileCache(dirname);
 
       cache._memoryCache[TEST_KEY_FILENAME] = '{"test": 1}';
 
-      cache.invalidate('test', (err) => {
-        assert.isNull(err);
+      return cache.invalidate('test').then(() => {
         assert.isUndefined(cache._memoryCache[TEST_KEY_FILENAME]);
-        done();
       });
     });
-    it('should accept a `generateHash` option', (done) => {
+    it('should accept a `generateHash` option', () => {
       const generateHash = () => {
         return 'test'
       };
 
       const cache = createFileCache(dirname, {generateHash});
 
-      cache.set('foo', 'bar', (err) => {
-        assert.isNull(err);
-
+      return cache.set('foo', 'bar').then(value => {
+        assert.equal(value, 'bar');
         assert.equal(
           fs.readFileSync(path.join(dirname, 'test.json'), 'utf8'),
           '"bar"'
         );
-        done();
       });
     });
   });

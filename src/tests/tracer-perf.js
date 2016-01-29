@@ -15,33 +15,36 @@ import {
 } from '../dependencies/cached-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
 import {createGraph} from '../cyclic-dependency-graph';
+import promisify from 'promisify-node';
+
+const readFile = promisify(fs.readFile);
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
-export function getResolvedDependencies(file, stat, caches, cb) {
+export function getResolvedDependencies(file, stat, caches) {
   const key = file + stat.mtime.getTime();
 
-  function getFile(cb) {
-    fs.readFile(file, 'utf8', cb);
+  function getFile() {
+    return readFile(file, 'utf8');
   }
 
-  function getAst(cb) {
-    getCachedAst({cache: caches.ast, key, getFile}, cb);
+  function getAst() {
+    return getCachedAst({cache: caches.ast, key, getFile});
   }
 
-  function getDependencyIdentifiers(cb) {
-    getCachedDependencyIdentifiers(
-      {cache: caches.dependencyIdentifiers, key, getAst},
-      (err, identifiers) => {
-        if (err) return cb;
-        cb(null, identifiers.map(identifier => identifier.source));
-      }
-    );
+  function getDependencyIdentifiers() {
+    return getCachedDependencyIdentifiers({
+      cache: caches.dependencyIdentifiers,
+      key,
+      getAst
+    }).then(identifiers => {
+      return identifiers.map(identifier => identifier.source);
+    });
   }
 
-  function resolveIdentifier(identifier, cb) {
-    browserResolver(identifier, path.dirname(file), cb);
+  function resolveIdentifier(identifier) {
+    return browserResolver(identifier, path.dirname(file));
   }
 
   const resolvedDepsOptions = {
@@ -54,9 +57,9 @@ export function getResolvedDependencies(file, stat, caches, cb) {
   // If the file is within the root node_modules, we can aggressively
   // cache its resolved dependencies
   if (startsWith(file, rootNodeModules)) {
-    getAggressivelyCachedResolvedDependencies(resolvedDepsOptions, cb);
+    return getAggressivelyCachedResolvedDependencies(resolvedDepsOptions);
   } else {
-    getCachedResolvedDependencies(resolvedDepsOptions, cb);
+    return getCachedResolvedDependencies(resolvedDepsOptions);
   }
 }
 
@@ -97,7 +100,7 @@ export function createMockCaches() {
   }
 }
 
-export function tracerPerf(useFileCache, cb) {
+export function tracerPerf(useFileCache) {
   const start = (new Date).getTime();
 
   const entryPoints = [
@@ -108,7 +111,7 @@ export function tracerPerf(useFileCache, cb) {
     require.resolve('glob')
   ];
 
-  envHash({root: sourceRoot}).then(hash => {
+  return envHash({root: sourceRoot}).then(hash => {
     let caches;
     if (useFileCache) {
       caches = createFileCaches(hash);
@@ -121,7 +124,7 @@ export function tracerPerf(useFileCache, cb) {
         fs.stat(file, (err, stat) => {
           if (err) return cb(err);
 
-          getResolvedDependencies(file, stat, caches, (err, resolved) => {
+          getResolvedDependencies(file, stat, caches).then(resolved => {
             if (err) {
               return cb(err);
             }
@@ -132,28 +135,31 @@ export function tracerPerf(useFileCache, cb) {
       }
     });
 
-    graph.events.on('error', ({node, error}) => {
-      console.error(`Error while tracing ${node}\n\n${error.message}\n\n${error.stack}`);
+    return new Promise((res) => {
+      graph.events.on('error', ({node, error}) => {
+        error.message = `Node: ${node} - ${error.message}`;
+        throw error;
+      });
+
+      graph.events.on('traced', () => process.stdout.write('.'));
+
+      graph.events.on('completed', ({errors, diff}) => {
+        process.stdout.write('\n');
+
+        if (errors.length) {
+          console.error('Errors while tracing');
+        }
+
+        const nodes = diff.to.keySeq().toArray();
+        const cacheDescription = useFileCache ? 'file' : 'mock';
+        const end = (new Date).getTime() - start;
+
+        console.log(`Traced ${nodes.length} records in ${end}ms with ${cacheDescription} caches`);
+
+        res();
+      });
+
+      entryPoints.forEach(file => graph.traceFromNode(file));
     });
-
-    graph.events.on('traced', () => process.stdout.write('.'));
-
-    graph.events.on('completed', ({errors, diff}) => {
-      process.stdout.write('\n');
-
-      if (errors.length) {
-        console.error('Errors while tracing');
-      }
-
-      const nodes = diff.to.keySeq().toArray();
-      const cacheDescription = useFileCache ? 'file' : 'mock';
-      const end = (new Date).getTime() - start;
-
-      console.log(`Traced ${nodes.length} records in ${end}ms with ${cacheDescription} caches`);
-
-      cb();
-    });
-
-    entryPoints.forEach(file => graph.traceFromNode(file));
   });
 }

@@ -4,60 +4,45 @@ import murmur from 'imurmurhash';
 
 describe('memory-cache', () => {
   describe('#createMemoryCache', () => {
-    it('should be able to write to the cache', (done) => {
+    it('should be able to write to the cache', () => {
       const cache = createMemoryCache();
 
-      cache.set('test', {bar: 'foo'}, (err) => {
-        assert.isNull(err);
+      return cache.set('test', {bar: 'foo'}).then(() => {
         assert.equal(cache._memoryCache[murmur('test').result()], JSON.stringify({bar: 'foo'}));
-        done();
       });
     });
-    it('should be able to read from the cache', (done) => {
+    it('should be able to read from the cache', () => {
       const cache = createMemoryCache();
 
-      cache.set('test', {bar: 'foo'}, (err) => {
-        assert.isNull(err);
-
-        cache.get('test', (err, data) => {
-          assert.isNull(err);
+      return cache.set('test', {bar: 'foo'})
+        .then(() => cache.get('test'))
+        .then(data => {
           assert.deepEqual(data, {bar: 'foo'});
-          done();
         });
-      });
     });
-    it('should be able to invalidate an entry', (done) => {
+    it('should be able to invalidate an entry', () => {
       const cache = createMemoryCache();
 
-      cache.set('test', {bar: 'foo'}, (err) => {
-        assert.isNull(err);
-
-        cache.invalidate('test', (err) => {
-          assert.isNull(err);
-
-          cache.get('test', (err, data) => {
-            assert.isNull(err);
-            assert.isNull(data);
-            done();
-          });
+      return cache.set('test', {bar: 'foo'})
+        .then(() => cache.invalidate('test'))
+        .then(() => cache.get('test'))
+        .then(data => {
+          assert.isNull(data);
         });
-      });
     });
-    it('should accept a `generateHash` option', (done) => {
+    it('should accept a `generateHash` option', () => {
       const generateHash = () => {
         return 'test'
       };
 
       const cache = createMemoryCache({generateHash});
 
-      cache.set('foo', 'bar', (err) => {
-        assert.isNull(err);
-
+      return cache.set('foo', 'bar').then(value => {
+        assert.equal(value, 'bar');
         assert.equal(
           cache._memoryCache['test'],
           '"bar"'
         );
-        done();
       });
     });
   });

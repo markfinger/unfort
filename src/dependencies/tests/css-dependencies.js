@@ -8,68 +8,67 @@ import {
 
 describe('dependencies/css-dependencies', () => {
   describe('#buildPostCssAst', () => {
-    it('should be able to build a PostCSS AST', (done) => {
-      buildPostCssAst({name: 'test.css', text: '@import "foo.css"'}, (err, ast) => {
-        assert.equal(
-          ast.first.type,
-          'atrule'
-        );
-        done();
-      });
+    it('should be able to build a PostCSS AST', () => {
+      return buildPostCssAst({name: 'test.css', text: '@import "foo.css"'})
+        .then(ast => {
+          assert.equal(
+            ast.first.type,
+            'atrule'
+          );
+        });
     });
-    it('should produce an error, if an import is missing a trailing quotation mark', (done) => {
+    it('should produce an error, if an import is missing a trailing quotation mark', () => {
       // This is a sanity check, as PostCSS will often try to repair broken css.
       // If this ever starts failing, we should remove this test case and add
       // it as a constraint during analysis of dependency identifiers
-      buildPostCssAst({name: 'foo.css', text: '@import url("test.css);'}, (err) => {
-        assert.isString(err.message);
-        assert.isString(err.stack);
-        done();
-      });
+      return buildPostCssAst({name: 'foo.css', text: '@import url("test.css);'})
+        .then(
+          () => {throw new Error('should not reach this')},
+          err => {
+            assert.isString(err.message);
+            assert.isString(err.stack);
+          });
     });
-    it('should indicate the filename for parse errors', (done) => {
-      buildPostCssAst({name: 'foo.css', text: 'bo}d:y}{"'}, (err) => {
-        assert.throws(() => {throw err}, 'foo.css');
-        done();
-      });
+    it('should indicate the filename for parse errors', () => {
+      return buildPostCssAst({name: 'foo.css', text: 'bo}d:y}{"'})
+        .then(
+          () => {throw new Error('should not reach this')},
+          err => {assert.throws(() => {throw err}, 'foo.css')}
+        );
     });
   });
   describe('#getCachedStyleSheetImports', () => {
-    it('should return a list of identifiers', (done) => {
+    it('should return a list of identifiers', () => {
       const cache = createMockCache();
 
-      function getAst(cb) {
-        cb(null, postcss.parse('@import url("foo.css");'));
+      function getAst() {
+        return Promise.resolve(postcss.parse('@import url("foo.css");'));
       }
 
-      getCachedStyleSheetImports({cache, key: 'test', getAst}, (err, imports) => {
-        assert.isNull(err);
-        assert.deepEqual(
-          imports,
-          [
-            {source: 'foo.css'}
-          ]
-        );
-        done();
-      });
+      return getCachedStyleSheetImports({cache, key: 'test', getAst})
+        .then(imports => {
+          assert.deepEqual(
+            imports,
+            [
+              {source: 'foo.css'}
+            ]
+          )
+        });
     });
-    it('should not compute the AST if data is in the cache', (done) => {
+    it('should not compute the AST if data is in the cache', () => {
       const cache = createMemoryCache();
       const key = 'foo';
 
-      cache.set(key, 'bar', (err) => {
-        assert.isNull(err);
-
-        getCachedStyleSheetImports({cache, key}, (err, imports) => {
-          assert.isNull(err);
-          assert.equal(imports, 'bar');
-          done();
+      return cache.set(key, 'bar')
+        .then(() => {
+          return getCachedStyleSheetImports({cache, key}).then(imports => {
+            assert.equal(imports, 'bar');
+          });
         });
-      });
     });
   });
   describe('#getDependencyIdentifiersFromStyleSheetAst', () => {
-    it('should extract multiple identifiers', (done) => {
+    it('should extract multiple identifiers', () => {
       // Test data sourced from https://developer.mozilla.org/en/docs/Web/CSS/@import#Examples
 
       const ast = postcss.parse(`
@@ -81,9 +80,7 @@ describe('dependencies/css-dependencies', () => {
         @import url('landscape.css') screen and (orientation:landscape);
       `);
 
-      getDependencyIdentifiersFromStyleSheetAst(ast, (err, identifiers) => {
-        assert.isNull(err);
-
+      return getDependencyIdentifiersFromStyleSheetAst(ast).then(identifiers => {
         assert.deepEqual(
           identifiers,
           [
@@ -95,8 +92,6 @@ describe('dependencies/css-dependencies', () => {
             {source: 'landscape.css'}
           ]
         );
-
-        done();
       });
     });
   });

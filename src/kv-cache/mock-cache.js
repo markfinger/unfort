@@ -3,18 +3,14 @@ import EventEmitter from 'events';
 export function createMockCache() {
   const events = new EventEmitter();
   return {
-    get(key, cb) {
-      cb(null, null);
+    get(key) {
+      return Promise.resolve(null);
     },
-    set(key, value, cb) {
-      if (cb) {
-        cb(null);
-      }
+    set(key, value) {
+      return Promise.resolve(value);
     },
-    invalidate(key, cb) {
-      if (cb) {
-        cb(null);
-      }
+    invalidate(key) {
+      return Promise.resolve(null);
     },
     events
   }

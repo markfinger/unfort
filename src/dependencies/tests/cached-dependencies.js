@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as babylon from 'babylon';
+import promisify from 'promisify-node';
 import {assert} from '../../utils/assert';
 import {createMockCache, createMemoryCache} from '../../kv-cache';
 import {browserResolver} from '../browser-resolver';
@@ -9,55 +10,51 @@ import {
   getCachedResolvedDependencies
 } from '../cached-dependencies';
 
+
+const readFile = promisify(fs.readFile);
+
 describe('dependencies/cached-dependencies', () => {
   describe('#getCachedAst', () => {
-    it('should return a babylon AST', (done) => {
+    it('should return a babylon AST', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached-dependencies/parse-test');
 
-      function getFile(cb) {
-        fs.readFile(file, 'utf8', cb);
+      function getFile() {
+        return readFile(file, 'utf8');
       }
 
-      getCachedAst({cache, key: 'test', getFile}, (err, ast) => {
-        assert.isNull(err);
+      return getCachedAst({cache, key: 'test', getFile}).then(ast => {
         assert.deepEqual(
           ast,
           babylon.parse(fs.readFileSync(file, 'utf8'), {sourceType: 'module'})
         );
-        done();
       });
     });
-    it('should not compute the AST if data is in the cache', (done) => {
+    it('should not compute the AST if data is in the cache', () => {
       const cache = createMemoryCache();
       const key = 'foo';
 
-      cache.set(key, 'bar', (err) => {
-        assert.isNull(err);
-
-        getCachedAst({cache, key}, (err, ast) => {
-          assert.isNull(err);
+      return cache.set(key, 'bar').then(() => {
+        return getCachedAst({cache, key}).then(ast => {
           assert.equal(ast, 'bar');
-          done();
         });
       });
     });
   });
   describe('#getCachedDependencyIdentifiers', () => {
-    it('should return an array of dependency identifiers', (done) => {
+    it('should return an array of dependency identifiers', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached-dependencies/parse-test');
 
-      function getFile(cb) {
-        fs.readFile(file, 'utf8', cb);
+      function getFile() {
+        return readFile(file, 'utf8');
       }
 
-      function getAst(cb) {
-        getCachedAst({cache, key: 'test', getFile}, cb);
+      function getAst() {
+        return getCachedAst({cache, key: 'test', getFile});
       }
 
-      getCachedDependencyIdentifiers({file, cache, key: 'test', getAst}, (err, identifiers) => {
-        assert.isNull(err);
+      return getCachedDependencyIdentifiers({file, cache, key: 'test', getAst}).then(identifiers => {
         assert.deepEqual(
           identifiers,
           [
@@ -66,56 +63,49 @@ describe('dependencies/cached-dependencies', () => {
             {source: 'test'}
           ]
         );
-        done();
       });
     });
-    it('should not compute the dependency identifiers if data is in the cache', (done) => {
+    it('should not compute the dependency identifiers if data is in the cache', () => {
       const cache = createMemoryCache();
       const key = 'foo';
 
-      cache.set(key, 'bar', (err) => {
-        assert.isNull(err);
-
-        getCachedDependencyIdentifiers({cache, key}, (err, identifiers) => {
-          assert.isNull(err);
+      return cache.set(key, 'bar').then(() => {
+        return getCachedDependencyIdentifiers({cache, key}).then(identifiers => {
           assert.equal(identifiers, 'bar');
-          done();
         });
       });
     });
   });
   describe('#getAggressivelyCachedResolvedDependencies', () => {
-    it('should return an array of arrays, each containing an identifier and a resolved path', (done) => {
+    it('should return an array of arrays, each containing an identifier and a resolved path', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached-dependencies/resolve-test');
 
-      function getFile(cb) {
-        fs.readFile(file, 'utf8', cb);
+      function getFile() {
+        return readFile(file, 'utf8');
       }
 
-      function getAst(cb) {
-        getCachedAst({cache, key: 'test', getFile}, cb);
+      function getAst() {
+        return getCachedAst({cache, key: 'test', getFile});
       }
 
-      function getDependencyIdentifiers(cb) {
-        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, (err, identifiers) => {
-          if (err) return cb(err);
-          cb(null, identifiers.map(identifier => identifier.source));
-        });
+      function getDependencyIdentifiers() {
+        return getCachedDependencyIdentifiers({cache, key: 'test', getAst})
+          .then(identifiers => {
+            return identifiers.map(identifier => identifier.source);
+          });
       }
 
-      function resolveIdentifier(identifier, cb) {
-        browserResolver(identifier, path.dirname(file), cb);
+      function resolveIdentifier(identifier) {
+        return browserResolver(identifier, path.dirname(file));
       }
 
-      getAggressivelyCachedResolvedDependencies({
+      return getAggressivelyCachedResolvedDependencies({
         cache,
         key: 'test',
         getDependencyIdentifiers,
         resolveIdentifier
-      }, (err, resolved) => {
-        assert.isNull(err);
-
+      }).then(resolved => {
         assert.deepEqual(
           resolved,
           {
@@ -123,57 +113,50 @@ describe('dependencies/cached-dependencies', () => {
             'bar': require.resolve('./cached-dependencies/node_modules/bar/browser.js')
           }
         );
-
-        done();
       });
     });
-    it('should not compute the resolved identifiers if data is in the cache', (done) => {
+    it('should not compute the resolved identifiers if data is in the cache', () => {
       const cache = createMemoryCache();
       const key = 'test';
 
-      cache.set(key, 'foo', (err) => {
-        assert.isNull(err);
-
-        getAggressivelyCachedResolvedDependencies({cache, key}, (err, resolved) => {
-          assert.isNull(err);
-          assert.equal(resolved, 'foo');
-          done();
-        });
+      return cache.set(key, 'foo').then(() => {
+        return getAggressivelyCachedResolvedDependencies({cache, key})
+          .then(resolved => {
+            assert.equal(resolved, 'foo');
+          });
       });
     });
   });
   describe('#getCachedResolvedDependencies', () => {
-    it('should return an array of arrays, each containing an identifier and a resolved path', (done) => {
+    it('should return an array of arrays, each containing an identifier and a resolved path', () => {
       const cache = createMockCache();
       const file = require.resolve('./cached-dependencies/resolve-test');
 
-      function getFile(cb) {
-        fs.readFile(file, 'utf8', cb);
+      function getFile() {
+        return readFile(file, 'utf8');
       }
 
-      function getAst(cb) {
-        getCachedAst({cache, key: 'test', getFile}, cb);
+      function getAst() {
+        return getCachedAst({cache, key: 'test', getFile});
       }
 
-      function getDependencyIdentifiers(cb) {
-        getCachedDependencyIdentifiers({cache, key: 'test', getAst}, (err, identifiers) => {
-          if (err) return cb(err);
-          cb(null, identifiers.map(identifier => identifier.source));
-        });
+      function getDependencyIdentifiers() {
+        return getCachedDependencyIdentifiers({cache, key: 'test', getAst})
+          .then(identifiers => {
+            return identifiers.map(identifier => identifier.source);
+          });
       }
 
-      function resolveIdentifier(identifier, cb) {
-        browserResolver(identifier, path.dirname(file), cb);
+      function resolveIdentifier(identifier) {
+        return browserResolver(identifier, path.dirname(file));
       }
 
-      getCachedResolvedDependencies({
+      return getCachedResolvedDependencies({
         cache,
         key: 'test',
         getDependencyIdentifiers,
         resolveIdentifier
-      }, (err, resolved) => {
-        assert.isNull(err);
-
+      }).then(resolved => {
         assert.deepEqual(
           resolved,
           {
@@ -181,11 +164,9 @@ describe('dependencies/cached-dependencies', () => {
             bar: require.resolve('./cached-dependencies/node_modules/bar/browser.js')
           }
         );
-
-        done();
       });
     });
-    it('should compute path-based identifiers and use cached data for package identifiers, if data is in the cache', (done) => {
+    it('should compute path-based identifiers and use cached data for package identifiers, if data is in the cache', () => {
       const cache = createMemoryCache();
       const file = require.resolve('./cached-dependencies/resolve-test');
       const key = 'test';
