@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import async from 'async';
 import murmur from 'imurmurhash';
+import {zip, flatten} from 'lodash/array';
 import {assign} from 'lodash/object';
 import {isFunction, isObject} from 'lodash/lang';
 
@@ -13,67 +14,64 @@ export function join(root, file) {
   }
 }
 
-export function readFileData(files, cb) {
-  async.map(
-    files,
-    (file, cb) => {
-      async.parallel([
-        (cb) => fs.readFile(file, 'utf8', cb),
-        (cb) => fs.stat(file, cb)
-      ], (err, data) => {
-        if (err) {
-          err.message = `File: ${file} - ${err.message}`;
-          return cb(err);
-        }
-
-        data[1] = data[1].mtime.getTime();
-
-        return cb(null, data);
-      });
-    },
-    cb
-  )
+export function getContent(file) {
+  return new Promise((res, rej) => {
+    fs.readFile(file, 'utf8', (err, content) => {
+      if (err) {
+        err.message = `${file} - ${err.message}`;
+        return rej(err);
+      }
+      res(content);
+    });
+  });
 }
 
-export function readDirectoryData(directories, cb) {
-  async.map(
-    directories,
-    (directory, cb) => fs.readdir(directory, (err, dirs) => {
+export function getModifiedTime(file) {
+  return new Promise((res, rej) => {
+    fs.stat(file, (err, stat) => {
       if (err) {
-        err.message = `Directory: ${directory}\n\n${err.message}`;
-        return cb(err);
+        err.message = `${file} - ${err.message}`;
+        return rej(err);
       }
-      cb(null, dirs);
-    }),
-    (err, data) => {
-      if (err) return cb(err);
+      res(stat.mtime.getTime());
+    });
+  });
+}
 
-      const absDirLists = data.map((dirs, i) => {
-        return dirs.map(dir => path.join(directories[i], dir));
-      });
+export function getDirectoryContents(directory) {
+  return new Promise((res, rej) => {
+    fs.readdir(directory, (err, dirs) => {
+      if (err) {
+        err.message = `${directory} - ${err.message}`;
+        return rej(err);
+      }
+      res(dirs);
+    });
+  });
+}
 
-      async.map(
-        absDirLists,
-        (dirList, cb) => {
-          async.map(
-            dirList,
-            (dir, cb) => fs.stat(dir, (err, stat) => {
-              if (err) {
-                err.message = `Directory: ${dir}\n\n${err.message}`;
-                return cb(err);
-              }
-              cb(null, [dir, stat.mtime.getTime()]);
-            }),
-            cb
-          );
-        },
-        (err, data) => {
-          if (err) return cb(err);
-          return cb(null, data);
-        }
-      );
-    }
-  );
+export function readFileData(files) {
+  return Promise.all([
+    Promise.all(files.map(getContent)),
+    Promise.all(files.map(getModifiedTime))
+  ]).then(data => zip(...data));
+}
+
+export function readDirectoryData(directories) {
+  return Promise
+    .all(directories.map(getDirectoryContents))
+    .then(lists => Promise.all(
+      lists.map((contents, i) => {
+        const root = directories[i];
+        return Promise.all(
+          contents.map(item => {
+            const absPath = path.join(root, item);
+            return getModifiedTime(absPath).then(mtime => [absPath, mtime]);
+          })
+        );
+      })
+    ))
+    .then(lists => flatten(lists));
 }
 
 export function hashFileSystemDataLists(data) {
@@ -102,31 +100,18 @@ export function getOptions(overrides={}) {
   }, overrides);
 }
 
-export function envHash(options, cb) {
-  if (!cb && isFunction(options)) {
-    cb = options;
-    options = getOptions();
-  } else {
-    if (!isObject(options)) {
-      throw new Error(`Options must be specified in an object. Received: ${typeof options}`);
-    }
-    options = getOptions(options);
-  }
+export function envHash(options) {
+  options = getOptions(options);
 
   let {root, files, directories} = options;
 
   files = files.map(file => join(root, file));
   directories = directories.map(dir => join(root, dir));
 
-  async.parallel([
-    (cb) => readFileData(files, cb),
-    (cb) => readDirectoryData(directories, cb)
-  ], (err, data) => {
-    if (err) return cb(err);
-
-    const fileHash = hashFileSystemDataLists(data[0]);
-    const dirHash = hashFileSystemDataLists(data[1]);
-
-    cb(null, fileHash + '_' + dirHash);
-  });
+  return Promise.all([
+    readFileData(files),
+    readDirectoryData(directories)
+  ]).then(
+    data => data.map(hashFileSystemDataLists).join('_')
+  );
 }

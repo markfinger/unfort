@@ -92,10 +92,8 @@ describe('env-hash', () => {
   describe('#readFileData', () => {
     beforeEach(setupFiles);
 
-    it('should should produce a data set reflecting the content and mtimes of a list of files', (done) => {
-      readFileData([file1, file2], (err, data) => {
-        assert.isNull(err);
-
+    it('should should produce a data set reflecting the content and mtimes of a list of files', () => {
+      return readFileData([file1, file2]).then(data => {
         assert.deepEqual(
           data,
           [
@@ -103,32 +101,22 @@ describe('env-hash', () => {
             ['test2', fs.statSync(file2).mtime.getTime()]
           ]
         );
-
-        done();
       });
     });
   });
   describe('#readDirectoryData', () => {
     beforeEach(setupDirs);
 
-    it('should should produce a data set reflecting the contents of a list of directories', (done) => {
-      readDirectoryData([dir1, dir2], (err, data) => {
-        assert.isNull(err);
-
+    it('should should produce a data set reflecting the contents of a list of directories', () => {
+      return readDirectoryData([dir1, dir2]).then(data => {
         assert.deepEqual(
           data,
           [
-            [
-              [dir1a, fs.statSync(dir1a).mtime.getTime()],
-              [dir1b, fs.statSync(dir1b).mtime.getTime()]
-            ],
-            [
-              [dir2a, fs.statSync(dir2a).mtime.getTime()]
-            ]
+            [dir1a, fs.statSync(dir1a).mtime.getTime()],
+            [dir1b, fs.statSync(dir1b).mtime.getTime()],
+            [dir2a, fs.statSync(dir2a).mtime.getTime()]
           ]
         );
-
-        done();
       });
     });
   });
@@ -146,11 +134,21 @@ describe('env-hash', () => {
     });
   });
   describe('#envHash', () => {
-    it('should throw if the options is specified, but not an object', () => {
-      assert.throw(
-        () => envHash('test', () => {}),
-        'Options must be specified in an object. Received: string'
-      );
+    it('should produce a string representing the hash of the environment', () => {
+      const files = [file1, file2];
+      const directories = [dir1, dir2];
+
+      return envHash({files, directories}).then(hash => {
+        return Promise.all([
+          readFileData(files),
+          readDirectoryData(directories)
+        ]).then(data => {
+          assert.equal(
+            hashFileSystemDataLists(data[0]) + '_' + hashFileSystemDataLists(data[1]),
+            hash
+          );
+        });
+      });
     });
   });
 });

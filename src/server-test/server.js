@@ -47,44 +47,42 @@ const tree = Object.create(null);
 const files = Object.create(null);
 const transformedFiles = Object.create(null);
 const sockets = [];
-//const caches = createMockCaches();
-let caches;
+const caches = createMockCaches();
 
-const watcher = chokidar.watch([], {
-  persistent: true
-});
-
-watcher.on('change', (file) => {
-  console.log(`File changed: ${file}`);
-
-  graph.pruneNode(file);
-
-  if (contains(entryPoints, file)) {
-    graph.setNodeAsEntry(file);
-  }
-  graph.traceFromNode(file);
-});
+//const watcher = chokidar.watch([], {
+//  persistent: true
+//});
+//
+//watcher.on('change', (file) => {
+//  console.log(`File changed: ${file}`);
+//
+//  graph.pruneNode(file);
+//
+//  if (contains(entryPoints, file)) {
+//    graph.setNodeAsEntry(file);
+//  }
+//  graph.traceFromNode(file);
+//});
 
 //startServer(3000);
 
-envHash((err, hash) => {
-  if (err) throw err;
-
-  caches = createFileCaches(hash);
-
+envHash().then(hash => {
   console.log(`Env hash: ${hash}`);
 
   let traceStart;
   graph.events.on('started', () => {
     traceStart = (new Date()).getTime();
+
+    console.log(repeat('=', 80));
     process.stdout.write('Tracing: ');
   });
 
   graph.events.on('traced', ({node}) => {
     process.stdout.write('.');
-    if (!startsWith(rootNodeModules, node)) {
-      watcher.add(node);
-    }
+
+    //if (shouldWatchFile(node)) {
+    //  watcher.add(node);
+    //}
   });
 
   graph.events.on('error', () => {
@@ -129,7 +127,7 @@ function logGraphDiff(diff, elapsed) {
 
   console.log(`Tracing completed in ${elapsed}ms`);
 
-  console.log(repeat('-', 80));
+  console.log(repeat('=', 80));
 }
 
 //function onFileChange(file) {
@@ -146,115 +144,114 @@ function logGraphDiff(diff, elapsed) {
 //  });
 //}
 
-//const fileRefs = Object.create(null);
-function startServer(port) {
-  const app = express();
-  const server = http.createServer(app);
-  const io = socketIo(server);
-
-  io.on('connection', (socket) => {
-    console.log('hmr connection opened');
-
-    socket.on('disconnect', () => {
-      console.log('hmr connection closed');
-
-      pull(sockets, socket);
-    });
-
-    sockets.push(socket);
-  });
-
-  app.get('/', (req, res) => {
-
-    function getUrl(file) {
-      if (!fileRefs[file]) {
-        fileRefs[file] = file.split(sourceRoot)[1];
-      }
-      return fileRefs[file];
-    }
-
-    function generateScriptElement(file) {
-      return `<script src="${getUrl(file)}"></script>`;
-    }
-
-    function generateLinkElement(file) {
-      return `<link rel="stylesheet" href="${getUrl(file)}">`;
-    }
-
-    const runtimeScript = generateScriptElement(runtimeFile);
-
-    const styles = Object.keys(tree)
-      .filter(file => path.parse(file).ext === '.css')
-      .map(generateLinkElement)
-      .join('\n');
-
-    const scripts = Object.keys(tree)
-      .filter(file => file !== runtimeFile)
-      .filter(file => path.parse(file).ext !== '.css')
-      .map(generateScriptElement)
-      .join('\n');
-
-    res.end(`
-      <html>
-      <head>
-        ${styles}
-      </head>
-      <body>
-        ${runtimeScript}
-        ${scripts}
-        <script>
-          __modules.executeModule(${JSON.stringify(hmrRuntimeFile)});
-          __modules.executeModule(${JSON.stringify(entryFile)});
-        </script>
-      </body>
-      </html>
-    `);
-  });
-
-  app.get('/*', (req, res) => {
-    const file = req.path;
-
-    if (!file) {
-      return res.status(404).send('Not found');
-    }
-
-    const abs = path.join(sourceRoot, file);
-
-    if (!tree[abs]) {
-      return res.status(404).send('Not found');
-    }
-
-    if (files[abs]) {
-      return res.end(files[abs]);
-    }
-
-    if (transformedFiles[abs]) {
-      if (!files[abs]) {
-        files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: transformedFiles[abs]});
-      }
-
-      res.end(files[abs]);
-    } else {
-      fs.readFile(abs, 'utf8', (err, text) => {
-        if (err) return res.status(500).send(`File: ${abs}\n\n${err.stack}`);
-
-        const pathObj = path.parse(file);
-
-        if (abs === runtimeFile || pathObj.ext === '.css') {
-          files[abs] = text;
-        } else {
-          files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: text});
-        }
-
-        res.end(files[abs]);
-      });
-    }
-  });
-
-  server.listen(port, '0.0.0.0', () => {
-    console.log(`Server: http://127.0.0.1:${port}`);
-  });
-}
+//function startServer(port) {
+//  const app = express();
+//  const server = http.createServer(app);
+//  const io = socketIo(server);
+//
+//  io.on('connection', (socket) => {
+//    console.log('hmr connection opened');
+//
+//    socket.on('disconnect', () => {
+//      console.log('hmr connection closed');
+//
+//      pull(sockets, socket);
+//    });
+//
+//    sockets.push(socket);
+//  });
+//
+//  app.get('/', (req, res) => {
+//
+//    function getUrl(file) {
+//      if (!fileRefs[file]) {
+//        fileRefs[file] = file.split(sourceRoot)[1];
+//      }
+//      return fileRefs[file];
+//    }
+//
+//    function generateScriptElement(file) {
+//      return `<script src="${getUrl(file)}"></script>`;
+//    }
+//
+//    function generateLinkElement(file) {
+//      return `<link rel="stylesheet" href="${getUrl(file)}">`;
+//    }
+//
+//    const runtimeScript = generateScriptElement(runtimeFile);
+//
+//    const styles = Object.keys(tree)
+//      .filter(file => path.parse(file).ext === '.css')
+//      .map(generateLinkElement)
+//      .join('\n');
+//
+//    const scripts = Object.keys(tree)
+//      .filter(file => file !== runtimeFile)
+//      .filter(file => path.parse(file).ext !== '.css')
+//      .map(generateScriptElement)
+//      .join('\n');
+//
+//    res.end(`
+//      <html>
+//      <head>
+//        ${styles}
+//      </head>
+//      <body>
+//        ${runtimeScript}
+//        ${scripts}
+//        <script>
+//          __modules.executeModule(${JSON.stringify(hmrRuntimeFile)});
+//          __modules.executeModule(${JSON.stringify(entryFile)});
+//        </script>
+//      </body>
+//      </html>
+//    `);
+//  });
+//
+//  app.get('/*', (req, res) => {
+//    const file = req.path;
+//
+//    if (!file) {
+//      return res.status(404).send('Not found');
+//    }
+//
+//    const abs = path.join(sourceRoot, file);
+//
+//    if (!tree[abs]) {
+//      return res.status(404).send('Not found');
+//    }
+//
+//    if (files[abs]) {
+//      return res.end(files[abs]);
+//    }
+//
+//    if (transformedFiles[abs]) {
+//      if (!files[abs]) {
+//        files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: transformedFiles[abs]});
+//      }
+//
+//      res.end(files[abs]);
+//    } else {
+//      fs.readFile(abs, 'utf8', (err, text) => {
+//        if (err) return res.status(500).send(`File: ${abs}\n\n${err.stack}`);
+//
+//        const pathObj = path.parse(file);
+//
+//        if (abs === runtimeFile || pathObj.ext === '.css') {
+//          files[abs] = text;
+//        } else {
+//          files[abs] = wrapCommonJSModule({file: abs, dependencies: tree[abs], code: text});
+//        }
+//
+//        res.end(files[abs]);
+//      });
+//    }
+//  });
+//
+//  server.listen(port, '0.0.0.0', () => {
+//    console.log(`Server: http://127.0.0.1:${port}`);
+//  });
+//}
 
 function wrapCommonJSModule({code, file, dependencies}) {
   const moduleData = {
@@ -454,4 +451,8 @@ function getDependencies(file, cb) {
       cb(null, values(resolved));
     }
   });
+}
+
+function shouldWatchFile(file) {
+  return !startsWith(rootNodeModules, file);
 }

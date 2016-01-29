@@ -108,12 +108,10 @@ export function tracerPerf(useFileCache, cb) {
     require.resolve('glob')
   ];
 
-  envHash({root: sourceRoot}, (err, npmDependencyTreeHash) => {
-    if (err) return cb(err);
-
+  envHash({root: sourceRoot}).then(hash => {
     let caches;
     if (useFileCache) {
-      caches = createFileCaches(npmDependencyTreeHash);
+      caches = createFileCaches(hash);
     } else {
       caches = createMockCaches();
     }

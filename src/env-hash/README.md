@@ -1,3 +1,9 @@
+env-hash
+========
+
+Context
+-------
+
 We aggressively cache path resolution of external packages, but, as always, cache
 invalidation is a pain. To resolve if our cached data is still valid, we need a
 way to uniquely identify the state of the node_modules package tree.
