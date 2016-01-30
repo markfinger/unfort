@@ -1,7 +1,7 @@
 {
-  "name": "kv-cache",
+  "name": "cyclic-dependency-graph",
   "version": "0.0.1",
-  "description": "kv-cache ========",
+  "description": "cyclic-dependency-graph =======================",
   "main": "index.js",
   "directories": {
     "test": "tests"

@@ -1,3 +1,14 @@
 {
-  "main": "./hash_npm_dependency_tree.js"
+  "name": "env-hash",
+  "version": "0.0.1",
+  "description": "env-hash ========",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT"
 }
