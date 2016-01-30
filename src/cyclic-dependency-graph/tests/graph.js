@@ -16,8 +16,8 @@ describe('cyclic-dependency-graph/graph', () => {
       describe('`started`', () => {
         it('should emit during the first traceFromNode call', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(null, []);
+            getDependencies() {
+              return Promise.resolve([]);
             }
           });
 
@@ -29,8 +29,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should only be emitted once per run', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(null, []);
+            getDependencies() {
+              return Promise.resolve([]);
             }
           });
 
@@ -59,8 +59,8 @@ describe('cyclic-dependency-graph/graph', () => {
       describe('`completed`', () => {
         it('should be emitted once all tracing has completed', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(null, []);
+            getDependencies() {
+              return Promise.resolve([]);
             }
           });
 
@@ -72,8 +72,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should provide a diff', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(null, []);
+            getDependencies() {
+              return Promise.resolve([]);
             }
           });
 
@@ -96,8 +96,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should emit if an error occurred', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb('some error');
+            getDependencies() {
+              return Promise.reject('some error');
             }
           });
 
@@ -118,8 +118,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should not emit if an error occurred and pending jobs exist', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb('some error');
+            getDependencies() {
+              return Promise.reject('some error');
             }
           });
 
@@ -142,8 +142,8 @@ describe('cyclic-dependency-graph/graph', () => {
           // after emitting completed
 
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(`Error: ${name}`);
+            getDependencies(name) {
+              return Promise.reject(`Error: ${name}`);
             }
           });
 
@@ -169,8 +169,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should handle multiple errors in one run', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(`Error: ${name}`);
+            getDependencies(name) {
+              return Promise.reject(`Error: ${name}`);
             }
           });
 
@@ -190,8 +190,8 @@ describe('cyclic-dependency-graph/graph', () => {
       describe('`traced`', () => {
         it('should be emitted once a node has been traced has completed', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(null, []);
+            getDependencies() {
+              return Promise.resolve([]);
             }
           });
 
@@ -203,8 +203,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should be provide the node and a state diff', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb(null, []);
+            getDependencies() {
+              return Promise.resolve([]);
             }
           });
 
@@ -230,8 +230,8 @@ describe('cyclic-dependency-graph/graph', () => {
         });
         it('should not be emitted if an error is encountered', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb('some error');
+            getDependencies() {
+              return Promise.reject('some error');
             }
           });
 
@@ -253,8 +253,8 @@ describe('cyclic-dependency-graph/graph', () => {
       describe('`error`', () => {
         it('should be emitted if getDependencies provides an error', (done) => {
           const graph = createGraph({
-            getDependencies(name, cb) {
-              cb('expected error');
+            getDependencies() {
+              return Promise.reject('expected error');
             }
           });
 
@@ -282,8 +282,7 @@ describe('cyclic-dependency-graph/graph', () => {
       });
       it('should create a pending job for the node', () => {
         const graph = createGraph({
-          getDependencies(){
-          }
+          getDependencies(){}
         });
 
         graph.traceFromNode('test');
@@ -295,8 +294,8 @@ describe('cyclic-dependency-graph/graph', () => {
       it('should emit a `complete` signal once all the dependencies have been resolved', (done) => {
         const graph = createGraph({getDependencies});
 
-        function getDependencies(name, cb) {
-          cb(null, []);
+        function getDependencies() {
+          return Promise.resolve([]);
         }
 
         graph.events.on('completed', () => {
@@ -308,11 +307,11 @@ describe('cyclic-dependency-graph/graph', () => {
       it('should populate the graph with the provided dependencies', (done) => {
         const graph = createGraph({getDependencies});
 
-        function getDependencies(file, cb) {
+        function getDependencies(file) {
           if (file === 'a') {
-            cb(null, ['b', 'c']);
+            return Promise.resolve(['b', 'c']);
           } else {
-            cb(null, []);
+            return Promise.resolve([]);
           }
         }
 
@@ -327,8 +326,7 @@ describe('cyclic-dependency-graph/graph', () => {
       });
       it('should invalidate any pending jobs for the node', () => {
         const graph = createGraph({
-          getDependencies: () => {
-          }
+          getDependencies: () => {}
         });
 
         const job = {node: 'test', isValid: true};
@@ -496,11 +494,11 @@ describe('cyclic-dependency-graph/graph', () => {
       });
       it('should allow nodes to be denoted as entry nodes before they are traced', (done) => {
         const graph = createGraph({
-          getDependencies(node, cb) {
+          getDependencies(node) {
             if (node === 'a') {
-              cb(null, ['b', 'c']);
+              return Promise.resolve(['b', 'c']);
             } else {
-              cb(null, []);
+              return Promise.resolve([]);
             }
           }
         });

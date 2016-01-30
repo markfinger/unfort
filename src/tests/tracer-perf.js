@@ -18,6 +18,7 @@ import {createGraph} from '../cyclic-dependency-graph';
 import promisify from 'promisify-node';
 
 const readFile = promisify(fs.readFile);
+const stat = promisify(fs.stat);
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
@@ -120,18 +121,10 @@ export function tracerPerf(useFileCache) {
     }
 
     const graph = createGraph({
-      getDependencies(file, cb) {
-        fs.stat(file, (err, stat) => {
-          if (err) return cb(err);
-
-          getResolvedDependencies(file, stat, caches).then(resolved => {
-            if (err) {
-              return cb(err);
-            }
-
-            cb(null, values(resolved));
-          });
-        });
+      getDependencies(file) {
+        return stat(file)
+          .then(stat => getResolvedDependencies(file, stat, caches))
+          .then(resolved => values(resolved));
       }
     });
 

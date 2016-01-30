@@ -76,11 +76,18 @@ export function createGraph({state=Map(), getDependencies, trackStats=false}={})
     }
 
     function startTracingNode() {
+      // Handle situations where a job may have been invalidated further
+      // down the stack from where the original call originated from
       if (!job.isValid) {
         return;
       }
 
-      getDependencies(name, (err, dependencies) => {
+      getDependencies(name)
+        .then(handleDependencies)
+        .catch(handleError)
+        .then(signalIfCompleted);
+
+      function handleDependencies(dependencies) {
         // If this job has been invalidated, we can ignore anything that may
         // have resulted from it
         if (!job.isValid) {
@@ -90,21 +97,10 @@ export function createGraph({state=Map(), getDependencies, trackStats=false}={})
         // Indicate that this job is no longer blocking the `completed` stage
         pull(pendingJobs, job);
 
-        if (err) {
-          const signal = {
-            error: err,
-            node: name,
-            state: state
-          };
-          errors.push(signal);
-          events.emit('error', signal);
-          return signalIfCompleted();
-        }
-
         // Sanity check
         if (!isArray(dependencies)) {
-          throw new Error(
-            `Dependencies should be specified in an array. Received ${dependencies}`
+          return Promise.reject(
+            new Error(`Dependencies should be specified in an array. Received ${dependencies}`)
           );
         }
 
@@ -139,9 +135,21 @@ export function createGraph({state=Map(), getDependencies, trackStats=false}={})
             to: state
           })
         });
+      }
 
-        signalIfCompleted();
-      });
+      function handleError(err) {
+        // Indicate that this job is no longer blocking the `completed` stage
+        pull(pendingJobs, job);
+
+        const signal = {
+          error: err,
+          node: name,
+          state: state
+        };
+
+        errors.push(signal);
+        events.emit('error', signal);
+      }
     }
   }
 

@@ -9,6 +9,7 @@ import * as babel from 'babel-core';
 import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
 import postcss from 'postcss';
+import promisify from 'promisify-node';
 import {startsWith, repeat} from 'lodash/string';
 import {pull} from 'lodash/array';
 import {forOwn, values} from 'lodash/object';
@@ -24,18 +25,24 @@ import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
 import {
   createGraph, getNewNodesFromDiff, getPrunedNodesFromDiff, mergeDiffs
 } from '../cyclic-dependency-graph';
+import {createFileStore} from './store';
+
+const readFile = promisify(fs.readFile);
+const stat = promisify(fs.stat);
 
 sourceMapSupport.install();
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 const entryFile = path.join(sourceRoot, 'src', 'server-test', 'entry.js');
-const runtimeFile = require.resolve('./runtime');
+const runtimeFile = require.resolve('../../runtime/runtime');
 const hmrRuntimeFile = require.resolve('./hmr-runtime');
 
 const graph = createGraph({
   getDependencies
 });
+
+const store = createFileStore();
 
 const entryPoints = [
   runtimeFile,
@@ -45,7 +52,6 @@ const entryPoints = [
 
 const tree = Object.create(null);
 const files = Object.create(null);
-const transformedFiles = Object.create(null);
 const sockets = [];
 const caches = createMockCaches();
 
@@ -66,6 +72,7 @@ const caches = createMockCaches();
 
 //startServer(3000);
 
+console.log('Inspecting env...');
 envHash().then(hash => {
   console.log(`Env hash: ${hash}`);
 
@@ -267,189 +274,93 @@ ${code}
 });`;
 }
 
-function buildJSFile(file, cb) {
-  fs.stat(file, (err, stat) => {
-    if (err) return cb(err);
-
+function getDependencies(file) {
+  return stat(file).then(stat => {
     const key = file + stat.mtime.getTime();
 
-    function getFile(cb) {
-      fs.readFile(file, 'utf8', cb);
+    function getFile() {
+      return readFile(file, 'utf8');
     }
 
-    function getJsAst(cb) {
+    function getJsAst() {
       if (startsWith(file, rootNodeModules) || file === runtimeFile) {
-        return getCachedAst({cache: caches.ast, key, getFile}, cb);
+        return getCachedAst({cache: caches.ast, key, getFile});
       }
 
-      babel.transformFile(
-        file,
-        {
-          plugins: [
-            ['react-transform', {
-              transforms: [{
-                transform: 'react-transform-hmr',
-                imports: ['react'],
-                locals: ['module']
+      return new Promise((res, rej) => {
+        babel.transformFile(
+          file,
+          {
+            plugins: [
+              ['react-transform', {
+                transforms: [{
+                  transform: 'react-transform-hmr',
+                  imports: ['react'],
+                  locals: ['module']
+                }]
               }]
-            }]
-          ]
-        },
-        (err, transformed) => {
-          if (err) return cb(err);
-
-          transformedFiles[file] = transformed.code;
-
-          cb(null, transformed.ast);
-        }
-      );
-    }
-
-    function getCssAst(cb) {
-      fs.readFile(file, 'utf8', (err, text) => {
-        if (err) return cb(err);
-
-        buildPostCssAst({name: file, text}, cb);
+            ]
+          },
+          (err, transformed) => {
+            if (err) return rej(err);
+            res(transformed.ast);
+          }
+        )
       });
     }
 
-    function getDependencyIdentifiers(cb) {
+    function getCssAst() {
+      return getFile()
+        .then(text => buildPostCssAst({name: file, text}));
+    }
+
+    function getDependencyIdentifiers() {
       const pathObj = path.parse(file);
 
-      function processDependencyIdentifiers(err, identifiers) {
-        if (err) return cb(err);
-        cb(null, identifiers.map(identifier => identifier.source));
-      }
+      return Promise.resolve()
+        .then(() => {
+          if (pathObj.ext === '.css') {
+            return getCachedStyleSheetImports({
+              cache: caches.dependencyIdentifiers,
+              key,
+              getAst: getCssAst
+            });
+          }
 
-      if (pathObj.ext === '.css') {
-        getCachedStyleSheetImports(
-          {cache: caches.dependencyIdentifiers, key, getAst: getCssAst},
-          processDependencyIdentifiers
-        );
-      } else {
-        getCachedDependencyIdentifiers(
-          {cache: caches.dependencyIdentifiers, key, getAst: getJsAst},
-          processDependencyIdentifiers
-        );
-      }
+          return getCachedDependencyIdentifiers({
+            cache: caches.dependencyIdentifiers,
+            key,
+            getAst: getJsAst
+          });
+        })
+        .then(identifiers => identifiers.map(identifier => identifier.source));
     }
 
-    function resolveIdentifier(identifier, cb) {
-      browserResolver(identifier, path.dirname(file), cb);
+    function resolveIdentifier(identifier) {
+      return browserResolver(identifier, path.dirname(file));
     }
 
-    // If the file is within the root node_modules, we can aggressively
-    // cache its resolved dependencies
-    if (startsWith(file, rootNodeModules)) {
-      getAggressivelyCachedResolvedDependencies(
-        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
-        onDependenciesResolved
-      );
-    } else {
-      getCachedResolvedDependencies(
-        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
-        onDependenciesResolved
-      );
-    }
-
-    function onDependenciesResolved(err, resolved) {
-      if (err) return cb(err);
-
-      cb(null, values(resolved));
-    }
-  });
-}
-
-function getDependencies(file, cb) {
-  fs.stat(file, (err, stat) => {
-    if (err) return cb(err);
-
-    const key = file + stat.mtime.getTime();
-
-    function getFile(cb) {
-      fs.readFile(file, 'utf8', cb);
-    }
-
-    function getJsAst(cb) {
-      if (startsWith(file, rootNodeModules) || file === runtimeFile) {
-        return getCachedAst({cache: caches.ast, key, getFile}, cb);
-      }
-
-      babel.transformFile(
-        file,
-        {
-          plugins: [
-            ['react-transform', {
-              transforms: [{
-                transform: 'react-transform-hmr',
-                imports: ['react'],
-                locals: ['module']
-              }]
-            }]
-          ]
-        },
-        (err, transformed) => {
-          if (err) return cb(err);
-
-          transformedFiles[file] = transformed.code;
-
-          cb(null, transformed.ast);
+    return Promise.resolve()
+      .then(() => {
+        // If the file is within the root node_modules, we can aggressively
+        // cache its resolved dependencies
+        if (startsWith(file, rootNodeModules)) {
+          return getAggressivelyCachedResolvedDependencies({
+            cache: caches.resolvedDependencies,
+            key,
+            getDependencyIdentifiers,
+            resolveIdentifier
+          });
+        } else {
+          return getCachedResolvedDependencies({
+            cache: caches.resolvedDependencies,
+            key,
+            getDependencyIdentifiers,
+            resolveIdentifier
+          });
         }
-      );
-    }
-
-    function getCssAst(cb) {
-      fs.readFile(file, 'utf8', (err, text) => {
-        if (err) return cb(err);
-
-        buildPostCssAst({name: file, text}, cb);
-      });
-    }
-
-    function getDependencyIdentifiers(cb) {
-      const pathObj = path.parse(file);
-
-      function processDependencyIdentifiers(err, identifiers) {
-        if (err) return cb(err);
-        cb(null, identifiers.map(identifier => identifier.source));
-      }
-
-      if (pathObj.ext === '.css') {
-        getCachedStyleSheetImports(
-          {cache: caches.dependencyIdentifiers, key, getAst: getCssAst},
-          processDependencyIdentifiers
-        );
-      } else {
-        getCachedDependencyIdentifiers(
-          {cache: caches.dependencyIdentifiers, key, getAst: getJsAst},
-          processDependencyIdentifiers
-        );
-      }
-    }
-
-    function resolveIdentifier(identifier, cb) {
-      browserResolver(identifier, path.dirname(file), cb);
-    }
-
-    // If the file is within the root node_modules, we can aggressively
-    // cache its resolved dependencies
-    if (startsWith(file, rootNodeModules)) {
-      getAggressivelyCachedResolvedDependencies(
-        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
-        onDependenciesResolved
-      );
-    } else {
-      getCachedResolvedDependencies(
-        {cache: caches.resolvedDependencies, key, getDependencyIdentifiers, resolveIdentifier},
-        onDependenciesResolved
-      );
-    }
-
-    function onDependenciesResolved(err, resolved) {
-      if (err) return cb(err);
-
-      cb(null, values(resolved));
-    }
+      })
+      .then(resolved => values(resolved));
   });
 }
 
