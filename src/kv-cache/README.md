@@ -1,6 +1,8 @@
 kv-cache
 ========
 
+TODO: document current API, which has diverged somewhat from the notes below
+
 A collection of key/value caches that guarantee immutability and varying degrees of persistence.
 
 All caches follow the following API:

@@ -1,9 +1,11 @@
 cyclic-dependency-graph
 =======================
 
+TODO: update the documentation to reflect latest changes
+
+
 A simple state machine that handles building a cyclic directed graph from
 the dependencies in a codebase.
-
 
 
 Example usage
