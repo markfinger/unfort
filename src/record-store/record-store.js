@@ -20,11 +20,21 @@ export function createRecordStore(functions={}) {
   let state = imm.Map();
 
   const store = {
-    getState: () => state,
-    create: name => state = createRecord(state, name),
-    has: name => state.has(name),
-    get: name => state.get(name),
-    remove: name => state = state.remove(name),
+    getState() {
+      return state;
+    },
+    create(name) {
+      state = createRecord(state, name)
+    },
+    has(name) {
+      return state.has(name)
+    },
+    get(name) {
+      return state.get(name)
+    },
+    remove(name) {
+      state = state.remove(name)
+    },
     isIntercept,
     isRecordRemovedIntercept,
     isRecordInvalidIntercept
@@ -38,7 +48,7 @@ export function createRecordStore(functions={}) {
     }
 
     if (store.hasOwnProperty(key)) {
-      throw new Error(`Property name \`${key}\` conflicts with another property in the API`);
+      throw new Error(`Property name "${key}" conflicts with the record store's API`);
     }
 
     Object.defineProperty(store, key, {
@@ -73,6 +83,14 @@ export function createRecordStore(functions={}) {
           if (intercept) {
             return intercept;
           }
+
+
+          //if (!isIntercept(err)) {
+          //  const intercept = createIntercept(state, ref);
+          //  if (intercept) {
+          //    return intercept;
+          //  }
+          //}
 
           return Promise.reject(err);
         })
@@ -134,6 +152,8 @@ export function createRecordStore(functions={}) {
 }
 
 export function createRecord(state, name) {
+  console.log('create', name)
+
   throwIfInvalidName(name);
 
   if (state.has(name)) {

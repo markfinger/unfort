@@ -100,5 +100,30 @@ describe('record-store/record-store', () => {
 
       return promise;
     });
+    it('should indicate if a job triggers a rejection', () => {
+      const store = createRecordStore({
+        foo: () => {
+          throw new Error('test error');
+        }
+      });
+
+      store.create('test');
+
+      return store.foo('test')
+        .then(() => {throw new Error('should not be reached')})
+        .catch(err => {
+          assert.instanceOf(err, Error);
+          assert.equal(err.message, 'test error');
+        });
+    });
+    it('should throw if a job name conflicts with the store\'s API', () => {
+      const store = createRecordStore();
+      assert.isFunction(store.create);
+
+      assert.throws(
+        () => createRecordStore({create(){}}),
+        `Property name "create" conflicts with the record store's API`
+      );
+    });
   });
 });

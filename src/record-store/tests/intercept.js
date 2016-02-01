@@ -1,6 +1,6 @@
 import {assert} from '../../utils/assert';
 import {
-  isIntercept, isRecordInvalidIntercept, isRecordRemovedIntercept, Intercept
+  isIntercept, isRecordInvalidIntercept, isRecordRemovedIntercept, Intercept,
   RecordInvalidatedDuringProcessing, RecordRemovedDuringProcessing
 } from '../intercept';
 
