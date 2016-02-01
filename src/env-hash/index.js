@@ -1,1 +1,4 @@
-export {envHash} from './env-hash';
+export {
+  envHash as default,
+  envHash,
+} from './env-hash';
