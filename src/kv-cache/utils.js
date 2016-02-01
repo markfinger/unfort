@@ -3,7 +3,7 @@ import murmur from 'imurmurhash';
 
 export function generateMurmurHash(key) {
   if (!isArray(key)) {
-    return String(murmur(key).result());
+    return String(new murmur(key.toString()).result());
   }
 
   if (!key.length) {
@@ -11,6 +11,6 @@ export function generateMurmurHash(key) {
   }
 
   return key
-    .map(entry => murmur(entry).result())
+    .map(entry => new murmur(entry.toString()).result())
     .join('_');
 }

@@ -25,5 +25,17 @@ describe('utils', () => {
         `Key array does not contain any entries`
       );
     });
+    it('should produce a hash of a non-string value', () => {
+      assert.equal(
+        generateMurmurHash(10),
+        '2263091519'
+      );
+    });
+    it('should accept an array that contains non-strings', () => {
+      assert.equal(
+        generateMurmurHash([10, {}, [], false]),
+        '2263091519_1515928286_0_3579944471'
+      );
+    });
   });
 });
