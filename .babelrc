@@ -1,6 +1,10 @@
 {
   "plugins": [
-    "transform-react-jsx"
-  ],
-  "presets": ["es2015"]
+    "transform-react-jsx",
+    "check-es2015-constants",
+    "transform-es2015-modules-commonjs",
+    "transform-es2015-destructuring",
+    "transform-es2015-parameters",
+    "transform-es2015-shorthand-properties"
+  ]
 }
