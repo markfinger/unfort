@@ -152,8 +152,6 @@ export function createRecordStore(functions={}) {
 }
 
 export function createRecord(state, name) {
-  console.log('create', name)
-
   throwIfInvalidName(name);
 
   if (state.has(name)) {

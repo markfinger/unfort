@@ -26,6 +26,7 @@
     "babel-types": "^6.3.24",
     "babylon": "^6.3.26",
     "browser-resolve": "^1.11.0",
+    "chai-as-promised": "^5.2.0",
     "chai-immutable": "^1.5.3",
     "chokidar": "^1.4.2",
     "express": "^4.13.3",

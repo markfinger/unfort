@@ -18,7 +18,10 @@ describe('record-store/record-store', () => {
 
       store.create('test');
 
-      return store.foo('test').then(value => assert.equal(value, 'bar'));
+      return assert.becomes(
+        store.foo('test'),
+        'bar'
+      );
     });
     it('should provide a file and store object to the functions specified', () => {
       const store = createRecordStore({
@@ -26,12 +29,16 @@ describe('record-store/record-store', () => {
           assert.isObject(ref);
           assert.equal(ref.name, 'test');
           assert.isObject(store);
+          return 'foo'
         }
       });
 
       store.create('test');
 
-      return store.foo('test');
+      return assert.becomes(
+        store.foo('test'),
+        'foo'
+      );
     });
     it('should allow store functions to call other store functions', () => {
       const store = createRecordStore({
@@ -41,8 +48,10 @@ describe('record-store/record-store', () => {
 
       store.create('test');
 
-      return store.foo('test')
-        .then(val => assert.equal(val, 'bar'));
+      return assert.becomes(
+        store.foo('test'),
+        'bar'
+      );
     });
     it('should preserve the values generated for each record', () => {
       let count = 0;
@@ -54,14 +63,13 @@ describe('record-store/record-store', () => {
       store.create('1');
       store.create('2');
 
-      return store.counter('1')
-        .then(val => assert.equal(val, 1))
-        .then(() => store.counter('1'))
-        .then(val => assert.equal(val, 1))
-        .then(() => store.counter('2'))
-        .then(val => assert.equal(val, 2))
-        .then(() => store.counter('2'))
-        .then(val => assert.equal(val, 2));
+      return assert.isFulfilled(
+        Promise.resolve()
+          .then(() => assert.becomes(store.counter('1'), 1))
+          .then(() => assert.becomes(store.counter('1'), 1))
+          .then(() => assert.becomes(store.counter('2'), 2))
+          .then(() => assert.becomes(store.counter('2'), 2))
+      );
     });
     it('should reject jobs if a file is invalidated during processing', () => {
       const store = createRecordStore({
@@ -70,12 +78,10 @@ describe('record-store/record-store', () => {
 
       store.create('test');
 
-      const promise = store.foo('test')
-        .then(() => {throw new Error('should not be reached')})
-        .catch(err => {
-          assert.instanceOf(err, RecordInvalidatedDuringProcessing);
-          assert.isTrue(store.isRecordInvalidIntercept(err));
-        });
+      const promise = assert.isRejected(
+        store.foo('test'),
+        RecordInvalidatedDuringProcessing
+      );
 
       store.remove('test');
       store.create('test');
@@ -89,12 +95,10 @@ describe('record-store/record-store', () => {
 
       store.create('test');
 
-      const promise = store.foo('test')
-        .then(() => {throw new Error('should not be reached')})
-        .catch(err => {
-          assert.instanceOf(err, RecordRemovedDuringProcessing);
-          assert.isTrue(store.isRecordRemovedIntercept(err));
-        });
+      const promise = assert.isRejected(
+        store.foo('test'),
+        RecordRemovedDuringProcessing
+      );
 
       store.remove('test');
 
@@ -109,12 +113,10 @@ describe('record-store/record-store', () => {
 
       store.create('test');
 
-      return store.foo('test')
-        .then(() => {throw new Error('should not be reached')})
-        .catch(err => {
-          assert.instanceOf(err, Error);
-          assert.equal(err.message, 'test error');
-        });
+      return assert.isRejected(
+        store.foo('test'),
+        /test error/
+      );
     });
     it('should throw if a job name conflicts with the store\'s API', () => {
       const store = createRecordStore();
