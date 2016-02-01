@@ -1,10 +1,8 @@
-import {uniq} from 'lodash/array';
-import {isObject, isString} from 'lodash/lang';
+import {isObject} from 'lodash/lang';
 import traverse from 'babel-traverse';
 import * as types from 'babel-types';
-import {contains} from 'lodash/collection';
 
-export function analyzeBabelAstDependencies(ast) {
+export function babylonAstDependencies(ast) {
   if (!isObject(ast)) {
     throw new Error(`An \`ast\` must be provided`);
   }

@@ -6,7 +6,7 @@ import * as babylon from 'babylon';
 import promisify from 'promisify-node';
 import {assert} from '../utils/assert';
 import {browserResolver} from '../dependencies/browser-resolver';
-import {analyzeBabelAstDependencies} from '../dependencies/analyze-babel-ast-dependencies';
+import {babylonAstDependencies} from '../babylon-ast-dependencies';
 
 const readFile = promisify(fs.readFile);
 
@@ -23,7 +23,7 @@ describe('tests/tree-resolution', () => {
     function processRecord(record) {
       return readFile(record.file, 'utf8').then(content => {
         const ast = babylon.parse(content, {sourceType: 'module'});
-        const dependencies = analyzeBabelAstDependencies(ast);
+        const dependencies = babylonAstDependencies(ast);
 
         const identifiers = dependencies.map(dep => dep.source);
 

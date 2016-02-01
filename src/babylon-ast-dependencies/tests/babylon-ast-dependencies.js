@@ -1,9 +1,9 @@
 import * as babylon from 'babylon';
 import {assert} from '../../utils/assert';
-import {analyzeBabelAstDependencies} from '../analyze-babel-ast-dependencies';
+import {babylonAstDependencies} from '../babylon-ast-dependencies';
 
-describe('dependencies/analyze-babel-ast-dependencies', () => {
-  describe('#analyzeBabelAstDependencies', () => {
+describe('babylon-ast-dependencies', () => {
+  describe('#babylonAstDependencies', () => {
     it('should accept an AST and provide a list of dependencies specified in `require` calls', () => {
       const ast = babylon.parse(`
         var foo = require("foo");
@@ -11,7 +11,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
         foo(bar);
       `);
 
-      const dependencies = analyzeBabelAstDependencies(ast);
+      const dependencies = babylonAstDependencies(ast);
       assert.deepEqual(
         dependencies,
         [
@@ -28,7 +28,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
 
 
       assert.throws(
-        () => analyzeBabelAstDependencies(ast),
+        () => babylonAstDependencies(ast),
         'Non-literal (Identifier) passed to \`require\` call at line 3, column 26'
       );
     });
@@ -39,7 +39,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
       `);
 
       assert.throws(
-        () => analyzeBabelAstDependencies(ast),
+        () => babylonAstDependencies(ast),
         'Non-literal (BinaryExpression) passed to \`require\` call at line 3, column 26'
       );
     });
@@ -49,7 +49,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
         var bar = foo.require('bar');
       `);
 
-      assert.deepEqual(analyzeBabelAstDependencies(ast), []);
+      assert.deepEqual(babylonAstDependencies(ast), []);
     });
     it('should pull dependencies from es module imports', () => {
       const ast = babylon.parse(
@@ -58,7 +58,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
       );
 
       assert.deepEqual(
-        analyzeBabelAstDependencies(ast),
+        babylonAstDependencies(ast),
         [
           {source: 'foo'},
           {source: 'bar'}
@@ -72,7 +72,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
       );
 
       assert.deepEqual(
-        analyzeBabelAstDependencies(ast),
+        babylonAstDependencies(ast),
         [
           {source: 'foo'}
         ]
@@ -88,7 +88,7 @@ describe('dependencies/analyze-babel-ast-dependencies', () => {
       );
 
       assert.deepEqual(
-        analyzeBabelAstDependencies(ast),
+        babylonAstDependencies(ast),
         [
           {source: 'foo'}
         ]

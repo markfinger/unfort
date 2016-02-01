@@ -2,7 +2,7 @@ import path from 'path';
 import * as babylon from 'babylon';
 import async from 'async';
 import {assign} from 'lodash/object';
-import {analyzeBabelAstDependencies} from './analyze-babel-ast-dependencies';
+import {babylonAstDependencies} from '../babylon-ast-dependencies';
 import {getCachedData} from './cache-utils';
 
 
@@ -28,7 +28,7 @@ export function getCachedDependencyIdentifiers({cache, key, getAst}) {
     return getAst().then(ast => {
       let identifiers;
       try {
-        identifiers = analyzeBabelAstDependencies(ast);
+        identifiers = babylonAstDependencies(ast);
       } catch(err) {
         return Promise.reject(err);
       }

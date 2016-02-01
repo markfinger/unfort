@@ -18,7 +18,7 @@ import {forOwn, values} from 'lodash/object';
 import {isUndefined, isObject, isNumber} from 'lodash/lang';
 import {contains} from 'lodash/collection';
 import envHash from '../env-hash';
-import {analyzeBabelAstDependencies} from '../dependencies/analyze-babel-ast-dependencies';
+import {babylonAstDependencies} from '../babylon-ast-dependencies';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
@@ -136,7 +136,7 @@ const records = createRecordStore({
         if (ext === '.css') {
           return getDependencyIdentifiersFromStyleSheetAst(ast)
         } else {
-          return analyzeBabelAstDependencies(ast);
+          return babylonAstDependencies(ast);
         }
       })
       .then(ids => ids.map(id => id.source));
