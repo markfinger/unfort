@@ -18,14 +18,13 @@ import {forOwn, values} from 'lodash/object';
 import {isUndefined, isObject, isNumber} from 'lodash/lang';
 import {contains} from 'lodash/collection';
 import envHash from '../env-hash';
-import {babylonAstDependencies} from '../babylon-ast-dependencies';
+import babylonAstDependencies from '../babylon-ast-dependencies';
+import postcssAstDependencies from '../postcss-ast-dependencies';
 import {
   getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
   getCachedDependencyIdentifiers
 } from '../dependencies/cached-dependencies';
-import {
-  getCachedStyleSheetImports, buildPostCssAst, getDependencyIdentifiersFromStyleSheetAst
-} from '../dependencies/css-dependencies';
+import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
 import {browserResolver} from '../dependencies/browser-resolver';
 import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
 import {
@@ -134,7 +133,7 @@ const records = createRecordStore({
     return store.parse(ref)
       .then(ast => {
         if (ext === '.css') {
-          return getDependencyIdentifiersFromStyleSheetAst(ast)
+          return postcssAstDependencies(ast)
         } else {
           return babylonAstDependencies(ast);
         }
