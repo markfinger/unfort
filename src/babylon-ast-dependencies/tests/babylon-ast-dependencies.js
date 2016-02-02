@@ -29,7 +29,7 @@ describe('babylon-ast-dependencies', () => {
 
       assert.throws(
         () => babylonAstDependencies(ast),
-        'Non-literal (Identifier) passed to \`require\` call at line 3, column 26'
+        'Require expression at line 3, column 26 cannot be statically analyzed'
       );
     });
     it('should produce errors if `require` calls contain expressions', () => {
@@ -40,7 +40,7 @@ describe('babylon-ast-dependencies', () => {
 
       assert.throws(
         () => babylonAstDependencies(ast),
-        'Non-literal (BinaryExpression) passed to \`require\` call at line 3, column 26'
+        'Require expression at line 3, column 26 cannot be statically analyzed'
       );
     });
     it('should not pull dependencies from `require` calls that are properties of an object', () => {

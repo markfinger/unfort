@@ -8,7 +8,6 @@ export function babylonAstDependencies(ast) {
   }
 
   const dependencies = [];
-  const errors = [];
 
   function addDependency(source) {
     // Ensure that dependencies are only identified once
@@ -36,19 +35,24 @@ export function babylonAstDependencies(ast) {
         if (types.isLiteral(arg)) {
           addDependency(arg.value);
         } else {
-          let err = `Non-literal (${arg.type}) passed to \`require\` call`;
-          if (arg.loc && arg.loc.start) {
-            err += ` at line ${arg.loc.start.line}, column ${arg.loc.start.column}`
+          if (!arg.loc || !arg.loc.start) {
+            throw new Error('Require expression cannot be statically analyzed');
           }
-          errors.push(err);
+
+          const err = new Error(
+            `Require expression at line ${arg.loc.start.line}, column ${arg.loc.start.column} cannot be statically analyzed`
+          );
+
+          err.loc = {
+            line: arg.loc.start.line,
+            column: arg.loc.start.column
+          };
+
+          throw err;
         }
       }
     }
   });
-
-  if (errors.length) {
-    throw new Error(errors.join('\n\n'));
-  }
 
   return dependencies;
 }
