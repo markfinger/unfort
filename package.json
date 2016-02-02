@@ -29,6 +29,7 @@
     "browser-resolve": "^1.11.0",
     "chai-as-promised": "^5.2.0",
     "chai-immutable": "^1.5.3",
+    "chalk": "^1.1.1",
     "chokidar": "^1.4.2",
     "express": "^4.13.3",
     "immutable": "^3.7.6",

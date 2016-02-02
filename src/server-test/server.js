@@ -12,11 +12,12 @@ import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
 import postcss from 'postcss';
 import promisify from 'promisify-node';
+import chalk from 'chalk';
 import {startsWith, repeat} from 'lodash/string';
-import {pull} from 'lodash/array';
+import {pull, flatten} from 'lodash/array';
 import {forOwn, values} from 'lodash/object';
 import {isUndefined, isObject, isNumber} from 'lodash/lang';
-import {contains} from 'lodash/collection';
+import {includes} from 'lodash/collection';
 import envHash from '../env-hash';
 import babylonAstDependencies from '../babylon-ast-dependencies';
 import postcssAstDependencies from '../postcss-ast-dependencies';
@@ -25,8 +26,9 @@ import {
   getCachedDependencyIdentifiers
 } from '../dependencies/cached-dependencies';
 import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
-import {browserResolver} from '../dependencies/browser-resolver';
-import {createMockCaches, createFileCaches} from '../tests/tracer-perf';
+import {nodeCoreLibs} from '../dependencies/node-core-libs';
+import browserResolve from 'browser-resolve';
+import {createFileCache} from '../kv-cache';
 import {
   createGraph, getNewNodesFromDiff, getPrunedNodesFromDiff, mergeDiffs
 } from '../cyclic-dependency-graph';
@@ -40,12 +42,16 @@ process.on('unhandledRejection', err => {
 
 const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
+const resolve = promisify(browserResolve);
 
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 const entryFile = path.join(sourceRoot, 'src', 'server-test', 'entry.js');
 const runtimeFile = require.resolve('../../runtime/runtime');
 const hmrRuntimeFile = require.resolve('./hmr-runtime');
+
+let analyzedDependenciesCache;
+let resolvedDependenciesCache;
 
 const records = createRecordStore({
   readText(ref) {
@@ -80,7 +86,7 @@ const records = createRecordStore({
       plugins: ['transform-react-jsx']
     };
   },
-  babel(ref, store) {
+  babelTransform(ref, store) {
     return Promise.all([
       store.readText(ref),
       store.babelOptions(ref)
@@ -89,30 +95,16 @@ const records = createRecordStore({
     });
   },
   babelAst(ref, store) {
-    return store.babel(ref).then(file => file.ast);
+    return store.babelTransform(ref).then(file => file.ast);
   },
   babylonAst(ref, store) {
     return store.readText(ref).then(text => {
-      try {
-        return babylon.parse(text, {
-          sourceType: 'script'
-        });
-      } catch(err) {
-        // Add a code frame so we have some context and insight into parse errors
-        if (
-          isUndefined(err.codeFrame) &&
-          isObject(err.loc) &&
-          isNumber(err.loc.line) &&
-          isNumber(err.loc.column)
-        ) {
-          err.codeFrame = babelCodeFrame(text, err.loc.line, err.loc.column);
-        }
-
-        return Promise.reject(err);
-      }
-    })
+      return babylon.parse(text, {
+        sourceType: 'script'
+      });
+    });
   },
-  parse(ref, store) {
+  ast(ref, store) {
     const ext = path.extname(ref.name);
 
     if (ext === '.css') {
@@ -126,29 +118,102 @@ const records = createRecordStore({
       return store.babelAst(ref);
     }
 
-    throw new Error(`Unknown extension for file "${ref.name}", cannot parse file`);
+    throw new Error(`Unknown extension "${ext}", cannot parse "${ref.name}"`);
+  },
+  analyzeDependencies(ref, store) {
+    const ext = path.extname(ref.name);
+
+    if (ext === '.css') {
+      return store.ast(ref).then(ast => postcssAstDependencies(ast));
+    }
+
+    if (ext === '.js') {
+      return store.ast(ref).then(ast => babylonAstDependencies(ast));
+    }
+
+    return [];
+  },
+  cachedAnalyzedDependencies(ref, store) {
+    return getCachedData(
+      analyzedDependenciesCache,
+      store.cacheKey(ref),
+      () => store.analyzeDependencies(ref)
+    );
   },
   dependencyIdentifiers(ref, store) {
-    const ext = path.extname(ref.name);
-    return store.parse(ref)
-      .then(ast => {
-        if (ext === '.css') {
-          return postcssAstDependencies(ast)
-        } else {
-          return babylonAstDependencies(ast);
-        }
-      })
+    return store.analyzeDependencies(ref)
       .then(ids => ids.map(id => id.source));
   },
-  resolvedDependencies(ref, store) {
-    const dirname = path.dirname(ref.name);
+  packageDependencyIdentifiers(ref, store) {
     return store.dependencyIdentifiers(ref)
-      .then(ids => Promise.all(
-        ids.map(id => browserResolver(id, dirname))
-      ))
-      .then(resolved => values(resolved));
+      .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)));
+  },
+  resolveOptions(ref) {
+    return {
+      basedir: path.dirname(ref.name),
+      extensions: ['.js', '.json'],
+      modules: nodeCoreLibs
+    }
+  },
+  resolvePathDependencies(ref, store) {
+    return store.dependencyIdentifiers(ref)
+      .then(ids => ids.filter(id => id[0] === '.' || path.isAbsolute(id)))
+      .then(ids => store.resolveOptions(ref)
+        .then(options => {
+          return Promise.all(
+            ids.map(id => resolve(id, options))
+          )
+        })
+      );
+  },
+  resolvePackageDependencies(ref, store) {
+    return store.packageDependencyIdentifiers(ref)
+      .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)))
+      .then(ids => store.resolveOptions(ref)
+        .then(options => {
+          return Promise.all(
+            ids.map(id => resolve(id, options))
+          )
+        })
+      );
+  },
+  resolvedDependencies(ref, store) {
+    const cache = resolvedDependenciesCache;
+    const key = store.cacheKey(ref);
+
+    // Aggressively cache node module paths
+    if (startsWith(ref.name, rootNodeModules)) {
+      return getCachedData(cache, key, () => {
+        return Promise.all([
+          store.resolvePathDependencies(ref),
+          store.resolvePackageDependencies(ref)
+        ]).then(flatten)
+      });
+    }
+
+    return Promise.all([
+      store.resolvePathDependencies(ref),
+      getCachedData(cache, key, () => store.resolvePackageDependencies(ref))
+    ]).then(flatten)
   }
 });
+
+function getCachedData(cache, key, compute) {
+  return key.then(key => getCachedDataOrCompute(cache, key, compute))
+}
+
+function getCachedDataOrCompute(cache, key, compute) {
+  return cache.get(key).then(data => {
+    if (data) {
+      return data;
+    }
+
+    return compute().then(computed => {
+      cache.set(key, computed);
+      return computed;
+    });
+  })
+}
 
 const entryPoints = [
   runtimeFile,
@@ -156,57 +221,92 @@ const entryPoints = [
   entryFile
 ];
 
-const tree = Object.create(null);
-const files = Object.create(null);
-const sockets = [];
-const caches = createMockCaches();
+//const sockets = [];
 
-console.log('Inspecting env...');
-envHash()
+envHash({
+  files: [__filename, 'package.json']
+})
   .then(hash => {
-    console.log(`Env hash: ${hash}`);
+    console.log(chalk.bold('EnvHash: ') + hash);
+
+    analyzedDependenciesCache = createFileCache(path.join(__dirname, hash, 'dependency_identifiers'));
+    resolvedDependenciesCache = createFileCache(path.join(__dirname, hash, 'resolved_dependencies'));
+
+    analyzedDependenciesCache.events.on('error', err => { throw err });
+    resolvedDependenciesCache.events.on('error', err => { throw err });
 
     const graph = createGraph({
       getDependencies: (file) => {
         if (!records.has(file)) {
           records.create(file);
         }
-        return records.resolvedDependencies(file);
+        return records.resolvedDependencies(file)
+          .then(resolved => values(resolved));
       }
     });
 
     let traceStart;
     graph.events.on('started', () => {
       traceStart = (new Date()).getTime();
-
-      console.log(repeat('=', 80));
-      process.stdout.write('Tracing: ');
     });
 
-    graph.events.on('traced', ({node}) => {
-      process.stdout.write('.');
-    });
-
+    let errorCount = 0;
     graph.events.on('error', () => {
-      process.stdout.write('*');
+      errorCount += 1;
+    });
+
+    graph.events.on('traced', () => {
+      const known = graph.getState().size;
+      const done = known - graph.pendingJobs.length;
+      process.stdout.write(`\r${chalk.bold('Traced:')} ${done} / ${known}`);
+      if (errorCount) {
+        process.stdout.write(` ${chalk.bold('Errors:')} ${errorCount}`);
+      }
     });
 
     graph.events.on('completed', ({errors, diff}) => {
-      process.stdout.write('\n'); // clear the progress line
+      // reset the state
+      process.stdout.write('\n'); // clear the progress
+      errorCount = 0;
 
-      const disconnectedDiff = graph.pruneDisconnectedNodes();
+      //const disconnectedDiff = graph.pruneDisconnectedNodes();
+      //const mergedDiff = mergeDiffs(diff, disconnectedDiff);
+
       const elapsed = (new Date()).getTime() - traceStart;
-      logGraphDiff(mergeDiffs(diff, disconnectedDiff), elapsed);
+
+      //const prunedNodes = getPrunedNodesFromDiff(mergedDiff);
+      //if (prunedNodes.length) {
+      //  console.log(`[Pruned ${prunedNodes.length}]`);
+      //}
+
+      console.log(`${chalk.bold('Elapsed:')} ${elapsed}ms`);
 
       if (errors.length) {
-        console.error(`Errors: ${errors.length} error(s) encountered during trace...`);
         errors.forEach(({node, error}) => {
-          console.error(`\nFile: ${node}`);
-          console.error(`Message: ${error.message}`);
-          if (error.codeFrame) {
-            console.error(error.codeFrame);
+          const lines = [
+            chalk.red(node),
+            '',
+            error.message
+          ];
+
+          if (error.loc && !error.codeFrame) {
+            let text;
+            try {
+              text = fs.readFileSync(node, 'utf8');
+            } catch (err) {}
+            if (text) {
+              error.codeFrame = babelCodeFrame(text, error.loc.line, error.loc.column);
+            }
           }
-          console.error(`Stack: ${error.stack}\n`);
+
+          if (error.codeFrame && !includes(error.stack, error.codeFrame)) {
+            lines.push(error.codeFrame);
+          }
+
+          lines.push(error.stack);
+
+          console.log(repeat('=', 80));
+          console.error(lines.join('\n'));
         });
       }
     });
@@ -217,113 +317,95 @@ envHash()
     });
   });
 
-function logGraphDiff(diff, elapsed) {
-  console.log(repeat('-', 80));
-
-  const newNodes = getNewNodesFromDiff(diff);
-  if (newNodes.length) {
-    console.log(`Traced: ${newNodes.length} file(s)`);
-  }
-
-  const prunedNodes = getPrunedNodesFromDiff(diff);
-  if (prunedNodes.length) {
-    console.log(`Pruned: ${prunedNodes.length} file(s)`);
-  }
-
-  console.log(`Tracing completed in ${elapsed}ms`);
-
-  console.log(repeat('=', 80));
-}
-
-function getDependencies(file) {
-  return stat(file).then(stat => {
-    const key = file + stat.mtime.getTime();
-
-    function getFile() {
-      return readFile(file, 'utf8');
-    }
-
-    function getJsAst() {
-      if (startsWith(file, rootNodeModules) || file === runtimeFile) {
-        return getCachedAst({cache: caches.ast, key, getFile});
-      }
-
-      return new Promise((res, rej) => {
-        babel.transformFile(
-          file,
-          {
-            plugins: [
-              ['react-transform', {
-                transforms: [{
-                  transform: 'react-transform-hmr',
-                  imports: ['react'],
-                  locals: ['module']
-                }]
-              }]
-            ]
-          },
-          (err, transformed) => {
-            if (err) return rej(err);
-            res(transformed.ast);
-          }
-        )
-      });
-    }
-
-    function getCssAst() {
-      return getFile()
-        .then(text => buildPostCssAst({name: file, text}));
-    }
-
-    function getDependencyIdentifiers() {
-      const pathObj = path.parse(file);
-
-      return Promise.resolve()
-        .then(() => {
-          if (pathObj.ext === '.css') {
-            return getCachedStyleSheetImports({
-              cache: caches.dependencyIdentifiers,
-              key,
-              getAst: getCssAst
-            });
-          }
-
-          return getCachedDependencyIdentifiers({
-            cache: caches.dependencyIdentifiers,
-            key,
-            getAst: getJsAst
-          });
-        })
-        .then(identifiers => identifiers.map(identifier => identifier.source));
-    }
-
-    function resolveIdentifier(identifier) {
-      return browserResolver(identifier, path.dirname(file));
-    }
-
-    return Promise.resolve()
-      .then(() => {
-        // If the file is within the root node_modules, we can aggressively
-        // cache its resolved dependencies
-        if (startsWith(file, rootNodeModules)) {
-          return getAggressivelyCachedResolvedDependencies({
-            cache: caches.resolvedDependencies,
-            key,
-            getDependencyIdentifiers,
-            resolveIdentifier
-          });
-        } else {
-          return getCachedResolvedDependencies({
-            cache: caches.resolvedDependencies,
-            key,
-            getDependencyIdentifiers,
-            resolveIdentifier
-          });
-        }
-      })
-      .then(resolved => values(resolved));
-  });
-}
+//function getDependencies(file) {
+//  return stat(file).then(stat => {
+//    const key = file + stat.mtime.getTime();
+//
+//    function getFile() {
+//      return readFile(file, 'utf8');
+//    }
+//
+//    function getJsAst() {
+//      if (startsWith(file, rootNodeModules) || file === runtimeFile) {
+//        return getCachedAst({cache: caches.ast, key, getFile});
+//      }
+//
+//      return new Promise((res, rej) => {
+//        babel.transformFile(
+//          file,
+//          {
+//            plugins: [
+//              ['react-transform', {
+//                transforms: [{
+//                  transform: 'react-transform-hmr',
+//                  imports: ['react'],
+//                  locals: ['module']
+//                }]
+//              }]
+//            ]
+//          },
+//          (err, transformed) => {
+//            if (err) return rej(err);
+//            res(transformed.ast);
+//          }
+//        )
+//      });
+//    }
+//
+//    function getCssAst() {
+//      return getFile()
+//        .then(text => buildPostCssAst({name: file, text}));
+//    }
+//
+//    function getDependencyIdentifiers() {
+//      const pathObj = path.parse(file);
+//
+//      return Promise.resolve()
+//        .then(() => {
+//          if (pathObj.ext === '.css') {
+//            return getCachedStyleSheetImports({
+//              cache: caches.dependencyIdentifiers,
+//              key,
+//              getAst: getCssAst
+//            });
+//          }
+//
+//          return getCachedDependencyIdentifiers({
+//            cache: caches.dependencyIdentifiers,
+//            key,
+//            getAst: getJsAst
+//          });
+//        })
+//        .then(identifiers => identifiers.map(identifier => identifier.source));
+//    }
+//
+//    function resolveIdentifier(identifier) {
+//      return browserResolver(identifier, path.dirname(file));
+//    }
+//
+//    return Promise.resolve()
+//      .then(() => {
+//        // If the file is within the root node_modules, we can aggressively
+//        // cache its resolved dependencies
+//        if (startsWith(file, rootNodeModules)) {
+//          return getAggressivelyCachedResolvedDependencies({
+//            cache: caches.resolvedDependencies,
+//            key,
+//            getDependencyIdentifiers,
+//            resolveIdentifier
+//          });
+//        } else {
+//          return getCachedResolvedDependencies({
+//            cache: caches.resolvedDependencies,
+//            key,
+//            getDependencyIdentifiers,
+//            resolveIdentifier
+//          });
+//        }
+//      })
+//      .then(resolved => values(resolved));
+//  });
+//}
 
 //function wrapCommonJSModule({code, file, dependencies}) {
 //  const moduleData = {
