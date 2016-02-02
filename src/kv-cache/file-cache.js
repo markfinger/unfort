@@ -49,21 +49,20 @@ export function createFileCache(dirname, options={}) {
       return Promise.resolve(data);
     }
 
-    return readFile(file, 'utf8').then(
-      json => {
+    return readFile(file, 'utf8')
+      .then(json => {
         cache[file] = json;
 
         return JSON.parse(json);
-      },
-      err => {
-        // Cache misses are represented by missing files
+      })
+      .catch(err => {
         if (err.code === 'ENOENT') {
+          // Missing files represent cache misses so we can safely ignore this
           return null;
         }
 
         return Promise.reject(err);
-      }
-    );
+      });
   }
 
   /**
