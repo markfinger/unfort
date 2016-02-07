@@ -43,6 +43,7 @@ export function createFileCache(dirname, options={}) {
       try {
         data = JSON.parse(cache[file]);
       } catch(err) {
+        err.message = `Error reading cache file: ${file} - ${err.message}`;
         events.emit('error', err);
         return Promise.reject(err);
       }
@@ -60,6 +61,8 @@ export function createFileCache(dirname, options={}) {
           // Missing files represent cache misses so we can safely ignore this
           return null;
         }
+
+        err.message = `Error reading cache file: ${file} - ${err.message}`;
 
         return Promise.reject(err);
       });
