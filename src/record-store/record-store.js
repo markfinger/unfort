@@ -1,5 +1,5 @@
 import {forOwn} from 'lodash/object';
-import {isString, isObject, isFunction} from 'lodash/lang';
+import {isString, isObject, isFunction, isUndefined} from 'lodash/lang';
 import imm from 'immutable';
 import {
   createIntercept, isIntercept, isRecordRemovedIntercept, isRecordInvalidIntercept
@@ -84,14 +84,6 @@ export function createRecordStore(functions={}) {
             return intercept;
           }
 
-
-          //if (!isIntercept(err)) {
-          //  const intercept = createIntercept(state, ref);
-          //  if (intercept) {
-          //    return intercept;
-          //  }
-          //}
-
           return Promise.reject(err);
         })
         .then(data => {
@@ -135,6 +127,14 @@ export function createRecordStore(functions={}) {
           const intercept = createIntercept(state, ref);
           if (intercept) {
             return intercept;
+          }
+
+          // Sanity check to prevent situations where you forget
+          // to return a value
+          if (isUndefined(data)) {
+            return Promise.reject(
+              new Error(`Job "${propName}" returned undefined for file "${ref.name}"`)
+            );
           }
 
           return data;

@@ -127,5 +127,17 @@ describe('record-store/record-store', () => {
         `Property name "create" conflicts with the record store's API`
       );
     });
+    it('should reject if a job does not return a value', () => {
+      const store = createRecordStore({
+        foo: () => {}
+      });
+
+      store.create('bar');
+
+      return assert.isRejected(
+        store.foo('bar'),
+        /Job "foo" returned undefined for file "bar"/
+      )
+    });
   });
 });
