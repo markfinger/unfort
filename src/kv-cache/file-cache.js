@@ -101,7 +101,7 @@ export function createFileCache(dirname, options={}) {
     // Ensure that the in-memory cache is updated
     cache[filename] = json;
 
-    return writeFile(filename, json)
+    return writeFile(filename, json, 'utf8')
       .catch(err => {
         events.emit(err);
         return Promise.reject(err);
