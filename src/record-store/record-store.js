@@ -1,3 +1,4 @@
+import path from 'path';
 import {forOwn} from 'lodash/object';
 import {isString, isObject, isFunction, isUndefined} from 'lodash/lang';
 import imm from 'immutable';
@@ -13,6 +14,7 @@ export const Record = imm.Record({
 
 export const Reference = imm.Record({
   name: null,
+  ext: null,
   reference: null
 });
 
@@ -69,6 +71,7 @@ export function createRecordStore(functions={}) {
 
       const ref = Reference({
         name,
+        ext: path.extname(name),
         reference: record.reference,
         origin: propName
       });

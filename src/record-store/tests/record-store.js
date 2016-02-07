@@ -27,17 +27,18 @@ describe('record-store/record-store', () => {
       const store = createRecordStore({
         foo: (ref, store) => {
           assert.isObject(ref);
-          assert.equal(ref.name, 'test');
+          assert.equal(ref.name, 'foo.bar');
+          assert.equal(ref.ext, '.bar');
           assert.isObject(store);
-          return 'foo'
+          return 'woz'
         }
       });
 
-      store.create('test');
+      store.create('foo.bar');
 
       return assert.becomes(
-        store.foo('test'),
-        'foo'
+        store.foo('foo.bar'),
+        'woz'
       );
     });
     it('should allow store functions to call other store functions', () => {
