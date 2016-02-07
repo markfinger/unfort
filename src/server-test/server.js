@@ -8,6 +8,7 @@ import express from 'express';
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
 import babelCodeFrame from 'babel-code-frame';
+import babelGenerator from 'babel-generator';
 import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
 import postcss from 'postcss';
@@ -77,19 +78,23 @@ const records = createRecordStore({
       return postcss.parse(text, {from: ref.name})
     });
   },
-  babelOptions(ref) {
+  babelTransformOptions(ref) {
     return {
       filename: ref.name,
       sourceRoot,
       sourceType: 'module',
       babelrc: false,
-      plugins: ['transform-react-jsx']
+      plugins: [
+        'transform-react-jsx',
+        'check-es2015-constants',
+        'transform-es2015-modules-commonjs'
+      ]
     };
   },
   babelTransform(ref, store) {
     return Promise.all([
       store.readText(ref),
-      store.babelOptions(ref)
+      store.babelTransformOptions(ref)
     ]).then(([text, options]) => {
       return babel.transform(text, options)
     });
@@ -195,6 +200,73 @@ const records = createRecordStore({
       store.resolvePathDependencies(ref),
       getCachedData(cache, key, () => store.resolvePackageDependencies(ref))
     ]).then(flatten)
+  },
+  transformAst(ref, store) {
+    const ext = path.extname(ref.name);
+
+    if (ext === '.css') {
+      return store.ast(ref).then(ast => {
+        // Remove import rules
+        ast.walkAtRules('import', decl => decl.remove());
+
+        return ast.toResult({
+          // Generate a source map, but keep it separate from the code
+          map: {
+            inline: false,
+            annotation: false
+          }
+        });
+      });
+    }
+
+    if (ext === '.js') {
+      return Promise.all([
+        store.readText(ref),
+        store.ast(ref)
+      ]).then(([text, ast]) => {
+        return babelGenerator(ast, null, text);
+      });
+    }
+  },
+  code(ref, store) {
+    const ext = path.extname(ref.name);
+
+    if (ext === '.css') {
+      return store.transformAst(ref).then(ast => {
+        return ast.css;
+      });
+    }
+
+    if (ext === '.js') {
+      return store.transformAst(ref).then(ast => {
+        return ast.code;
+      });
+    }
+
+    return store.readText(ref);
+  },
+  sourceMap(ref, store) {
+    const ext = path.extname(ref.name);
+
+    if (ext === '.css') {
+      return store.transformAst(ref).then(ast => {
+        if (ast.map) {
+          return ast.map.toString();
+        }
+        return null;
+      });
+    }
+
+    if (ext === '.js') {
+      return store.transformAst(ref).then(ast => {
+        if (ast.map) {
+          return ast.map.toString();
+        }
+        return null;
+      });
+    }
+
+    return null;
   }
 });
 
@@ -227,10 +299,11 @@ envHash({
   files: [__filename, 'package.json']
 })
   .then(hash => {
-    console.log(chalk.bold('EnvHash: ') + hash);
+    console.log(chalk.bold('EnvHash: ') + hash + '\n');
 
-    analyzedDependenciesCache = createFileCache(path.join(__dirname, hash, 'dependency_identifiers'));
-    resolvedDependenciesCache = createFileCache(path.join(__dirname, hash, 'resolved_dependencies'));
+    const cacheRoot = path.join(__dirname, hash);
+    analyzedDependenciesCache = createFileCache(path.join(cacheRoot, 'dependency_identifiers'));
+    resolvedDependenciesCache = createFileCache(path.join(cacheRoot, 'resolved_dependencies'));
 
     analyzedDependenciesCache.events.on('error', err => { throw err });
     resolvedDependenciesCache.events.on('error', err => { throw err });
@@ -250,65 +323,66 @@ envHash({
       traceStart = (new Date()).getTime();
     });
 
-    let errorCount = 0;
-    graph.events.on('error', () => {
-      errorCount += 1;
+    graph.events.on('error', ({node, error}) => {
+      const lines = [
+        chalk.red(node),
+        '',
+        error.message
+      ];
+
+      if (error.loc && !error.codeFrame) {
+        let text;
+        try {
+          text = fs.readFileSync(node, 'utf8');
+        } catch (err) {}
+        if (text) {
+          error.codeFrame = babelCodeFrame(text, error.loc.line, error.loc.column);
+        }
+      }
+
+      if (error.codeFrame && !includes(error.stack, error.codeFrame)) {
+        lines.push(error.codeFrame);
+      }
+
+      lines.push(error.stack);
+
+      console.error(lines.join('\n'));
     });
 
     graph.events.on('traced', () => {
       const known = graph.getState().size;
       const done = known - graph.pendingJobs.length;
-      process.stdout.write(`\r${chalk.bold('Traced:')} ${done} / ${known}`);
-      if (errorCount) {
-        process.stdout.write(` ${chalk.bold('Errors:')} ${errorCount}`);
-      }
+      process.stdout.write(`\r${chalk.bold('Trace:')} ${done} / ${known}`);
     });
 
-    graph.events.on('completed', ({errors, diff}) => {
-      // reset the state
-      process.stdout.write('\n'); // clear the progress
-      errorCount = 0;
+    graph.events.on('completed', ({errors}) => {
+      process.stdout.write('\n'); // clear the progress indicator
 
-      //const disconnectedDiff = graph.pruneDisconnectedNodes();
-      //const mergedDiff = mergeDiffs(diff, disconnectedDiff);
+      graph.pruneDisconnectedNodes();
 
       const elapsed = (new Date()).getTime() - traceStart;
 
-      //const prunedNodes = getPrunedNodesFromDiff(mergedDiff);
-      //if (prunedNodes.length) {
-      //  console.log(`[Pruned ${prunedNodes.length}]`);
-      //}
+      if (errors.length) {
+        console.log(`${chalk.bold('Errors:')} ${errors.length}`);
+      }
 
       console.log(`${chalk.bold('Elapsed:')} ${elapsed}ms`);
 
-      if (errors.length) {
-        errors.forEach(({node, error}) => {
-          const lines = [
-            chalk.red(node),
-            '',
-            error.message
-          ];
+      const nodes = graph.getState().keySeq().toArray();
 
-          if (error.loc && !error.codeFrame) {
-            let text;
-            try {
-              text = fs.readFileSync(node, 'utf8');
-            } catch (err) {}
-            if (text) {
-              error.codeFrame = babelCodeFrame(text, error.loc.line, error.loc.column);
-            }
-          }
+      console.log(chalk.bold(`\nCode generation`));
 
-          if (error.codeFrame && !includes(error.stack, error.codeFrame)) {
-            lines.push(error.codeFrame);
-          }
-
-          lines.push(error.stack);
-
-          console.log(repeat('=', 80));
-          console.error(lines.join('\n'));
-        });
-      }
+      const buildStart = (new Date()).getTime();
+      Promise.all(
+        nodes.map(node => Promise.all([
+          node,
+          records.code(node),
+          records.sourceMap(node)
+        ]))
+      ).then(list => {
+        const buildElapsed = (new Date()).getTime() - buildStart;
+        console.log(`${chalk.bold('Elapsed:')} ${buildElapsed}ms`);
+      });
     });
 
     entryPoints.forEach(file => {

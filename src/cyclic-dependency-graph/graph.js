@@ -191,7 +191,6 @@ export function createGraph({state=Map(), getDependencies, trackStats=false}={})
       state = updatedState;
     }
 
-
     signalIfCompleted();
 
     return Diff({
