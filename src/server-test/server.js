@@ -55,6 +55,11 @@ const entryPoints = [
   path.join(sourceRoot, 'src', 'server-test', 'entry.js')
 ];
 
+const app = express();
+const server = http.createServer(app);
+const io = socketIo(server);
+const sockets = [];
+
 let analyzedDependenciesCache;
 let resolvedDependenciesCache;
 
@@ -210,10 +215,7 @@ const records = createRecordStore({
   },
   code(ref, store) {
     if (ref.ext === '.css') {
-      return Promise.all([
-        store.ast(ref),
-        store.hash(ref)
-      ]).then(([ast, hash]) => {
+      return store.ast(ref).then(ast => {
         // Remove import rules
         ast.walkAtRules('import', rule => rule.remove());
 
@@ -283,6 +285,8 @@ function getCachedDataOrCompute(cache, key, compute) {
   });
 }
 
+const graphEntryPoints = [runtimeFile, ...entryPoints];
+
 envHash({files: [__filename, 'package.json']}).then(hash => {
   console.log(chalk.bold('EnvHash: ') + hash + '\n');
 
@@ -312,6 +316,30 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
     traceStart = (new Date()).getTime();
   });
 
+  graphEntryPoints.forEach(file => {
+    graph.setNodeAsEntry(file);
+    graph.traceFromNode(file);
+  });
+
+  const watcher = chokidar.watch([], {
+    persistent: true
+  });
+
+  watcher.on('change', (file) => {
+    console.log(`File changed: ${file}`);
+
+    // Update the record store
+    records.remove(file);
+    records.create(file);
+
+    // Update the graph
+    graph.pruneNode(file);
+    if (includes(graphEntryPoints, file)) {
+      graph.setNodeAsEntry(file);
+    }
+    graph.traceFromNode(file);
+  });
+
   graph.events.on('error', ({node, error}) => {
     const lines = [
       chalk.red(node),
@@ -335,7 +363,11 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
 
     lines.push(error.stack);
 
-    console.error(lines.join('\n'));
+    const message = lines.join('\n');
+    console.error(message);
+    sockets.forEach(socket => {
+
+    })
   });
 
   graph.events.on('traced', () => {
@@ -359,6 +391,17 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
 
     const nodes = graph.getState().keySeq().toArray();
 
+    const watched = watcher.getWatched();
+    nodes.forEach(name => {
+      if (startsWith(name, rootNodeModules)) {
+        return;
+      }
+      const dirname = path.dirname(name);
+      if (!includes(watched[dirname], path.basename(name))) {
+        watcher.add(name);
+      }
+    });
+
     console.log(chalk.bold(`\nCode generation...`));
 
     const graphState = graph.getState();
@@ -367,6 +410,7 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
     Promise.all(
       nodes.map(node => Promise.all([
         node,
+        records.hash(node),
         records.code(node)
       ]))
     ).then(() => {
@@ -379,33 +423,17 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
       }
     });
   });
-
-  [runtimeFile, ...entryPoints].forEach(file => {
-    graph.setNodeAsEntry(file);
-    graph.traceFromNode(file);
-  });
 });
-
-const app = express();
-const server = http.createServer(app);
-const io = socketIo(server);
 
 server.listen(3000, '127.0.0.1', () => {
   console.log(`${chalk.bold('Server:')} http://127.0.0.1:3000`);
 });
 
-const sockets = [];
-
 io.on('connection', (socket) => {
-  console.log('hmr connection opened');
-
+  sockets.push(socket);
   socket.on('disconnect', () => {
-    console.log('hmr connection closed');
-
     pull(sockets, socket);
   });
-
-  sockets.push(socket);
 });
 
 const serverState = {
@@ -425,12 +453,19 @@ app.get('/', (req, res) => {
   const styles = [];
   const stylesImportedByJS = [];
 
+  function createUrl(record) {
+    const relPath = path.relative(sourceRoot, record.name);
+    return `/file/${relPath}?hash=${record.data.get('hash')}`;
+  }
+
+  const runtimeUrl = createUrl(records.get(runtimeFile));
+
   records.forEach(record => {
     const ext = path.extname(record.name);
-    const relPath = path.relative(sourceRoot, record.name);
+    const url = createUrl(record);
 
     if (ext === '.css') {
-      styles.push(`<link rel="stylesheet" href="/file/${relPath}">`);
+      styles.push(`<link rel="stylesheet" href="${url}">`);
       const dependents = graph.get(record.name).dependents;
       if (dependents.some(name => path.extname(name) === '.js')) {
         stylesImportedByJS.push(record.name);
@@ -438,11 +473,9 @@ app.get('/', (req, res) => {
     }
 
     if (ext === '.js' && record.name !== runtimeFile) {
-      scripts.push(`<script src="/file/${relPath}"></script>`);
+      scripts.push(`<script src="${url}"></script>`);
     }
   });
-
-  const runtime = path.relative(sourceRoot, runtimeFile);
 
   const styleShims = stylesImportedByJS.map(file => {
     return `__modules.exportsCache[${JSON.stringify(file)}] = '';`;
@@ -458,7 +491,7 @@ app.get('/', (req, res) => {
       ${styles.join('\n')}
     </head>
     <body>
-      <script src="/file/${runtime}"></script>
+      <script src="${runtimeUrl}"></script>
       ${scripts.join('\n')}
       <script>
         ${styleShims}
@@ -491,18 +524,3 @@ app.get(fileEndpoint + '*', (req, res) => {
 
   return res.end(record.data.get('code'));
 });
-
-//const watcher = chokidar.watch([], {
-//  persistent: true
-//});
-//
-//watcher.on('change', (file) => {
-//  console.log(`File changed: ${file}`);
-//
-//  graph.pruneNode(file);
-//
-//  if (contains(entryPoints, file)) {
-//    graph.setNodeAsEntry(file);
-//  }
-//  graph.traceFromNode(file);
-//});

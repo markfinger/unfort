@@ -42,6 +42,11 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
 };
 
 const io = socketIoClient();
+
+io.on('connect', () => {
+  console.log('hmr connected');
+});
+
 io.on('hmr', (msg) => {
   const {url} = msg;
 
