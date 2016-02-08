@@ -15,8 +15,8 @@ import postcss from 'postcss';
 import promisify from 'promisify-node';
 import chalk from 'chalk';
 import {startsWith, repeat} from 'lodash/string';
-import {pull, flatten} from 'lodash/array';
-import {forOwn, values} from 'lodash/object';
+import {pull, flatten, zipObject} from 'lodash/array';
+import {forOwn, values, assign} from 'lodash/object';
 import {isUndefined, isObject, isNumber} from 'lodash/lang';
 import {includes} from 'lodash/collection';
 import envHash from '../env-hash';
@@ -118,13 +118,11 @@ const records = createRecordStore({
     });
   },
   ast(ref, store) {
-    const ext = path.extname(ref.name);
-
-    if (ext === '.css') {
+    if (ref.ext === '.css') {
       return store.postcssAst(ref);
     }
 
-    if (ext === '.js') {
+    if (ref.ext === '.js') {
       if (startsWith(ref.name, rootNodeModules)) {
         return store.babylonAst(ref);
       }
@@ -139,13 +137,11 @@ const records = createRecordStore({
     throw new Error(`Unknown extension "${ext}", cannot parse "${ref.name}"`);
   },
   analyzeDependencies(ref, store) {
-    const ext = path.extname(ref.name);
-
-    if (ext === '.css') {
+    if (ref.ext === '.css') {
       return store.ast(ref).then(ast => postcssAstDependencies(ast));
     }
 
-    if (ext === '.js') {
+    if (ref.ext === '.js') {
       return store.ast(ref).then(ast => babylonAstDependencies(ast));
     }
 
@@ -169,24 +165,26 @@ const records = createRecordStore({
   resolvePathDependencies(ref, store) {
     return store.dependencyIdentifiers(ref)
       .then(ids => ids.filter(id => id[0] === '.' || path.isAbsolute(id)))
-      .then(ids => store.resolveOptions(ref)
-        .then(options => {
-          return Promise.all(
-            ids.map(id => resolve(id, options))
-          )
-        })
-      );
+      .then(ids => {
+        return store.resolveOptions(ref)
+          .then(options => {
+            return Promise.all(
+              ids.map(id => resolve(id, options))
+            )
+          }).then(resolved => zipObject(ids, resolved));
+      });
   },
   resolvePackageDependencies(ref, store) {
     return store.packageDependencyIdentifiers(ref)
       .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)))
-      .then(ids => store.resolveOptions(ref)
-        .then(options => {
-          return Promise.all(
-            ids.map(id => resolve(id, options))
-          )
-        })
-      );
+      .then(ids => {
+        return store.resolveOptions(ref)
+          .then(options => {
+            return Promise.all(
+              ids.map(id => resolve(id, options))
+            )
+          }).then(resolved => zipObject(ids, resolved));
+      });
   },
   resolvedDependencies(ref, store) {
     const cache = resolvedDependenciesCache;
@@ -198,7 +196,7 @@ const records = createRecordStore({
         return Promise.all([
           store.resolvePathDependencies(ref),
           store.resolvePackageDependencies(ref)
-        ]).then(flatten)
+        ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps))
       });
     }
 
@@ -207,12 +205,10 @@ const records = createRecordStore({
     return Promise.all([
       store.resolvePathDependencies(ref),
       getCachedData(cache, key, () => store.resolvePackageDependencies(ref))
-    ]).then(flatten)
+    ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps))
   },
   code(ref, store) {
-    const ext = path.extname(ref.name);
-
-    if (ext === '.css') {
+    if (ref.ext === '.css') {
       return Promise.all([
         store.ast(ref),
         store.hash(ref)
@@ -228,15 +224,15 @@ const records = createRecordStore({
           }
         });
 
-        return {
-          code: result.css,
-          sourceMap: result.map,
-          hash
-        };
+        return result.css;
       });
     }
 
-    if (ext === '.js') {
+    if (ref.ext === '.js') {
+      if (ref.name === runtimeFile) {
+        return store.readText(ref);
+      }
+
       return Promise.all([
         store.readText(ref),
         store.ast(ref),
@@ -259,17 +255,13 @@ const records = createRecordStore({
           '});'
         ];
 
-        return {
-          code: lines.join('\n'),
-          sourceMap: result.map,
-          hash
-        }
+        return lines.join('\n');
       });
     }
 
     // TODO: handle `.json`
     // TODO: handle binary files (images, etc)
-    return Promise.reject(`Cannot generate code for extension: ${ext}. File: ${ref.name}`);
+    return Promise.reject(`Cannot generate code for extension: ${ref.ext}. File: ${ref.name}`);
   }
 });
 
@@ -307,7 +299,10 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
       }
 
       return records.resolvedDependencies(file)
-        .then(resolved => values(resolved));
+        .then(resolved => {
+          //console.log(resolved, values(resolved))
+          return values(resolved);
+        });
     }
   });
 
@@ -365,17 +360,22 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
 
     console.log(chalk.bold(`\nCode generation...`));
 
+    const graphState = graph.getState();
+
     const buildStart = (new Date()).getTime();
     Promise.all(
       nodes.map(node => Promise.all([
         node,
         records.code(node)
       ]))
-    ).then(files => {
+    ).then(() => {
       const buildElapsed = (new Date()).getTime() - buildStart;
       console.log(`${chalk.bold('Elapsed:')} ${buildElapsed}ms`);
 
-      onCodeGenerated(files);
+      if (graph.getState() === graphState) {
+        const recordsState = records.getState();
+        onCodeGenerated(recordsState, graphState);
+      }
     });
   });
 
@@ -408,66 +408,82 @@ io.on('connection', (socket) => {
 });
 
 const serverState = {
-  files: null
+  records: null
 };
 
-function onCodeGenerated(files) {
-  serverState.files = files;
+function onCodeGenerated(recordsState, graphState) {
+  serverState.records = recordsState;
+  serverState.graph = graphState;
 }
 
 app.get('/', (req, res) => {
-  function generateScriptElement(file) {
-    return `<script src="${file}"></script>`;
-  }
+  const records = serverState.records;
+  const graph = serverState.graph;
 
-  function generateLinkElement(file) {
-    return `<link rel="stylesheet" href="${file}">`;
-  }
+  const scripts = [];
+  const styles = [];
+  const stylesImportedByJS = [];
 
-  const runtimeScript = generateScriptElement(runtimeFile);
+  records.forEach(record => {
+    const ext = path.extname(record.name);
+    const relPath = path.relative(sourceRoot, record.name);
 
-  const files = serverState.files;
+    if (ext === '.css') {
+      styles.push(`<link rel="stylesheet" href="/file/${relPath}">`);
+      const dependents = graph.get(record.name).dependents;
+      if (dependents.some(name => path.extname(name) === '.js')) {
+        stylesImportedByJS.push(record.name);
+      }
+    }
 
-  const styles = files.filter(file => path.extname(file) === '.css')
-    .map(generateLinkElement)
-    .join('\n');
+    if (ext === '.js' && record.name !== runtimeFile) {
+      scripts.push(`<script src="/file/${relPath}"></script>`);
+    }
+  });
 
-  const scripts = files.filter(file => file !== runtimeFile && path.extname(file) === '.js')
-    .map(generateScriptElement)
-    .join('\n');
+  const runtime = path.relative(sourceRoot, runtimeFile);
 
-  const initCode = entryPoints.map(file => {
+  const styleShims = stylesImportedByJS.map(file => {
+    return `__modules.exportsCache[${JSON.stringify(file)}] = '';`;
+  }).join('\n');
+
+  const entryPointsInit = entryPoints.map(file => {
     return `__modules.executeModule(${JSON.stringify(file)});`;
   }).join('\n');
 
   res.end(`
     <html>
     <head>
-      ${styles}
+      ${styles.join('\n')}
     </head>
     <body>
-      ${runtimeScript}
-      ${scripts}
+      <script src="/file/${runtime}"></script>
+      ${scripts.join('\n')}
       <script>
-        ${initCode}
+        ${styleShims}
+        ${entryPointsInit}
       </script>
     </body>
     </html>
   `);
 });
 
-app.get('/file/*', (req, res) => {
-  const file = req.path;
+const fileEndpoint = '/file/';
+app.get(fileEndpoint + '*', (req, res) => {
+  const file = req.path.slice(fileEndpoint.length - 1);
 
   if (!file) {
     return res.status(404).send('Not found');
   }
 
-  const abs = path.join(sourceRoot, file);
+  const absPath = path.join(sourceRoot, file);
+  const record = serverState.records.get(absPath);
 
-  if (files[abs]) {
-    return res.end(files[abs]);
+  if (!record) {
+    return res.status(404).send('Not found');
   }
+
+  return res.end(record.data.get('code'));
 });
 
 //const watcher = chokidar.watch([], {
