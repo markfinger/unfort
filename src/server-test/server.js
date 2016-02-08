@@ -51,7 +51,7 @@ const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
 const runtimeFile = require.resolve('../../runtime/runtime');
 const entryPoints = [
-  require.resolve('./hmr-runtime'),
+  require.resolve('../../runtime/hmr-runtime'),
   path.join(sourceRoot, 'src', 'server-test', 'entry.js')
 ];
 
@@ -98,10 +98,9 @@ const records = createRecordStore({
       sourceRoot,
       sourceType: 'module',
       babelrc: false,
-      plugins: [
-        'transform-react-jsx',
-        'check-es2015-constants',
-        'transform-es2015-modules-commonjs'
+      presets: [
+        'es2015',
+        'react'
       ]
     };
   },
@@ -303,6 +302,16 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
         records.create(file);
       }
 
+      const watched = watcher.getWatched();
+      // We reduce system load by only watching files outside
+      // of the root node_modules directory
+      if (!startsWith(file, rootNodeModules)) {
+        const dirname = path.dirname(file);
+        if (!includes(watched[dirname], path.basename(file))) {
+          watcher.add(file);
+        }
+      }
+
       return records.resolvedDependencies(file)
         .then(resolved => {
           //console.log(resolved, values(resolved))
@@ -376,10 +385,8 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
     process.stdout.write(`\r${chalk.bold('Trace:')} ${done} / ${known}`);
   });
 
-  graph.events.on('completed', ({errors}) => {
+  graph.events.on('completed', ({errors, diff}) => {
     process.stdout.write('\n'); // clear the progress indicator
-
-    graph.pruneDisconnectedNodes();
 
     const elapsed = (new Date()).getTime() - traceStart;
 
@@ -391,16 +398,30 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
 
     const nodes = graph.getState().keySeq().toArray();
 
-    const watched = watcher.getWatched();
-    nodes.forEach(name => {
-      if (startsWith(name, rootNodeModules)) {
-        return;
-      }
-      const dirname = path.dirname(name);
-      if (!includes(watched[dirname], path.basename(name))) {
-        watcher.add(name);
-      }
+    const disconnectedDiff = graph.pruneDisconnectedNodes();
+    const mergedDiff = mergeDiffs(diff, disconnectedDiff);
+    const prunedNodes = getPrunedNodesFromDiff(mergedDiff);
+    const newNodes = getNewNodesFromDiff(mergedDiff);
+
+    // Clean up any data associated with any files that were
+    // removing during the tracing
+    prunedNodes.forEach(node => {
+      watcher.unwatch(node);
+      records.remove(node);
     });
+
+    // Start watching any new files
+    const watched = watcher.getWatched();
+    newNodes
+      // We reduce system load by only watching files outside
+      // of the root node_modules directory
+      .filter(name => !startsWith(name, rootNodeModules))
+      .forEach(name => {
+        const dirname = path.dirname(name);
+        if (!includes(watched[dirname], path.basename(name))) {
+          watcher.add(name);
+        }
+      });
 
     console.log(chalk.bold(`\nCode generation...`));
 
@@ -421,12 +442,12 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
         const recordsState = records.getState();
         onCodeGenerated(recordsState, graphState);
       }
+    })
+    .catch(err => {
+      console.log('error during code gen')
+      console.error(err);
     });
   });
-});
-
-server.listen(3000, '127.0.0.1', () => {
-  console.log(`${chalk.bold('Server:')} http://127.0.0.1:3000`);
 });
 
 io.on('connection', (socket) => {
@@ -437,12 +458,20 @@ io.on('connection', (socket) => {
 });
 
 const serverState = {
-  records: null
+  records: null,
+  isListening: false
 };
 
 function onCodeGenerated(recordsState, graphState) {
   serverState.records = recordsState;
   serverState.graph = graphState;
+
+  if (!serverState.isListening) {
+    serverState.isListening = true;
+    server.listen(3000, '127.0.0.1', () => {
+      console.log(`${chalk.bold('Server:')} http://127.0.0.1:3000`);
+    });
+  }
 }
 
 app.get('/', (req, res) => {
