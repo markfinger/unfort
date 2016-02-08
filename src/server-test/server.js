@@ -396,14 +396,11 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
     const prunedNodes = getPrunedNodesFromDiff(mergedDiff);
     const newNodes = getNewNodesFromDiff(mergedDiff);
 
-    // TODO: crashes if you change hmr-runtime after build
-
     const nodes = graph.getState().keySeq().toArray();
 
     // Clean up any data associated with any files that were
     // removing during the tracing
     prunedNodes.forEach(node => {
-      console.log('pruning' +node)
       watcher.unwatch(node);
       records.remove(node);
     });
