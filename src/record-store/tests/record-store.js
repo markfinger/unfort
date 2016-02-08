@@ -140,5 +140,21 @@ describe('record-store/record-store', () => {
         /Job "foo" returned undefined for file "bar"/
       )
     });
+    it('should apply resolved data to a Record\'s `data` map', () => {
+      const store = createRecordStore({
+        foo: () => {
+          return Promise.resolve('foo');
+        }
+      });
+
+      store.create('bar');
+
+      return assert.isFulfilled(
+        store.foo('bar').then(() => {
+          const record = store.get('bar');
+          assert.equal(record.data.get('foo'), 'foo');
+        })
+      )
+    });
   });
 });

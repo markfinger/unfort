@@ -9,6 +9,7 @@ import {
 export const Record = imm.Record({
   name: null,
   reference: null,
+  data: imm.Map(),
   jobs: imm.Map()
 });
 
@@ -115,6 +116,9 @@ export function createRecordStore(functions={}) {
       }
 
       const record = state.get(ref.name);
+
+      // If the job has already started for this record, we simply pass it
+      // it back so it can resolve to multiple consumers
       const jobs = record.get('jobs');
       if (jobs.has(propName)) {
         return jobs.get(propName);
@@ -140,9 +144,18 @@ export function createRecordStore(functions={}) {
             );
           }
 
+          // Update the `data` property of the record
+          const latestRecord = state.get(record.name);
+          const recordData = latestRecord.get('data');
+          const updatedRecordData = recordData.set(propName, data);
+          const updatedRecord = latestRecord.set('data', updatedRecordData);
+          state = state.set(record.name, updatedRecord);
+
           return data;
         });
 
+      // Bind the pending job to the record's `jobs` map, this enables
+      // successive calls to reuse the result of the initial one
       const updatedJobs = jobs.set(propName, promise);
       const updatedRecord = record.set('jobs', updatedJobs);
       state = state.set(record.name, updatedRecord);
