@@ -7,7 +7,7 @@ const main = document.createElement('div');
 document.body.appendChild(main);
 
 ReactDOM.render(
-  <Counter initialCount={1} />,
+  <Counter initialCount={0} />,
   main
 );
 

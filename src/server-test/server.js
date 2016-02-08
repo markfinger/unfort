@@ -8,6 +8,8 @@ import express from 'express';
 import * as mimeTypes from 'mime-types';
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
+import imm from 'immutable'
+import stripAnsi from 'strip-ansi';
 import babelCodeFrame from 'babel-code-frame';
 import babelGenerator from 'babel-generator';
 import chokidar from 'chokidar';
@@ -52,13 +54,19 @@ const rootNodeModules = path.join(sourceRoot, 'node_modules');
 const runtimeFile = require.resolve('../../runtime/runtime');
 const entryPoints = [
   require.resolve('../../runtime/hmr-runtime'),
-  path.join(sourceRoot, 'src', 'server-test', 'entry.js')
+  require.resolve('../../test-src/entry')
 ];
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 const sockets = [];
+
+const fileEndpoint = '/file/';
+function createRecordUrl(record) {
+  const relPath = path.relative(sourceRoot, record.name);
+  return fileEndpoint + relPath;
+}
 
 let analyzedDependenciesCache;
 let resolvedDependenciesCache;
@@ -98,6 +106,18 @@ const records = createRecordStore({
       sourceRoot,
       sourceType: 'module',
       babelrc: false,
+      plugins: [
+        ['react-transform', {
+          transforms: [{
+            transform: 'react-transform-hmr',
+            imports: ['react'],
+            locals: ['module']
+          }, {
+            transform: 'react-transform-catch-errors',
+            imports: ['react', 'redbox-react']
+          }]
+        }]
+      ],
       presets: [
         'es2015',
         'react'
@@ -293,8 +313,8 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
   analyzedDependenciesCache = createFileCache(path.join(cacheRoot, 'dependency_identifiers'));
   resolvedDependenciesCache = createFileCache(path.join(cacheRoot, 'resolved_dependencies'));
 
-  analyzedDependenciesCache.events.on('error', err => { throw err });
-  resolvedDependenciesCache.events.on('error', err => { throw err });
+  analyzedDependenciesCache.events.on('error', err => emitError(err));
+  resolvedDependenciesCache.events.on('error', err => emitError(err));
 
   const graph = createGraph({
     getDependencies: (file) => {
@@ -312,17 +332,17 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
         }
       }
 
-      return records.resolvedDependencies(file)
-        .then(resolved => {
-          //console.log(resolved, values(resolved))
-          return values(resolved);
-        });
+      return records.resolvedDependencies(file).then(resolved => {
+        return values(resolved);
+      });
     }
   });
 
   let traceStart;
   graph.events.on('started', () => {
     traceStart = (new Date()).getTime();
+
+    sockets.forEach(socket => socket.emit('build:started'));
   });
 
   graphEntryPoints.forEach(file => {
@@ -335,48 +355,22 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
   });
 
   watcher.on('change', (file) => {
-    console.log(`File changed: ${file}`);
+    console.log(`\n${chalk.italic('File change:')} ${file}\n`);
 
-    // Update the record store
+    // Update the records and graph
     records.remove(file);
-    records.create(file);
-
-    // Update the graph
+    const node = graph.getState().get(file);
     graph.pruneNode(file);
     if (includes(graphEntryPoints, file)) {
       graph.setNodeAsEntry(file);
+      graph.traceFromNode(file);
     }
-    graph.traceFromNode(file);
+    // Re-connect any dependents of the file
+    node.dependents.forEach(dependent => graph.traceFromNode(dependent));
   });
 
   graph.events.on('error', ({node, error}) => {
-    const lines = [
-      chalk.red(node),
-      '',
-      error.message
-    ];
-
-    if (error.loc && !error.codeFrame) {
-      let text;
-      try {
-        text = fs.readFileSync(node, 'utf8');
-      } catch (err) {}
-      if (text) {
-        error.codeFrame = babelCodeFrame(text, error.loc.line, error.loc.column);
-      }
-    }
-
-    if (error.codeFrame && !includes(error.stack, error.codeFrame)) {
-      lines.push(error.codeFrame);
-    }
-
-    lines.push(error.stack);
-
-    const message = lines.join('\n');
-    console.error(message);
-    sockets.forEach(socket => {
-
-    })
+    emitError(error, node);
   });
 
   graph.events.on('traced', () => {
@@ -392,20 +386,24 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
 
     if (errors.length) {
       console.log(`${chalk.bold('Errors:')} ${errors.length}`);
+      return;
     }
 
     console.log(`${chalk.bold('Elapsed:')} ${elapsed}ms`);
-
-    const nodes = graph.getState().keySeq().toArray();
 
     const disconnectedDiff = graph.pruneDisconnectedNodes();
     const mergedDiff = mergeDiffs(diff, disconnectedDiff);
     const prunedNodes = getPrunedNodesFromDiff(mergedDiff);
     const newNodes = getNewNodesFromDiff(mergedDiff);
 
+    // TODO: crashes if you change hmr-runtime after build
+
+    const nodes = graph.getState().keySeq().toArray();
+
     // Clean up any data associated with any files that were
     // removing during the tracing
     prunedNodes.forEach(node => {
+      console.log('pruning' +node)
       watcher.unwatch(node);
       records.remove(node);
     });
@@ -423,17 +421,24 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
         }
       });
 
-    console.log(chalk.bold(`\nCode generation...`));
+    console.log(chalk.bold(`\nGenerating code...`));
 
     const graphState = graph.getState();
-
     const buildStart = (new Date()).getTime();
+    const fileErrors = [];
+
     Promise.all(
-      nodes.map(node => Promise.all([
-        node,
-        records.hash(node),
-        records.code(node)
-      ]))
+      nodes.map(node => {
+        return Promise.all([
+          node,
+          records.hash(node),
+          records.code(node)
+        ]).catch(err => {
+          emitError(err, node);
+          fileErrors.push(err);
+          return Promise.reject(err);
+        });
+      })
     ).then(() => {
       const buildElapsed = (new Date()).getTime() - buildStart;
       console.log(`${chalk.bold('Elapsed:')} ${buildElapsed}ms`);
@@ -444,8 +449,12 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
       }
     })
     .catch(err => {
-      console.log('error during code gen')
-      console.error(err);
+      if (includes(fileErrors, err)) {
+        // We've already emitted it
+        console.error(err);
+        return;
+      }
+      emitError(err);
     });
   });
 });
@@ -456,6 +465,43 @@ io.on('connection', (socket) => {
     pull(sockets, socket);
   });
 });
+
+function emitError(err, file) {
+  const lines = [];
+
+  if (file) {
+    lines.push(chalk.red(file), '');
+  }
+
+  lines.push(err.message);
+
+  if (err.loc && !err.codeFrame) {
+    let text;
+    try {
+      text = fs.readFileSync(node, 'utf8');
+    } catch (err) {}
+    if (text) {
+      err.codeFrame = babelCodeFrame(text, err.loc.line, err.loc.column);
+    }
+  }
+
+  if (err.codeFrame && !includes(err.stack, err.codeFrame)) {
+    lines.push(err.codeFrame);
+  }
+
+  lines.push(err.stack);
+
+  const message = lines.join('\n');
+
+  emitErrorMessage(message);
+}
+
+function emitErrorMessage(message) {
+  console.error('\n' + message);
+
+  const cleanedMessage = stripAnsi(message);
+  sockets.forEach(socket => socket.emit('build:error', cleanedMessage));
+}
 
 const serverState = {
   records: null,
@@ -469,9 +515,24 @@ function onCodeGenerated(recordsState, graphState) {
   if (!serverState.isListening) {
     serverState.isListening = true;
     server.listen(3000, '127.0.0.1', () => {
-      console.log(`${chalk.bold('Server:')} http://127.0.0.1:3000`);
+      console.log(`\n${chalk.bold('Server:')} http://127.0.0.1:3000`);
     });
   }
+
+  const files = {};
+  recordsState.forEach(record => {
+    if (record.name !== runtimeFile) {
+      files[record.name] = {
+        hash: record.data.get('hash'),
+        url: createRecordUrl(record)
+      };
+    }
+  });
+  const signal = {
+    files: files
+    //graph: graphState.toJS()
+  };
+  sockets.forEach(socket => socket.emit('build:complete', signal));
 }
 
 app.get('/', (req, res) => {
@@ -480,39 +541,29 @@ app.get('/', (req, res) => {
 
   const scripts = [];
   const styles = [];
-  const stylesImportedByJS = [];
+  const styleShims = [];
 
-  function createUrl(record) {
-    const relPath = path.relative(sourceRoot, record.name);
-    return `/file/${relPath}?hash=${record.data.get('hash')}`;
-  }
-
-  const runtimeUrl = createUrl(records.get(runtimeFile));
+  const runtimeUrl = createRecordUrl(records.get(runtimeFile));
 
   records.forEach(record => {
     const ext = path.extname(record.name);
-    const url = createUrl(record);
+    const url = createRecordUrl(record);
 
     if (ext === '.css') {
-      styles.push(`<link rel="stylesheet" href="${url}">`);
-      const dependents = graph.get(record.name).dependents;
-      if (dependents.some(name => path.extname(name) === '.js')) {
-        stylesImportedByJS.push(record.name);
-      }
+      styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
+      styleShims.push(
+        `__modules.addModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}}, function() {return ''});`
+      );
     }
 
     if (ext === '.js' && record.name !== runtimeFile) {
-      scripts.push(`<script src="${url}"></script>`);
+      scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
     }
   });
 
-  const styleShims = stylesImportedByJS.map(file => {
-    return `__modules.exportsCache[${JSON.stringify(file)}] = '';`;
-  }).join('\n');
-
   const entryPointsInit = entryPoints.map(file => {
     return `__modules.executeModule(${JSON.stringify(file)});`;
-  }).join('\n');
+  });
 
   res.end(`
     <html>
@@ -523,15 +574,14 @@ app.get('/', (req, res) => {
       <script src="${runtimeUrl}"></script>
       ${scripts.join('\n')}
       <script>
-        ${styleShims}
-        ${entryPointsInit}
+        ${styleShims.join('\n')}
+        ${entryPointsInit.join('\n')}
       </script>
     </body>
     </html>
   `);
 });
 
-const fileEndpoint = '/file/';
 app.get(fileEndpoint + '*', (req, res) => {
   const file = req.path.slice(fileEndpoint.length - 1);
 
@@ -539,8 +589,9 @@ app.get(fileEndpoint + '*', (req, res) => {
     return res.status(404).send('Not found');
   }
 
+  const records = serverState.records;
   const absPath = path.join(sourceRoot, file);
-  const record = serverState.records.get(absPath);
+  const record = records.get(absPath);
 
   if (!record) {
     return res.status(404).send('Not found');

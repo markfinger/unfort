@@ -7,9 +7,9 @@
     if (root.__modules !== undefined) {
       throw new Error('`__modules` has already been bound on the root', root.__modules);
     }
-    factory((root.__modules = {}));
+    factory((root.__modules = {}), root);
   }
-}((typeof window == 'object' ? window : global), function (exports) {
+}((typeof window == 'object' ? window : global), function (exports, global) {
 
   var __modules = exports;
 
@@ -19,7 +19,7 @@
 
   __modules.addModule = function(data, factory) {
     __modules.modules[data.name] = {
-      dependencies: data.dependencies,
+      data: data,
       factory: factory
     };
   };
@@ -35,7 +35,8 @@
       throw new Error('Unknown module "' + name + '"');
     }
 
-    var data = __modules.modules[name];
+    var data = __modules.modules[name].data;
+    var factory = __modules.modules[name].factory;
 
     var _module = __modules.buildModuleObject(name);
 
@@ -44,7 +45,7 @@
     // Bind the initial exports object to handle circular dependencies
     __modules.exportsCache[name] = _module.exports;
 
-    data.factory.call(window, _module, _module.exports, require, __modules.process, window);
+    factory.call(global, _module, _module.exports, require, __modules.process, global);
 
     // Re-bind the exports object to handle redefinitions of `module.exports`
     __modules.exportsCache[name] = _module.exports;
