@@ -5,6 +5,7 @@ import socketIo from 'socket.io';
 import async from 'async';
 import sourceMapSupport from 'source-map-support';
 import express from 'express';
+import * as mimeTypes from 'mime-types';
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
 import babelCodeFrame from 'babel-code-frame';
@@ -481,6 +482,11 @@ app.get(fileEndpoint + '*', (req, res) => {
 
   if (!record) {
     return res.status(404).send('Not found');
+  }
+
+  const mimeType = mimeTypes.lookup(file);
+  if (mimeType) {
+    res.contentType(mimeType);
   }
 
   return res.end(record.data.get('code'));
