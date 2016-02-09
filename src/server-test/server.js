@@ -63,9 +63,16 @@ const io = socketIo(server);
 const sockets = [];
 
 const fileEndpoint = '/file/';
-function createRecordUrl(record) {
-  const relPath = path.relative(sourceRoot, record.name);
+
+function createRelativeUrl(absPath) {
+  const relPath = path.relative(sourceRoot, absPath);
   return fileEndpoint + relPath;
+}
+
+function createRecordUrl(record) {
+  const filename = record.data.get('filename');
+  const dirname = path.dirname(record.name);
+  return createRelativeUrl(path.join(dirname, filename));
 }
 
 let analyzedDependenciesCache;
@@ -94,6 +101,18 @@ const records = createRecordStore({
       store.readText(ref),
       store.mtime(ref)
     ])
+  },
+  filename(ref, store) {
+    return store.hash(ref).then(hash => {
+      const basename = path.basename(ref.name, ref.ext);
+      return `${basename}-${hash}${ref.ext}`;
+    });
+  },
+  url(ref, store) {
+    return store.filename(ref).then(filename => {
+      const dirname = path.dirname(ref.name);
+      return createRelativeUrl(path.join(dirname, filename));
+    });
   },
   postcssAst(ref, store) {
     return store.readText(ref).then(text => {
@@ -376,7 +395,8 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
   graph.events.on('traced', () => {
     const known = graph.getState().size;
     const done = known - graph.pendingJobs.length;
-    process.stdout.write(`\r${chalk.bold('Trace:')} ${done} / ${known}`);
+    const message = `\r${chalk.bold('Trace:')} ${done} / ${known}`;
+    process.stdout.write(message);
   });
 
   graph.events.on('completed', ({errors, diff}) => {
@@ -429,7 +449,9 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
         return Promise.all([
           node,
           records.hash(node),
-          records.code(node)
+          records.code(node),
+          records.filename(node),
+          records.url(node)
         ]).catch(err => {
           emitError(err, node);
           fileErrors.push(err);
@@ -502,12 +524,15 @@ function emitErrorMessage(message) {
 
 const serverState = {
   records: null,
+  graph: null,
+  recordsByUrl: null,
   isListening: false
 };
 
 function onCodeGenerated(recordsState, graphState) {
   serverState.records = recordsState;
   serverState.graph = graphState;
+  serverState.recordsByUrl = {};
 
   if (!serverState.isListening) {
     serverState.isListening = true;
@@ -517,7 +542,10 @@ function onCodeGenerated(recordsState, graphState) {
   }
 
   const files = {};
+
   recordsState.forEach(record => {
+    serverState.recordsByUrl[record.data.get('url')] = record;
+
     if (record.name !== runtimeFile) {
       files[record.name] = {
         hash: record.data.get('hash'),
@@ -525,10 +553,12 @@ function onCodeGenerated(recordsState, graphState) {
       };
     }
   });
+
   const signal = {
     files: files
     //graph: graphState.toJS()
   };
+
   sockets.forEach(socket => socket.emit('build:complete', signal));
 }
 
@@ -540,16 +570,22 @@ app.get('/', (req, res) => {
   const styles = [];
   const styleShims = [];
 
-  const runtimeUrl = createRecordUrl(records.get(runtimeFile));
+  const runtimeUrl = records.get(runtimeFile).data.get('url');
 
   records.forEach(record => {
-    const ext = path.extname(record.name);
-    const url = createRecordUrl(record);
+    const filename = record.data.get('filename');
+    const url = record.data.get('url');
+    const ext = path.extname(filename);
 
     if (ext === '.css') {
       styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
       styleShims.push(
-        `__modules.addModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}}, function() {return ''});`
+        `__modules.addModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}}, function(module) {
+          module.exports = '';
+          if (module.hot) {
+            module.hot.accept();
+          }
+        });`
       );
     }
 
@@ -580,21 +616,15 @@ app.get('/', (req, res) => {
 });
 
 app.get(fileEndpoint + '*', (req, res) => {
-  const file = req.path.slice(fileEndpoint.length - 1);
+  const url = req.path;
 
-  if (!file) {
-    return res.status(404).send('Not found');
-  }
-
-  const records = serverState.records;
-  const absPath = path.join(sourceRoot, file);
-  const record = records.get(absPath);
+  const record = serverState.recordsByUrl[url];
 
   if (!record) {
     return res.status(404).send('Not found');
   }
 
-  const mimeType = mimeTypes.lookup(file);
+  const mimeType = mimeTypes.lookup(record.data.get('filename'));
   if (mimeType) {
     res.contentType(mimeType);
   }
