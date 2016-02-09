@@ -92,8 +92,13 @@ const records = createRecordStore({
   },
   hash(ref, store) {
     // TODO handle binary files - prob just mtime
-    return store.readText(ref)
-      .then(text => new murmur(text).result());
+    return Promise.all([
+      store.mtime(ref),
+      store.readText(ref)
+    ]).then(([mtime, text]) => {
+      const hash = new murmur(text).result();
+      return `${mtime}-${hash}`;
+    });
   },
   cacheKey(ref, store) {
     return Promise.all([
@@ -373,9 +378,8 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
     persistent: true
   });
 
-  watcher.on('change', (file) => {
-    console.log(`\n${chalk.italic('File change:')} ${file}\n`);
-
+  function handleFileChange(file) {
+    console.log('change at', +new Date())
     // Update the records and graph
     records.remove(file);
     const node = graph.getState().get(file);
@@ -384,8 +388,18 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
       graph.setNodeAsEntry(file);
       graph.traceFromNode(file);
     }
-    // Re-connect any dependents of the file
+    // Re-trace any dependents of the file
     node.dependents.forEach(dependent => graph.traceFromNode(dependent));
+  }
+
+  watcher.on('change', (file) => {
+    console.log(`\n${chalk.italic('File change:')} ${file}\n`);
+    handleFileChange(file);
+  });
+
+  watcher.on('unlink', (file) => {
+    console.log(`\n${chalk.italic('File unlink:')} ${file}\n`);
+    handleFileChange(file);
   });
 
   graph.events.on('error', ({node, error}) => {
@@ -464,7 +478,11 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
 
       if (graph.getState() === graphState) {
         const recordsState = records.getState();
-        onCodeGenerated(recordsState, graphState);
+        onCodeGenerated({
+          recordsState,
+          graphState,
+          prunedNodes
+        });
       }
     })
     .catch(err => {
@@ -529,7 +547,7 @@ const serverState = {
   isListening: false
 };
 
-function onCodeGenerated(recordsState, graphState) {
+function onCodeGenerated({recordsState, graphState, prunedNodes}) {
   serverState.records = recordsState;
   serverState.graph = graphState;
   serverState.recordsByUrl = {};
@@ -555,7 +573,8 @@ function onCodeGenerated(recordsState, graphState) {
   });
 
   const signal = {
-    files: files
+    files: files,
+    removed: prunedNodes
     //graph: graphState.toJS()
   };
 
@@ -582,9 +601,6 @@ app.get('/', (req, res) => {
       styleShims.push(
         `__modules.addModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}}, function(module) {
           module.exports = '';
-          if (module.hot) {
-            module.hot.accept();
-          }
         });`
       );
     }

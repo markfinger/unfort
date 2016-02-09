@@ -1,6 +1,7 @@
 import socketIoClient from 'socket.io-client';
 import {isFunction} from 'lodash/lang';
 import {forEach} from 'lodash/collection';
+import {keys} from 'lodash/object';
 import {startsWith, endsWith} from 'lodash/string';
 
 __modules.hmrAcceptedModules = Object.create(null);
@@ -18,26 +19,58 @@ __modules.buildModuleObject = function hmrBuildModuleObjectWrapper(name) {
   return _module;
 };
 
+let pending = {};
+let buffered = [];
 const addModule = __modules.addModule;
 __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
-  const {name} = moduleData;
+  const {name, hash} = moduleData;
 
-  addModule(moduleData, factory);
+  console.log('add module', name, hash)
+  console.log('pending', pending)
+  console.log('buffered', buffered)
 
-  if (__modules.hmrAcceptedModules[name]) {
-    // If the module has specified a function to be called
-    // when it is swapped, execute it before the swap
-    if (isFunction(__modules.hmrAcceptedModules[name])) {
-      __modules.hmrAcceptedModules[name]();
-    }
+  if (pending[name] === undefined) {
+    return console.log(`Module ${name} is not pending and will be ignored`);
+  }
 
-    // Reset the accepted state, so that the swapped module is
-    // forced to re-accept
-    __modules.hmrAcceptedModules[name] = false;
+  if (pending[name] !== hash) {
+    return console.log(
+      `Hash ${hash} is out of date. Update for ${name} will be ignored in favour of ${pending[name.hash]}`
+    );
+  }
 
-    __modules.executeModule(name);
+  buffered.push([moduleData, factory]);
 
-    console.log(`Hot swapped ${name}`);
+  console.log(buffered.length, keys(pending).length, buffered.length === keys(pending).length)
+  if (buffered.length === keys(pending).length) {
+    const _buffered = buffered;
+
+    pending = {};
+    buffered = [];
+
+    console.log('_buffered', _buffered)
+
+    _buffered.forEach(([moduleData, factory]) => {
+      if (isFunction(__modules.hmrAcceptedModules[moduleData.name])) {
+        __modules.hmrAcceptedModules[moduleData.name]();
+      }
+
+      __modules.exportsCache[moduleData.name] = undefined;
+
+      addModule(moduleData, factory);
+
+      // Reset the accepted state, so that the swapped module is
+      // forced to re-accept
+      __modules.hmrAcceptedModules[moduleData.name] = false;
+    });
+
+    _buffered.forEach(([moduleData]) => {
+      if (__modules.exportsCache[moduleData.name] === undefined) {
+        __modules.executeModule(moduleData.name);
+
+        console.log(`Hot swapped ${moduleData.name}`);
+      }
+    });
   }
 };
 
@@ -91,7 +124,7 @@ on signal while pending update:
 
  */
 
-io.on('build:complete', ({files}) => {
+io.on('build:complete', ({files, removed}) => {
   //console.log('Build complete', files);
 
   const updated = [];
@@ -100,14 +133,18 @@ io.on('build:complete', ({files}) => {
   forEach(files, (file, name) => {
     const _module = __modules.modules[name];
 
+    // TODO: handle new deps for JS files
+
     if (!_module) {
       updated.push(name);
       return;
     }
 
-    //console.log(file, _module.data.hash, file.hash);
     if (_module.data.hash !== file.hash) {
-      if (__modules.hmrAcceptedModules[name]) {
+      if (endsWith(name, '.css')) {
+        console.log(file, _module.data.hash, file.hash);
+        updated.push(name);
+      } else if (__modules.hmrAcceptedModules[name]) {
         updated.push(name);
       } else {
         unaccepted.push(name);
@@ -119,17 +156,55 @@ io.on('build:complete', ({files}) => {
     return console.log('Cannot accept HMR. The following modules have not accepted: ', unaccepted);
   }
 
+  if (removed.length) {
+    removed.forEach(name => {
+      __modules.modules[name] = undefined;
+      __modules.exportsCache[name] = undefined;
+      removeResource(name);
+    });
+  }
+
   if (!updated.length) {
     return console.log('No changes to apply');
   }
 
-  //console.log('updated', updated)
-
   updated.forEach(name => {
     const file = files[name];
     updateResource(name, file.url);
+  });
+
+  pending = {};
+  buffered = [];
+  updated.forEach(file => {
+    pending[file] = files[file].hash;
+    if (endsWith(file, '.css')) {
+      buffered.push([
+        {
+          name: file,
+          hash: files[file].hash
+        },
+        function(module) {
+          module.exports = '';
+        }
+      ]);
+    }
   })
 });
+
+function removeResource(name) {
+  console.log(`Removing resource ${name}`);
+
+  if (endsWith(name, '.css')) {
+    return removeStylesheet(name);
+  }
+
+  if (endsWith(name, '.js')) {
+    return removeScript(name);
+  }
+
+  // TODO: support .json
+  console.warn(`Unknown file type ${name}, cannot remove`);
+}
 
 function updateResource(name, toUrl) {
   console.log(`Updating resource ${name}`);
@@ -138,12 +213,24 @@ function updateResource(name, toUrl) {
     return replaceStylesheet(name, toUrl);
   }
 
-  // TODO: support .json
   if (endsWith(toUrl, '.js')) {
     return replaceScript(name, toUrl);
   }
 
+  // TODO: support .json
   console.warn(`Unknown file type ${name}, cannot update`);
+}
+
+function removeStylesheet(name) {
+  const links = document.getElementsByTagName('link');
+
+  forEach(links, link => {
+    const attributeName = link.getAttribute('data-unfort-name');
+    if (attributeName === name) {
+      link.parentNode.removeChild(link);
+      return false;
+    }
+  });
 }
 
 function replaceStylesheet(name, toUrl) {
@@ -164,16 +251,12 @@ function replaceStylesheet(name, toUrl) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = toUrl;
+    link.setAttribute('data-unfort-name', name);
     document.head.appendChild(link);
   }
 }
 
-function replaceScript(name, toUrl) {
-  // Add a new <script> element
-  const script = document.createElement('script');
-  script.src = toUrl;
-  document.body.appendChild(script);
-
+function removeScript(name) {
   // Remove any current <script> element
   const scripts = document.getElementsByTagName('script');
   forEach(scripts, script => {
@@ -183,4 +266,14 @@ function replaceScript(name, toUrl) {
       return false;
     }
   });
+}
+
+function replaceScript(name, toUrl) {
+  // Add a new <script> element
+  const script = document.createElement('script');
+  script.src = toUrl;
+  script.setAttribute('data-unfort-name', name);
+  document.body.appendChild(script);
+
+  removeScript(name);
 }
