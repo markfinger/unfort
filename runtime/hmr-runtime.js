@@ -133,8 +133,6 @@ io.on('build:complete', ({files, removed}) => {
   forEach(files, (file, name) => {
     const _module = __modules.modules[name];
 
-    // TODO: handle new deps for JS files
-
     if (!_module) {
       updated.push(name);
       return;
@@ -177,7 +175,7 @@ io.on('build:complete', ({files, removed}) => {
   updated.forEach(file => {
     pending[file] = files[file].hash;
     if (endsWith(file, '.css')) {
-      buffered.push([
+      addModule(
         {
           name: file,
           hash: files[file].hash
@@ -185,7 +183,7 @@ io.on('build:complete', ({files, removed}) => {
         function(module) {
           module.exports = '';
         }
-      ]);
+      );
     }
   })
 });
