@@ -92,12 +92,8 @@ const records = createRecordStore({
   },
   hash(ref, store) {
     // TODO handle binary files - prob just mtime
-    return Promise.all([
-      store.mtime(ref),
-      store.readText(ref)
-    ]).then(([mtime, text]) => {
-      const hash = new murmur(text).result();
-      return `${mtime}-${hash}`;
+    return store.readText(ref).then(text => {
+      return new murmur(text).result();
     });
   },
   cacheKey(ref, store) {
