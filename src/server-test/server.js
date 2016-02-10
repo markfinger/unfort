@@ -281,6 +281,8 @@ const records = createRecordStore({
         store.resolvedDependencies(ref),
         store.hash(ref)
       ]).then(([text, ast, dependencies, hash]) => {
+
+        // TODO: if we're using the babel transform, the code will already have been generated
         const result = babelGenerator(ast, null, text);
 
         const code = result.code;
