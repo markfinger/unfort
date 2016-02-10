@@ -14,7 +14,7 @@
   var __modules = exports;
 
   __modules.modules = Object.create(null);
-  __modules.exportsCache = Object.create(null);
+  __modules.cache = Object.create(null);
   __modules.process = {env: {}};
 
   __modules.addModule = function(data, factory) {
@@ -42,13 +42,20 @@
 
     var require = __modules.buildRequire(name, data.dependencies);
 
-    // Bind the initial exports object to handle circular dependencies
-    __modules.exportsCache[name] = _module.exports;
+    // The exports cache uses a wrapper object so that we can perform
+    // `undefined` checks when evaluating if a module has been executed.
+    // We could call `Object.hasOwnProperty`, but that introduces
+    // edge-cases for removed entries
+    __modules.cache[name] = {
+      name: name,
+      // Bind the initial exports object to handle circular dependencies
+      exports: _module.exports
+    };
 
     factory.call(global, _module, _module.exports, require, __modules.process, global);
 
     // Re-bind the exports object to handle redefinitions of `module.exports`
-    __modules.exportsCache[name] = _module.exports;
+    __modules.cache[name].exports = _module.exports;
 
     return _module.exports;
   };
@@ -64,11 +71,11 @@
         );
       }
 
-      if (__modules.exportsCache[moduleName] === undefined) {
-        __modules.exportsCache[moduleName] = __modules.executeModule(moduleName);
+      if (__modules.cache[moduleName] !== undefined) {
+        return __modules.cache[moduleName].exports;
       }
 
-      return __modules.exportsCache[moduleName];
+      return __modules.executeModule(moduleName);
     };
   };
 

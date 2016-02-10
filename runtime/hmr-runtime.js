@@ -55,7 +55,7 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
         __modules.hmrAcceptedModules[moduleData.name]();
       }
 
-      __modules.exportsCache[moduleData.name] = undefined;
+      __modules.cache[moduleData.name] = undefined;
 
       addModule(moduleData, factory);
 
@@ -65,7 +65,7 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
     });
 
     _buffered.forEach(([moduleData]) => {
-      if (__modules.exportsCache[moduleData.name] === undefined) {
+      if (__modules.cache[moduleData.name] === undefined) {
         __modules.executeModule(moduleData.name);
 
         console.log(`Hot swapped ${moduleData.name}`);
@@ -114,10 +114,10 @@ on signal:
 on all updated:
   for node in updated:
     __modules.modules[node] = module
-    __modules.exportsCache[node] = undefined
+    __modules.cache[node] = undefined
 
   for node in updated:
-    if __modules.exportsCache[node] === undefined:
+    if __modules.cache[node] === undefined:
       __modules.executeModule(node)
 
 on signal while pending update:
@@ -142,7 +142,6 @@ io.on('build:complete', ({files, removed}) => {
 
     if (_module.data.hash !== file.hash) {
       if (endsWith(name, '.css')) {
-        console.log(file, _module.data.hash, file.hash);
         updated.push(name);
       } else if (__modules.hmrAcceptedModules[name]) {
         updated.push(name);
@@ -159,7 +158,7 @@ io.on('build:complete', ({files, removed}) => {
   if (removed.length) {
     removed.forEach(name => {
       __modules.modules[name] = undefined;
-      __modules.exportsCache[name] = undefined;
+      __modules.cache[name] = undefined;
       removeResource(name);
     });
   }
