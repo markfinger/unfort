@@ -48,14 +48,14 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
   // Prevent unexpected modules from being applied
   if (__modules.pending[name] === undefined) {
     return console.log(
-      `Attempted to add module "${name}", but it is not registered as pending and will be ignored`
+      `[hot] Attempted to add module "${name}", but it is not registered as pending and will be ignored`
     );
   }
 
   // Prevent an unexpected version from being applied
   if (__modules.pending[name] !== hash) {
     return console.log(
-      `Unexpected update for module ${name}. Hash ${hash} does not reflect the expected hash ${__modules.pending[name.hash]} and will be ignored`
+      `[hot] Unexpected update for module ${name}. Hash ${hash} does not reflect the expected hash ${__modules.pending[name.hash]} and will be ignored`
     );
   }
 
@@ -73,7 +73,7 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
     __modules.pending = {};
     const _buffered = __modules.buffered;
     __modules.buffered = [];
-    
+
     _buffered.forEach(({data, factory}) => {
       const {name, hash} = data;
 
@@ -100,9 +100,9 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
 
       let message;
       if (previousHash) {
-        message = `Hot swapping ${name} from ${previousHash} to ${hash}`
+        message = `[hot] Hot swapping ${name} from ${previousHash} to ${hash}`
       } else {
-        message = `Initializing ${name} at hash ${hash}`
+        message = `[hot] Initializing ${name} at hash ${hash}`
       }
       console.log(message);
     });
@@ -123,15 +123,15 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
 const io = socketIoClient();
 
 io.on('connect', () => {
-  console.log('HMR connected');
+  console.log('[hot] Connected');
 });
 
 io.on('build:started', () => {
-  console.log('Build started');
+  console.log('[hot] Build started');
 });
 
 io.on('build:error', err => {
-  console.error(`Build error: ${err}`);
+  console.error(`[hot] Build error: ${err}`);
 });
 
 io.on('build:complete', ({files, removed}) => {
@@ -177,7 +177,11 @@ io.on('build:complete', ({files, removed}) => {
 
   // If there were any unaccepted modules, we refuse to apply any changes
   if (unaccepted.length) {
-    return console.warn(`Cannot accept changes. The following modules have not accepted hot swaps:\n${unaccepted.join('\n')}`);
+    let message = `[hot] cannot accept any changes as the following modules have not accepted hot swaps:\n${unaccepted.join('\n')}`;
+    if (accepted.length) {
+      message += `\n\nUpdates to the following modules have been blocked:\n${accepted.join('\n')}`
+    }
+    return console.warn(message);
   }
 
   // We try to avoid issues from concurrent-ish updates by resetting
@@ -209,12 +213,12 @@ io.on('build:complete', ({files, removed}) => {
       // Ensure that the asset is removed from the document
       removeResource(file.name, file.url);
 
-      console.log(`Removed module ${file.name}`);
+      console.log(`[hot] Removed module ${file.name}`);
     });
   }
 
   if (!accepted.length) {
-    return console.log('No updates to apply');
+    return console.log('[hot] No updates to apply');
   }
 
   accepted.forEach(name => {
@@ -248,7 +252,7 @@ io.on('build:complete', ({files, removed}) => {
 });
 
 function removeResource(name, url) {
-  console.log(`Removing resource ${name}`);
+  console.log(`[hot] Removing resource ${name}`);
 
   if (endsWith(url, '.css')) {
     return removeStylesheet(name);
@@ -259,11 +263,11 @@ function removeResource(name, url) {
   }
 
   // TODO: support .json
-  console.warn(`Unknown file type ${name}, cannot remove`);
+  console.warn(`[hot] Unknown file type ${name}, cannot remove`);
 }
 
 function updateResource(name, url) {
-  console.log(`Updating resource ${name}`);
+  console.log(`[hot] Updating resource ${name}`);
 
   if (endsWith(url, '.css')) {
     return replaceStylesheet(name, url);
@@ -274,7 +278,7 @@ function updateResource(name, url) {
   }
 
   // TODO: support .json
-  console.warn(`Unknown file type ${name}, cannot update`);
+  console.warn(`[hot] Unknown file type ${name}, cannot update`);
 }
 
 function replaceStylesheet(name, url) {
