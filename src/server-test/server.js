@@ -562,6 +562,7 @@ function onCodeGenerated({recordsState, graphState, prunedNodes}) {
 
     if (record.name !== runtimeFile) {
       files[record.name] = {
+        name: record.name,
         hash: record.data.get('hash'),
         url: createRecordUrl(record)
       };
