@@ -14,20 +14,33 @@
   var __modules = exports;
 
   __modules.modules = Object.create(null);
-  __modules.cache = Object.create(null);
-  __modules.process = {env: {}};
 
-  __modules.addModule = function addModule(data, factory) {
-    __modules.modules[data.name] = {
-      data: data,
-      factory: factory
-    };
-  };
+  __modules.addModule = function addModule(mod) {
+    __modules.modules[mod.name] = mod;
 
-  __modules.buildModuleObject = function buildModuleObject(name) {
-    return {
-      exports: {}
-    };
+    if (mod.executed = undefined) {
+      mod.executed = false;
+    }
+
+    if (mod.commonjs === undefined) {
+      mod.commonjs = {
+        exports: {}
+      };
+    }
+
+    if (mod.require === undefined) {
+      __modules.buildRequire(mod);
+    }
+
+    if (mod.global === undefined) {
+      mod.global = global;
+    }
+
+    if (mod.process === undefined) {
+      mod.process = {env: {}};
+    }
+
+    return addModule;
   };
 
   __modules.executeModule = function executeModule(name) {
@@ -35,52 +48,37 @@
       throw new Error('Unknown module "' + name + '"');
     }
 
-    var data = __modules.modules[name].data;
-    var factory = __modules.modules[name].factory;
+    var mod = __modules.modules[name];
 
-    var _module = __modules.buildModuleObject(name);
-
-    var require = __modules.buildRequire(name, data.dependencies);
-
-    // We need to set the cache before we evaluate the module, otherwise
-    // cyclic dependencies can cause endless recursive loops as we
+    // We need to indicate that the module has been executed so that
+    // the require can handle cyclic dependencies. Otherwise, we end
+    // up with inexplicable and endless recursive loops as we
     // re-evaluate the same modules over and over
-    __modules.updateCache(name, _module, false);
+    mod.executed = true;
 
-    factory.call(global, _module, _module.exports, require, __modules.process, global);
+    mod.factory.call(mod.global, mod.commonjs, mod.commonjs.exports, mod.require, mod.process, mod.global);
 
-    // Re-bind the exports object to handle redefinitions of `module.exports`
-    __modules.updateCache(name, _module, true);
-
-    return _module.exports;
+    return mod.commonjs.exports;
   };
 
-  __modules.updateCache = function updateCache(name, _module, isExitCheck) {
-    // The module cache uses a wrapper object so that we can detect
-    // if a module has been executed or invalidated by another runtime
-    __modules.cache[name] = {
-      name: name,
-      // Bind the initial exports object to handle circular dependencies
-      exports: _module.exports
-    };
-  };
+  __modules.buildRequire = function buildRequire(mod) {
+    mod.require = function require(id) {
+      var depName = mod.deps[id];
 
-  __modules.buildRequire = function buildRequire(name, dependencies) {
-    return function require(identifier) {
-      var moduleName = dependencies[identifier];
-
-      if (!moduleName) {
+      if (!depName) {
         throw new Error(
-          'Module "' + name + '" required an unknown identifier "' + identifier + '".' +
-          'Available dependencies: ' + JSON.stringify(dependencies, null, 2)
+          'Module "' + name + '" required an unknown identifier "' + id + '".' +
+          'Available dependencies: ' + JSON.stringify(mod.deps, null, 2)
         );
       }
 
-      if (__modules.cache[moduleName] !== undefined) {
-        return __modules.cache[moduleName].exports;
+      var depMod = __modules.modules[depName];
+
+      if (depMod.executed) {
+        return depMod.commonjs.exports;
       }
 
-      return __modules.executeModule(moduleName);
+      return __modules.executeModule(depName);
     };
   };
 

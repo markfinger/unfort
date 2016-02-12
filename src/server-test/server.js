@@ -297,9 +297,9 @@ const records = createRecordStore({
         };
 
         const lines = [
-          `__modules.addModule(${JSON.stringify(moduleData)}, function(module, exports, require, process, global) {`,
+          `__modules.addModule({name: ${JSON.stringify(ref.name)}, deps: ${JSON.stringify(dependencies)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
           code,
-          '});'
+          '}});'
         ];
 
         return lines.join('\n');
@@ -600,9 +600,9 @@ app.get('/', (req, res) => {
     if (ext === '.css') {
       styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
       styleShims.push(
-        `__modules.addModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}}, function(module) {
+        `__modules.addModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}, factory: function(module) {
           module.exports = '';
-        });`
+        }});`
       );
     }
 
