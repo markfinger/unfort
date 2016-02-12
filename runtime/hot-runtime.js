@@ -108,7 +108,6 @@ __modules.addModule = function addModuleHotWrapper(mod) {
 
         mod.hot.exportsProxy = prevMod.hot.exportsProxy;
         mod.prev = prevMod;
-        console.log('setting exportsProxy')
       }
 
       // Update the runtime's module registry
@@ -139,9 +138,6 @@ __modules.executeModule = function executeModuleHotWrapper(name) {
     if (Object.getPrototypeOf(exportsProxy) !== exports) {
       Object.setPrototypeOf(exportsProxy, exports);
       mod.commonjs.exports = exportsProxy;
-      console.log('swapped protos', name, exportsProxy, exports);
-      if (mod.prev)
-        console.log(mod.prev.commonjs.exports === exportsProxy)
     }
   }
 
