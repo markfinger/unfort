@@ -1,37 +1,48 @@
 import socketIoClient from 'socket.io-client';
-import {isFunction, isUndefined} from 'lodash/lang';
+import {isFunction, isObject, isUndefined} from 'lodash/lang';
 import {forEach, filter, includes, every} from 'lodash/collection';
 import {keys} from 'lodash/object';
 import {pull} from 'lodash/array';
 import {startsWith, endsWith} from 'lodash/string';
 
+if (!isFunction(Object.setPrototypeOf)) {
+  throw new Error('Object.setPrototypeOf has not been defined, hot swap cannot occur');
+}
+
+if (!isFunction(Object.getPrototypeOf)) {
+  throw new Error('Object.getPrototypeOf has not been defined, hot swap cannot occur');
+}
+
+__modules.hotSwapExportReferences = Object.create(null);
+
 // Before we start monkey-patching the runtime, we need to preserve some references
 const extendModule = __modules.extendModule;
 const addModule = __modules.addModule;
 
-// A simple registry of <module_name> => {Boolean|Function}
-__modules.hotAcceptedModules = Object.create(null);
-
-// Monkey-patch `buildModuleObject` so that we can add the `hot` API
+// Monkey-patch `extendModule` so that we can add the `hot` API
 __modules.extendModule = function extendModuleHotWrapper(mod) {
   mod = extendModule(mod);
 
-  mod.hot = {
-    accepted: false,
-    onExit: null
-  };
+  if (mod.hot === undefined) {
+    mod.hot = {
+      accepted: false,
+      onExit: null,
+      exportsProxy: {}
+    };
+  }
 
-  // `module.hot` API
-  mod.commonjs.hot = {
-    accept(cb) {
-      mod.hot.accepted = true;
+  if (mod.commonjs.hot === undefined) {
+    mod.commonjs.hot = {
+      accept(cb) {
+        mod.hot.accepted = true;
 
-      if (isFunction(cb)) {
-        mod.hot.onExit = cb;
-      }
-    },
-    accepted: false
-  };
+        if (isFunction(cb)) {
+          mod.hot.onExit = cb;
+        }
+      },
+      accepted: false
+    };
+  }
 
   return mod;
 };
@@ -77,34 +88,64 @@ __modules.addModule = function addModuleHotWrapper(mod) {
     const _buffered = __modules.buffered;
     __modules.buffered = [];
 
-    _buffered.forEach(mod => {
+    const toSwap = _buffered.map(mod => {
+      return [mod, __modules.modules[mod.name]];
+    });
+
+    toSwap.forEach(([mod, prevMod]) => {
       const {name, hash} = mod;
 
-      const currentMod = __modules.modules[name];
-      if (currentMod && currentMod.hot.onExit) {
-        currentMod.hot.onExit();
+      if (prevMod) {
+        console.log(`[hot] Hot swapping ${name} from ${prevMod.hash} to ${hash}`);
+      } else {
+        console.log(`[hot] Initializing ${name} at hash ${hash}`);
+      }
+
+      if (prevMod) {
+        if (prevMod.hot.onExit) {
+          prevMod.hot.onExit();
+        }
+
+        mod.hot.exportsProxy = prevMod.hot.exportsProxy;
+        mod.prev = prevMod;
+        console.log('setting exportsProxy')
       }
 
       // Update the runtime's module registry
       addModule(mod);
-
-      if (currentMod) {
-        console.log(`[hot] Hot swapping ${name} from ${currentMod.hash} to ${hash}`);
-      } else {
-        console.log(`[hot] Initializing ${name} at hash ${hash}`);
-      }
     });
 
-    _buffered.forEach(({name, executed}) => {
+    toSwap.forEach(([mod]) => {
       // If we're applying multiple modules, it's possible that new
       // modules may execute other new modules, so we need to iterate
       // through and selectively execute modules that have not been
       // called yet
-      if (!executed) {
-        __modules.executeModule(name);
+      if (!mod.executed) {
+        __modules.executeModule(mod.name);
       }
     });
   }
+};
+
+const executeModule = __modules.executeModule;
+__modules.executeModule = function executeModuleHotWrapper(name) {
+  executeModule(name);
+
+  const mod = __modules.modules[name];
+  const exports = mod.commonjs.exports;
+  if (isObject(exports) && exports.__esModule) {
+    const exportsProxy = mod.hot.exportsProxy;
+
+    if (Object.getPrototypeOf(exportsProxy) !== exports) {
+      Object.setPrototypeOf(exportsProxy, exports);
+      mod.commonjs.exports = exportsProxy;
+      console.log('swapped protos', name, exportsProxy, exports);
+      if (mod.prev)
+        console.log(mod.prev.commonjs.exports === exportsProxy)
+    }
+  }
+
+  return mod.commonjs.exports;
 };
 
 const io = socketIoClient();
@@ -124,11 +165,6 @@ io.on('build:error', err => {
 io.on('build:complete', ({files, removed}) => {
   // With the complete signal, we can start updating our assets
   // and begin the process of hot swapping code.
-  //
-  // Stylesheets only require DOM manipulations and some book keeping
-  //
-  // js files have script elements appended and we trap the call to
-  // `addModule`
 
   const accepted = [];
   const unaccepted = [];
