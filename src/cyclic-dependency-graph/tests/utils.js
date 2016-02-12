@@ -1,6 +1,6 @@
 import {Map, List, Set} from 'immutable';
 import {Node} from '../node';
-import {createNodesFromNotation} from '../utils';
+import {createNodesFromNotation, resolveExecutionOrder} from '../utils';
 import {assert} from '../../utils/assert';
 
 describe('cyclic-dependency-graph/utils', () => {
@@ -94,6 +94,24 @@ describe('cyclic-dependency-graph/utils', () => {
           c: Node({name: 'c', dependents: Set(['b']), dependencies: Set(['b'])})
         })
       );
+    });
+  });
+  describe('#resolveExecutionOrder', () => {
+    it('should produce an order that reverses the edges', () => {
+      const nodes = createNodesFromNotation(`
+        a -> b -> c
+      `);
+      const order = resolveExecutionOrder(nodes, ['a']);
+      assert.deepEqual(order, ['c', 'b', 'a']);
+    });
+    it('should ignore circular dependencies', () => {
+      const nodes = createNodesFromNotation(`
+        a -> b -> a
+        b -> c -> b
+        c -> a
+      `);
+      const order = resolveExecutionOrder(nodes, ['a']);
+      assert.deepEqual(order, ['c', 'b', 'a']);
     });
   });
 });

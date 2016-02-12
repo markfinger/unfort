@@ -54,6 +54,7 @@ const rootNodeModules = path.join(sourceRoot, 'node_modules');
 const runtimeFile = require.resolve('../../runtime/runtime');
 const entryPoints = [
   require.resolve('../../runtime/hmr-runtime'),
+  require.resolve('../../runtime/hot-swap-runtime'),
   require.resolve('../../test-src/entry')
 ];
 
@@ -128,11 +129,13 @@ const records = createRecordStore({
       babelrc: false,
       plugins: [
         ['react-transform', {
-          transforms: [{
-            transform: 'react-transform-hmr',
-            imports: ['react'],
-            locals: ['module']
-          }, {
+          transforms: [
+            //{
+            //transform: 'react-transform-hmr',
+            //imports: ['react'],
+            //locals: ['module']
+            //},
+            {
             transform: 'react-transform-catch-errors',
             imports: ['react', 'redbox-react']
           }]
@@ -179,7 +182,7 @@ const records = createRecordStore({
       return store.babelAst(ref);
     }
 
-    throw new Error(`Unknown extension "${ext}", cannot parse "${ref.name}"`);
+    throw new Error(`Unknown extension "${ref.ext}", cannot parse "${ref.name}"`);
   },
   analyzeDependencies(ref, store) {
     if (ref.ext === '.css') {
@@ -377,7 +380,6 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
   });
 
   function handleFileChange(file) {
-    console.log('change at', +new Date())
     // Update the records and graph
     records.remove(file);
     const node = graph.getState().get(file);
@@ -513,7 +515,7 @@ function emitError(err, file) {
   if (err.loc && !err.codeFrame) {
     let text;
     try {
-      text = fs.readFileSync(node, 'utf8');
+      text = fs.readFileSync(file, 'utf8');
     } catch (err) {}
     if (text) {
       err.codeFrame = babelCodeFrame(text, err.loc.line, err.loc.column);

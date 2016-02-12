@@ -1,28 +1,23 @@
 import socketIoClient from 'socket.io-client';
 import {isFunction} from 'lodash/lang';
-import {forEach, includes, every} from 'lodash/collection';
+import {forEach, filter, includes, every} from 'lodash/collection';
 import {keys} from 'lodash/object';
 import {pull} from 'lodash/array';
 import {startsWith, endsWith} from 'lodash/string';
 
-// Preserve references to the runtime's core, before the
-// monkey-patching begins
+// Before we start monkey-patching the runtime, we need to preserve some references
 const buildModuleObject = __modules.buildModuleObject;
 const addModule = __modules.addModule;
 
 // A simple registry of <module_name> => {Boolean|Function}
-// If a module accepts hmr, we track that so that we can know what
-// we can and can't update hot. If a module specifies a function
-// when it accepts hmr, we call the function just before we swap out
-// the module
 __modules.hmrAcceptedModules = Object.create(null);
 
 // Monkey-patch `buildModuleObject` so that we can add the `hot` API
-__modules.buildModuleObject = function hmrBuildModuleObjectWrapper(name) {
+__modules.buildModuleObject = function buildModuleObjectHMRWrapper(name) {
   const _module = buildModuleObject(name);
 
   _module.hot = {
-    accept: (cb=true) => {
+    accept(cb=true) {
       __modules.hmrAcceptedModules[name] = cb;
     }
   };
@@ -34,15 +29,13 @@ __modules.buildModuleObject = function hmrBuildModuleObjectWrapper(name) {
 // In particular, JS modules that may depend on new dependencies
 // introduce the potential for race conditions as we may or may
 // not have a module available when we execute a dependent module.
-//
-// To get around these issues, we buffer all the JS modules
-// and only start to apply them once every pending module has
-// completed.
+// To get around these issues, we buffer all the modules and only
+// start to apply them once every pending module has been buffered
 __modules.pending = {};
 __modules.buffered = [];
 
 // Monkey-patch `addModule` so that we can intercept incoming modules
-__modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
+__modules.addModule = function addModuleHMRWrapper(moduleData, factory) {
   const {name, hash} = moduleData;
 
   // Prevent unexpected modules from being applied
@@ -77,41 +70,38 @@ __modules.addModule = function hmrAddModuleWrapper(moduleData, factory) {
     _buffered.forEach(({data, factory}) => {
       const {name, hash} = data;
 
-      // If `module.hot.accept` was passed a callback, call
-      // it now so that we can execute the new version immediately
+      // If `module.hot.accept` was passed a callback, call it
       if (isFunction(__modules.hmrAcceptedModules[name])) {
         __modules.hmrAcceptedModules[name]();
       }
+
+      // Reset the module exports cache
+      __modules.cache[name] = undefined;
 
       let previousHash = null;
       if (__modules.modules[name]) {
         previousHash = __modules.modules[name].data.hash;
       }
 
-      // Reset the module exports cache
-      __modules.cache[name] = undefined;
-
       // Update the runtime's module registry
       addModule(data, factory);
 
-      // We reset this module's accepted state, so that the new version
+      // We reset the module's hmr accepted state, so that the new version
       // is forced to re-accept
       __modules.hmrAcceptedModules[name] = undefined;
 
-      let message;
       if (previousHash) {
-        message = `[hot] Hot swapping ${name} from ${previousHash} to ${hash}`
+        console.log(`[hot] Hot swapping ${name} from ${previousHash} to ${hash}`);
       } else {
-        message = `[hot] Initializing ${name} at hash ${hash}`
+        console.log(`[hot] Initializing ${name} at hash ${hash}`);
       }
-      console.log(message);
     });
 
     _buffered.forEach(({data}) => {
       const {name} = data;
       // If we're applying multiple modules, it's possible that new
       // modules may execute other new modules, so we need to iterate
-      // through and selectively execute modules that not have been
+      // through and selectively execute modules that have not been
       // called yet
       if (__modules.cache[name] === undefined) {
         __modules.executeModule(name);
@@ -138,17 +128,10 @@ io.on('build:complete', ({files, removed}) => {
   // With the complete signal, we can start updating our assets
   // and begin the process of hot swapping code.
   //
-  // *CSS*
-  // new: we just add a new <link> element
-  // changed: we change the `href` property of the element and the
-  //   browser will automatically sync itself
-  // removed: we simply remove the element
+  // Stylesheets only require DOM manipulations and some book keeping
   //
-  // *JS*
-  // new: we append a script element, wait for it to execute and then
-  //   pass the module wrapper up to the runtime
-  // changed: similarly, we append and wait
-  // removed: not much we can do as it's all in memory now :(
+  // JS files have script elements appended and we trap the call to
+  // `addModule`
 
   const accepted = [];
   const unaccepted = [];
@@ -162,8 +145,9 @@ io.on('build:complete', ({files, removed}) => {
       return;
     }
 
-    // Has the build produced a new version of a module?
     if (_module.data.hash !== file.hash) {
+      // An outdated module
+
       if (endsWith(name, '.css')) {
         // As CSS is stateless, we can blindly accept it
         accepted.push(name);
@@ -188,10 +172,8 @@ io.on('build:complete', ({files, removed}) => {
   // the pending state so that any calls to `addModule` will be ignored
   __modules.pending = {};
 
-  // If a JS module has already been added to the dom, and its module
-  // is buffered for execution, we might end up removing it before it
-  // ever gets executed. Hence, we need to filter out updates for any
-  // module that we already have a matching version buffered
+  // If a module has already been buffered for execution, we can ignore
+  // updates for it
   __modules.buffered = __modules.buffered.filter(({data}) => {
     const {name, hash} = data;
     if (includes(accepted, name) && files[name].hash === hash) {
@@ -201,19 +183,18 @@ io.on('build:complete', ({files, removed}) => {
 
   if (removed.length) {
     removed.forEach(name => {
-      const file = files[name];
-
       // We need to clear the state for any modules that have been removed
       // so that if they are re-added, they are executed again. This could
-      // cause some issues for stateful JS, but it's needed so that CSS
-      // changes will always be applied (some race-conditions can prevent it)
-      __modules.modules[file.name] = undefined;
-      __modules.cache[file.name] = undefined;
+      // cause some issues for crazily stateful JS, but it's needed to ensure
+      // that CSS changes are always applied. If we don't do this, we can hit
+      // some race conditions such that we can't update a module
+      __modules.modules[name] = undefined;
+      __modules.cache[name] = undefined;
 
       // Ensure that the asset is removed from the document
-      removeResource(file.name, file.url);
+      removeResource(name);
 
-      console.log(`[hot] Removed module ${file.name}`);
+      console.log(`[hot] Removed module ${name}`);
     });
   }
 
@@ -230,13 +211,16 @@ io.on('build:complete', ({files, removed}) => {
   accepted.forEach(name => {
     const file = files[name];
 
+    // Ensure that the runtime knows that we are waiting for this specific
+    // versions of the module. We need to keep this synced so that we we can
+    // clear the buffered modules only when it's appropriate to
     __modules.pending[file.name] = file.hash;
 
-    // As CSS assets wont trigger a call to `addModule`, we need
-    // to manually call it to ensure that our module buffer is
-    // inevitably cleared and the runtime's module registry is
-    // updated. This prevents some edge-cases where CSS assets
-    // might not be updated
+    // As CSS assets wont trigger a call to `addModule`, we need to manually
+    // call it to ensure that our module buffer is inevitably cleared and
+    // the runtime's module registry is updated. This prevents an issue where
+    // reverting a CSS asset to a hash that's in the registry will have no
+    // effect as the registry and the document are out of sync
     if (endsWith(file.url, '.css')) {
       __modules.addModule(
         {
@@ -251,14 +235,14 @@ io.on('build:complete', ({files, removed}) => {
   })
 });
 
-function removeResource(name, url) {
+function removeResource(name) {
   console.log(`[hot] Removing resource ${name}`);
 
-  if (endsWith(url, '.css')) {
+  if (endsWith(name, '.css')) {
     return removeStylesheet(name);
   }
 
-  if (endsWith(url, '.js')) {
+  if (endsWith(name, '.js')) {
     return removeScript(name);
   }
 

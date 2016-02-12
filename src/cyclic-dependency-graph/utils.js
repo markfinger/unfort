@@ -45,3 +45,42 @@ export function createNodesFromNotation(text) {
 
   return nodes;
 }
+
+/**
+ * Performs a depth first traversal and returns a list of nodes
+ * in the order that they should be executed.
+ *
+ * Given `a -> b -> c`, the order will be ['c', 'b', 'a']
+ *
+ * Note: cyclic dependencies are ignored. For example,
+ * given `a -> b -> a`, the order will be ['b', 'a']
+ *
+ * @param {Map} nodes - an immutable.Map instance
+ * @param {Array} entryNodes - an array of node names
+ * @returns {Array}
+ */
+export function resolveExecutionOrder(nodes, entryNodes) {
+  const seen = Object.create(null);
+  const order = [];
+
+  function traverseFromNode(node) {
+    if (seen[node.name]) {
+      return;
+    }
+    seen[node.name] = true;
+
+    node.dependencies.forEach(name => {
+      const dependency = nodes.get(name);
+      traverseFromNode(dependency);
+    });
+
+    order.push(node.name);
+  }
+
+  entryNodes.forEach(name => {
+    const node = nodes.get(name);
+    traverseFromNode(node);
+  });
+
+  return order;
+}
