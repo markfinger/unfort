@@ -11,8 +11,6 @@ ReactDOM.render(
   main
 );
 
-if (module.hot) {
-  module.hot.accept(() => {
-    main.parentNode.removeChild(main);
-  });
-}
+module.hot.accept(() => {
+  main.parentNode.removeChild(main);
+});

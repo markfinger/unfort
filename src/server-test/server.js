@@ -53,7 +53,7 @@ const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
 const runtimeFile = require.resolve('../../runtime/runtime');
 const entryPoints = [
-  require.resolve('../../runtime/hmr-runtime'),
+  require.resolve('../../runtime/hot-runtime'),
   require.resolve('../../runtime/hot-swap-runtime'),
   require.resolve('../../test-src/entry')
 ];

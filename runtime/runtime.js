@@ -18,6 +18,10 @@
   __modules.addModule = function addModule(mod) {
     __modules.modules[mod.name] = mod;
 
+    return __modules.extendModule(mod);
+  };
+
+  __modules.extendModule = function extendModuleObject(mod) {
     if (mod.executed = undefined) {
       mod.executed = false;
     }
@@ -40,7 +44,7 @@
       mod.process = {env: {}};
     }
 
-    return addModule;
+    return mod;
   };
 
   __modules.executeModule = function executeModule(name) {

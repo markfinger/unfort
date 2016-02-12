@@ -1,32 +1,46 @@
 import socketIoClient from 'socket.io-client';
-import {isFunction} from 'lodash/lang';
+import {isFunction, isUndefined} from 'lodash/lang';
 import {forEach, filter, includes, every} from 'lodash/collection';
 import {keys} from 'lodash/object';
 import {pull} from 'lodash/array';
 import {startsWith, endsWith} from 'lodash/string';
 
 // Before we start monkey-patching the runtime, we need to preserve some references
-const buildModuleObject = __modules.buildModuleObject;
+const extendModule = __modules.extendModule;
 const addModule = __modules.addModule;
 
 // A simple registry of <module_name> => {Boolean|Function}
-__modules.hmrAcceptedModules = Object.create(null);
+__modules.hotAcceptedModules = Object.create(null);
 
 // Monkey-patch `buildModuleObject` so that we can add the `hot` API
-__modules.buildModuleObject = function buildModuleObjectHMRWrapper(name) {
-  const _module = buildModuleObject(name);
+__modules.extendModule = function extendModuleHotWrapper(mod) {
+  mod = extendModule(mod);
 
-  _module.hot = {
-    accept(cb=true) {
-      __modules.hmrAcceptedModules[name] = cb;
-    }
+  mod.hot = {
+    accepted: false,
+    onExit: null
   };
 
-  return _module;
+  // `module.hot` API
+  mod.commonjs.hot = {
+    accept(cb) {
+      mod.hot.accepted = true;
+
+      if (isFunction(cb)) {
+        mod.hot.onExit = cb;
+      }
+    },
+    accepted: false
+  };
+
+  return mod;
 };
 
+// Add the hot API to each module
+forEach(__modules.modules, __modules.extendModule);
+
 // There's a bit of complexity in the handling of changed assets.
-// In particular, JS modules that may depend on new dependencies
+// In particular, js modules that may depend on new dependencies
 // introduce the potential for race conditions as we may or may
 // not have a module available when we execute a dependent module.
 // To get around these issues, we buffer all the modules and only
@@ -35,8 +49,10 @@ __modules.pending = {};
 __modules.buffered = [];
 
 // Monkey-patch `addModule` so that we can intercept incoming modules
-__modules.addModule = function addModuleHMRWrapper(moduleData, factory) {
-  const {name, hash} = moduleData;
+__modules.addModule = function addModuleHotWrapper(mod) {
+  mod = __modules.extendModule(mod);
+
+  const {name, hash} = mod;
 
   // Prevent unexpected modules from being applied
   if (__modules.pending[name] === undefined) {
@@ -48,62 +64,43 @@ __modules.addModule = function addModuleHMRWrapper(moduleData, factory) {
   // Prevent an unexpected version from being applied
   if (__modules.pending[name] !== hash) {
     return console.log(
-      `[hot] Unexpected update for module ${name}. Hash ${hash} does not reflect the expected hash ${__modules.pending[name.hash]} and will be ignored`
+      `[hot] Unexpected update for module ${name}. Hash ${hash} does not reflect the expected hash ${__modules.pending[name]} and will be ignored`
     );
   }
 
-  __modules.buffered.push({
-    data: moduleData,
-    factory
-  });
-
-  const readyToApply = every(__modules.buffered, _module => {
-    const {name, hash} = _module.data;
-    return __modules.pending[name] === hash;
-  });
+  __modules.buffered.push(mod);
+  __modules.pending[mod.name] = undefined;
+  const readyToApply = every(__modules.pending, isUndefined);
 
   if (readyToApply) {
     __modules.pending = {};
     const _buffered = __modules.buffered;
     __modules.buffered = [];
 
-    _buffered.forEach(({data, factory}) => {
-      const {name, hash} = data;
+    _buffered.forEach(mod => {
+      const {name, hash} = mod;
 
-      // If `module.hot.accept` was passed a callback, call it
-      if (isFunction(__modules.hmrAcceptedModules[name])) {
-        __modules.hmrAcceptedModules[name]();
-      }
-
-      // Reset the module exports cache
-      __modules.cache[name] = undefined;
-
-      let previousHash = null;
-      if (__modules.modules[name]) {
-        previousHash = __modules.modules[name].data.hash;
+      const currentMod = __modules.modules[name];
+      if (currentMod && currentMod.hot.onExit) {
+        currentMod.hot.onExit();
       }
 
       // Update the runtime's module registry
-      addModule(data, factory);
+      addModule(mod);
 
-      // We reset the module's hmr accepted state, so that the new version
-      // is forced to re-accept
-      __modules.hmrAcceptedModules[name] = undefined;
-
-      if (previousHash) {
-        console.log(`[hot] Hot swapping ${name} from ${previousHash} to ${hash}`);
+      if (currentMod) {
+        console.log(`[hot] Hot swapping ${name} from ${currentMod.hash} to ${hash}`);
       } else {
         console.log(`[hot] Initializing ${name} at hash ${hash}`);
       }
     });
 
-    _buffered.forEach(({data}) => {
-      const {name} = data;
+    _buffered.forEach(({name, executed}) => {
       // If we're applying multiple modules, it's possible that new
       // modules may execute other new modules, so we need to iterate
       // through and selectively execute modules that have not been
       // called yet
-      if (__modules.cache[name] === undefined) {
+      if (!executed) {
         __modules.executeModule(name);
       }
     });
@@ -130,28 +127,27 @@ io.on('build:complete', ({files, removed}) => {
   //
   // Stylesheets only require DOM manipulations and some book keeping
   //
-  // JS files have script elements appended and we trap the call to
+  // js files have script elements appended and we trap the call to
   // `addModule`
 
   const accepted = [];
   const unaccepted = [];
 
   forEach(files, (file, name) => {
-    const _module = __modules.modules[name];
+    const mod = __modules.modules[name];
 
     // If it's a new module, we accept it
-    if (!_module) {
+    if (!mod) {
       accepted.push(name);
       return;
     }
 
-    if (_module.data.hash !== file.hash) {
-      // An outdated module
-
+    // If the module is outdated, we check if we can update it
+    if (mod.hash !== file.hash) {
       if (endsWith(name, '.css')) {
-        // As CSS is stateless, we can blindly accept it
+        // As css is stateless, we can blindly accept it
         accepted.push(name);
-      } else if (__modules.hmrAcceptedModules[name]) {
+      } else if (mod.hot.accepted) {
         accepted.push(name);
       } else {
         unaccepted.push(name);
@@ -161,7 +157,7 @@ io.on('build:complete', ({files, removed}) => {
 
   // If there were any unaccepted modules, we refuse to apply any changes
   if (unaccepted.length) {
-    let message = `[hot] cannot accept any changes as the following modules have not accepted hot swaps:\n${unaccepted.join('\n')}`;
+    let message = `[hot] Cannot accept any changes as the following modules have not accepted hot swaps:\n${unaccepted.join('\n')}`;
     if (accepted.length) {
       message += `\n\nUpdates to the following modules have been blocked:\n${accepted.join('\n')}`
     }
@@ -174,28 +170,26 @@ io.on('build:complete', ({files, removed}) => {
 
   // If a module has already been buffered for execution, we can ignore
   // updates for it
-  __modules.buffered = __modules.buffered.filter(({data}) => {
-    const {name, hash} = data;
+  __modules.buffered = __modules.buffered.filter(({name, hash}) => {
     if (includes(accepted, name) && files[name].hash === hash) {
       pull(accepted, name);
+      return true;
     }
+    return false;
   });
 
   if (removed.length) {
     removed.forEach(name => {
       // We need to clear the state for any modules that have been removed
       // so that if they are re-added, they are executed again. This could
-      // cause some issues for crazily stateful JS, but it's needed to ensure
-      // that CSS changes are always applied. If we don't do this, we can hit
-      // some race conditions such that we can't update a module
+      // cause some issues for crazily stateful js, but it's needed to ensure
+      // that css changes are always applied
       __modules.modules[name] = undefined;
-      __modules.cache[name] = undefined;
 
       // Ensure that the asset is removed from the document
       removeResource(name);
-
-      console.log(`[hot] Removed module ${name}`);
     });
+    console.log(`[hot] Removed modules:\n${removed.join('\n')}`);
   }
 
   if (!accepted.length) {
@@ -206,38 +200,34 @@ io.on('build:complete', ({files, removed}) => {
     const file = files[name];
 
     updateResource(file.name, file.url);
+
+    // Ensure that the runtime knows that we are waiting for this specific
+    // versions of the module. We need to keep this synced so that we can
+    // clear the buffered modules only when it's appropriate to
+    __modules.pending[file.name] = file.hash;
   });
 
+  // As css assets wont trigger a call to `addModule`, we need to manually
+  // call it to ensure that our module buffer is inevitably cleared and
+  // the runtime's module registry is updated. This prevents an issue where
+  // reverting a css asset to a hash that's in the registry will have no
+  // effect as the registry and the document are out of sync
   accepted.forEach(name => {
     const file = files[name];
 
-    // Ensure that the runtime knows that we are waiting for this specific
-    // versions of the module. We need to keep this synced so that we we can
-    // clear the buffered modules only when it's appropriate to
-    __modules.pending[file.name] = file.hash;
-
-    // As CSS assets wont trigger a call to `addModule`, we need to manually
-    // call it to ensure that our module buffer is inevitably cleared and
-    // the runtime's module registry is updated. This prevents an issue where
-    // reverting a CSS asset to a hash that's in the registry will have no
-    // effect as the registry and the document are out of sync
     if (endsWith(file.url, '.css')) {
-      __modules.addModule(
-        {
-          name: file.name,
-          hash: file.hash
-        },
-        function(module) {
+      __modules.addModule({
+        name: file.name,
+        hash: file.hash,
+        factory: function(module) {
           module.exports = '';
         }
-      );
+      });
     }
-  })
+  });
 });
 
 function removeResource(name) {
-  console.log(`[hot] Removing resource ${name}`);
-
   if (endsWith(name, '.css')) {
     return removeStylesheet(name);
   }
@@ -251,8 +241,6 @@ function removeResource(name) {
 }
 
 function updateResource(name, url) {
-  console.log(`[hot] Updating resource ${name}`);
-
   if (endsWith(url, '.css')) {
     return replaceStylesheet(name, url);
   }
