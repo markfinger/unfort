@@ -59,8 +59,8 @@ forEach(__modules.modules, __modules.extendModule);
 // There's a bit of complexity in the handling of changed assets.
 // In particular, js modules that may depend on new dependencies
 // introduce the potential for race conditions as we may or may
-// not have a module available when we execute a dependent module.
-// To get around these issues, we buffer all the modules and only
+// not have a module available when we execute it's dependent
+// modules. To get around this, we buffer all the modules and only
 // start to apply them once every pending module has been buffered
 __modules.pending = {};
 __modules.buffered = [];
