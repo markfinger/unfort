@@ -151,7 +151,7 @@ const records = createRecordStore({
       store.readText(ref),
       store.babelTransformOptions(ref)
     ]).then(([text, options]) => {
-      return babel.transform(text, options)
+      return babel.transform(text, options);
     });
   },
   babelAst(ref, store) {
@@ -277,23 +277,24 @@ const records = createRecordStore({
         return store.readText(ref);
       }
 
+      let babelFile;
+      if (startsWith(ref.name, rootNodeModules)) {
+        babelFile = Promise.all([
+          store.readText(ref),
+          store.babylonAst(ref)
+        ]).then(([text, ast]) => {
+          return babelGenerator(ast, null, text);
+        });
+      } else {
+        babelFile = store.babelTransform(ref);
+      }
+
       return Promise.all([
-        store.readText(ref),
-        store.ast(ref),
+        babelFile,
         store.resolvedDependencies(ref),
         store.hash(ref)
-      ]).then(([text, ast, dependencies, hash]) => {
-
-        // TODO: if we're using the babel transform, the code will already have been generated
-        const result = babelGenerator(ast, null, text);
-
-        const code = result.code;
-
-        const moduleData = {
-          name: ref.name,
-          dependencies,
-          hash
-        };
+      ]).then(([file, dependencies, hash]) => {
+        const code = file.code;
 
         const lines = [
           `__modules.defineModule({name: ${JSON.stringify(ref.name)}, deps: ${JSON.stringify(dependencies)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
