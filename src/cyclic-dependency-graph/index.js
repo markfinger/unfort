@@ -10,4 +10,4 @@ export {
   getChangedNodes,
   getPrunedNodesFromDiff
 } from './diff';
-export {createNodesFromNotation} from './utils';
+export {createNodesFromNotation, resolveExecutionOrder} from './utils';

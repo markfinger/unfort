@@ -34,7 +34,7 @@ import {nodeCoreLibs} from '../dependencies/node-core-libs';
 import browserResolve from 'browser-resolve';
 import {createFileCache} from '../kv-cache';
 import {
-  createGraph, getNewNodesFromDiff, getPrunedNodesFromDiff, mergeDiffs
+  createGraph, getNewNodesFromDiff, getPrunedNodesFromDiff, mergeDiffs, resolveExecutionOrder
 } from '../cyclic-dependency-graph';
 import createRecordStore from '../record-store';
 
@@ -591,7 +591,10 @@ app.get('/', (req, res) => {
 
   const runtimeUrl = records.get(runtimeFile).data.get('url');
 
-  records.forEach(record => {
+  const executionOrder = resolveExecutionOrder(graph, entryPoints);
+
+  executionOrder.forEach(name => {
+    const record = records.get(name);
     const filename = record.data.get('filename');
     const url = record.data.get('url');
     const ext = path.extname(filename);
