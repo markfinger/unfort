@@ -1,3 +1,3 @@
-export const test = 'a';
+export const test = 'b';
 
 module.hot.accept();

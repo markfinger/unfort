@@ -17,12 +17,18 @@ __modules.hotSwapExportReferences = Object.create(null);
 
 // Before we start monkey-patching the runtime, we need to preserve some references
 const extendModule = __modules.extendModule;
-const addModule = __modules.addModule;
+const defineModule = __modules.defineModule;
 
 // Monkey-patch `extendModule` so that we can add the `hot` API
 __modules.extendModule = function extendModuleHotWrapper(mod) {
   mod = extendModule(mod);
 
+  // The previous state of the module
+  if (mod.prev === undefined) {
+    mod.prev = null;
+  }
+
+  // State associated with swapping the module
   if (mod.hot === undefined) {
     mod.hot = {
       accepted: false,
@@ -31,6 +37,7 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
     };
   }
 
+  // The `module.hot` API
   if (mod.commonjs.hot === undefined) {
     mod.commonjs.hot = {
       accept(cb) {
@@ -39,8 +46,7 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
         if (isFunction(cb)) {
           mod.hot.onExit = cb;
         }
-      },
-      accepted: false
+      }
     };
   }
 
@@ -59,8 +65,8 @@ forEach(__modules.modules, __modules.extendModule);
 __modules.pending = {};
 __modules.buffered = [];
 
-// Monkey-patch `addModule` so that we can intercept incoming modules
-__modules.addModule = function addModuleHotWrapper(mod) {
+// Monkey-patch `defineModule` so that we can intercept incoming modules
+__modules.defineModule = function defineModuleHotWrapper(mod) {
   mod = __modules.extendModule(mod);
 
   const {name, hash} = mod;
@@ -96,22 +102,28 @@ __modules.addModule = function addModuleHotWrapper(mod) {
       const {name, hash} = mod;
 
       if (prevMod) {
-        console.log(`[hot] Hot swapping ${name} from ${prevMod.hash} to ${hash}`);
+        console.log(`[hot] Hot swapping ${name} from hash ${prevMod.hash} to hash ${hash}`);
       } else {
         console.log(`[hot] Initializing ${name} at hash ${hash}`);
       }
 
       if (prevMod) {
+        // Trigger any callbacks associated with removing a module
         if (prevMod.hot.onExit) {
           prevMod.hot.onExit();
         }
 
+        // We pass the exports proxy between module states so that dependent modules
+        // have their references updated when we swap
         mod.hot.exportsProxy = prevMod.hot.exportsProxy;
+
+        // We store the previous version of the module mostly as an escape hatch in
+        // case we ever want to do some extra crazy things during the swapping process
         mod.prev = prevMod;
       }
 
       // Update the runtime's module registry
-      addModule(mod);
+      defineModule(mod);
     });
 
     toSwap.forEach(([mod]) => {
@@ -132,7 +144,11 @@ __modules.executeModule = function executeModuleHotWrapper(name) {
 
   const mod = __modules.modules[name];
   const exports = mod.commonjs.exports;
-  if (isObject(exports) && exports.__esModule) {
+  if (
+    isObject(exports) &&
+    !isFunction(exports) &&
+    exports.__esModule
+  ) {
     const exportsProxy = mod.hot.exportsProxy;
 
     if (Object.getPrototypeOf(exportsProxy) !== exports) {
@@ -197,7 +213,7 @@ io.on('build:complete', ({files, removed}) => {
   }
 
   // We try to avoid issues from concurrent-ish updates by resetting
-  // the pending state so that any calls to `addModule` will be ignored
+  // the pending state so that any calls to `defineModule` will be ignored
   __modules.pending = {};
 
   // If a module has already been buffered for execution, we can ignore
@@ -239,7 +255,7 @@ io.on('build:complete', ({files, removed}) => {
     __modules.pending[file.name] = file.hash;
   });
 
-  // As css assets wont trigger a call to `addModule`, we need to manually
+  // As css assets wont trigger a call to `defineModule`, we need to manually
   // call it to ensure that our module buffer is inevitably cleared and
   // the runtime's module registry is updated. This prevents an issue where
   // reverting a css asset to a hash that's in the registry will have no
@@ -248,7 +264,7 @@ io.on('build:complete', ({files, removed}) => {
     const file = files[name];
 
     if (endsWith(file.url, '.css')) {
-      __modules.addModule({
+      __modules.defineModule({
         name: file.name,
         hash: file.hash,
         factory: function(module) {
