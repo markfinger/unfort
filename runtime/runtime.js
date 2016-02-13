@@ -13,15 +13,18 @@
 
   var __modules = exports;
 
-  // Our registry of modules: 'name' => {Object}
+  // Our registry of modules: 'name' => Object
   __modules.modules = Object.create(null);
 
+  // This the entry point that enables our bootstrap process
   __modules.defineModule = function defineModule(mod) {
     __modules.modules[mod.name] = mod;
 
     return __modules.extendModule(mod);
   };
 
+  // Adds some data and flags that we use during the
+  // initialization process
   __modules.extendModule = function extendModuleObject(mod) {
     // A flag that we use to prevent multiple executions of a module
     // when cyclic dependencies are encountered
@@ -62,6 +65,7 @@
     return mod;
   };
 
+  // After the bootstrap has completed, calling this kicks off the process
   __modules.executeModule = function executeModule(name) {
     if (!__modules.modules[name]) {
       throw new Error('Unknown module "' + name + '"');
@@ -98,9 +102,9 @@
     return mod.commonjs.exports;
   };
 
+  // Given a module with a predefined set of dependencies, this produces
+  // the `require` function that modules use to call other modules
   __modules.buildRequire = function buildRequire(mod) {
-    // Construct the `require` function that maps dependency identifiers
-    // other modules in the system
     return function require(id) {
       var depName = mod.deps[id];
 
@@ -119,8 +123,9 @@
         );
       }
 
-      // We need to respect the `executed` flag to prevent cyclic dependencies
-      // from triggering multiple executions of a module
+      // If a module has already been evaluated, we return the values that it
+      // exported. Note: we need to respect the `executed` flag to prevent
+      // cyclic dependencies from triggering multiple executions of a module
       if (depMod.executed) {
         return depMod.commonjs.exports;
       }
