@@ -60,9 +60,26 @@ const entryPoints = [
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
+
 const sockets = [];
+io.on('connection', (socket) => {
+  sockets.push(socket);
+  socket.on('disconnect', () => {
+    pull(sockets, socket);
+  });
+});
+
+server.listen(3000, '127.0.0.1', () => {
+  console.log(`${chalk.bold('Server:')} http://127.0.0.1:3000`);
+});
 
 const fileEndpoint = '/file/';
+
+let state = imm.Map({
+  records: imm.Map(),
+  graph: imm.Map(),
+  recordsByUrl: imm.Map()
+});
 
 function createRelativeUrl(absPath) {
   const relPath = path.relative(sourceRoot, absPath);
@@ -391,179 +408,133 @@ function getCachedDataOrCompute(cache, key, compute) {
   });
 }
 
-const graphEntryPoints = [runtimeFile, ...entryPoints];
+const watcher = chokidar.watch([], {
+  persistent: true
+});
 
-envHash({files: [__filename, 'package.json']}).then(hash => {
-  console.log(chalk.bold('EnvHash: ') + hash + '\n');
-
-  const cacheRoot = path.join(__dirname, hash);
-  analyzedDependenciesCache = createFileCache(path.join(cacheRoot, 'dependency_identifiers'));
-  resolvedDependenciesCache = createFileCache(path.join(cacheRoot, 'resolved_dependencies'));
-
-  analyzedDependenciesCache.events.on('error', err => emitError(err));
-  resolvedDependenciesCache.events.on('error', err => emitError(err));
-
-  const graph = createGraph({
-    getDependencies: (file) => {
-      if (!records.has(file)) {
-        records.create(file);
-      }
-
-      const watched = watcher.getWatched();
-      // We reduce system load by only watching files outside
-      // of the root node_modules directory
-      if (!startsWith(file, rootNodeModules)) {
-        const dirname = path.dirname(file);
-        if (!includes(watched[dirname], path.basename(file))) {
-          watcher.add(file);
-        }
-      }
-
-      return records.resolvedDependencies(file).then(resolved => {
-        return values(resolved);
-      });
-    }
-  });
-
-  let traceStart;
-  graph.events.on('started', () => {
-    traceStart = (new Date()).getTime();
-
-    sockets.forEach(socket => socket.emit('build:started'));
-  });
-
-  graphEntryPoints.forEach(file => {
+function handleFileChange(file) {
+  // Update the records and graph
+  records.remove(file);
+  const node = graph.getState().get(file);
+  graph.pruneNode(file);
+  if (includes(graphEntryPoints, file)) {
     graph.setNodeAsEntry(file);
     graph.traceFromNode(file);
-  });
+  }
+  // Re-trace any dependents of the file
+  node.dependents.forEach(dependent => graph.traceFromNode(dependent));
+}
 
-  const watcher = chokidar.watch([], {
-    persistent: true
-  });
+watcher.on('change', (file) => {
+  console.log(`\n${chalk.italic('File change:')} ${file}\n`);
+  handleFileChange(file);
+});
 
-  function handleFileChange(file) {
-    // Update the records and graph
-    records.remove(file);
-    const node = graph.getState().get(file);
-    graph.pruneNode(file);
-    if (includes(graphEntryPoints, file)) {
-      graph.setNodeAsEntry(file);
-      graph.traceFromNode(file);
+watcher.on('unlink', (file) => {
+  console.log(`\n${chalk.italic('File unlink:')} ${file}\n`);
+  handleFileChange(file);
+});
+
+const graphEntryPoints = [runtimeFile, ...entryPoints];
+
+const graph = createGraph({
+  getDependencies: (file) => {
+    if (!records.has(file)) {
+      records.create(file);
     }
-    // Re-trace any dependents of the file
-    node.dependents.forEach(dependent => graph.traceFromNode(dependent));
+
+    const watched = watcher.getWatched();
+    // We reduce system load by only watching files outside
+    // of the root node_modules directory
+    if (!startsWith(file, rootNodeModules)) {
+      const dirname = path.dirname(file);
+      if (!includes(watched[dirname], path.basename(file))) {
+        watcher.add(file);
+      }
+    }
+
+    return records.resolvedDependencies(file).then(resolved => {
+      return values(resolved);
+    });
+  }
+});
+
+let traceStart;
+graph.events.on('started', () => {
+  traceStart = (new Date()).getTime();
+
+  sockets.forEach(socket => socket.emit('build:started'));
+});
+
+graph.events.on('error', ({node, error}) => {
+  emitError(error, node);
+});
+
+graph.events.on('traced', () => {
+  const known = graph.getState().size;
+  const done = known - graph.pendingJobs.length;
+  const message = `\r${chalk.bold('Trace:')} ${done} / ${known}`;
+  process.stdout.write(message);
+});
+
+graph.events.on('completed', ({errors}) => {
+  process.stdout.write('\n'); // clear the progress indicator
+
+  const elapsed = (new Date()).getTime() - traceStart;
+
+  if (errors.length) {
+    console.log(`${chalk.bold('Errors:')} ${errors.length}`);
+    return;
   }
 
-  watcher.on('change', (file) => {
-    console.log(`\n${chalk.italic('File change:')} ${file}\n`);
-    handleFileChange(file);
-  });
+  console.log(`${chalk.bold('Elapsed:')} ${elapsed}ms`);
 
-  watcher.on('unlink', (file) => {
-    console.log(`\n${chalk.italic('File unlink:')} ${file}\n`);
-    handleFileChange(file);
-  });
+  // Traverse the graph and prune all nodes which are disconnected
+  // from the entry points. This ensures that the graph never
+  // carries along any unwanted dependencies
+  graph.pruneDisconnectedNodes();
 
-  graph.events.on('error', ({node, error}) => {
-    emitError(error, node);
-  });
+  const graphState = graph.getState();
 
-  graph.events.on('traced', () => {
-    const known = graph.getState().size;
-    const done = known - graph.pendingJobs.length;
-    const message = `\r${chalk.bold('Trace:')} ${done} / ${known}`;
-    process.stdout.write(message);
-  });
+  console.log(chalk.bold(`\nGenerating code...`));
 
-  graph.events.on('completed', ({errors, diff}) => {
-    process.stdout.write('\n'); // clear the progress indicator
+  const buildStart = (new Date()).getTime();
+  const emittedErrors = [];
 
-    const elapsed = (new Date()).getTime() - traceStart;
-
-    if (errors.length) {
-      console.log(`${chalk.bold('Errors:')} ${errors.length}`);
-      return;
-    }
-
-    console.log(`${chalk.bold('Elapsed:')} ${elapsed}ms`);
-
-    const disconnectedDiff = graph.pruneDisconnectedNodes();
-    const mergedDiff = mergeDiffs(diff, disconnectedDiff);
-    const prunedNodes = getPrunedNodesFromDiff(mergedDiff);
-    const newNodes = getNewNodesFromDiff(mergedDiff);
-
-    const nodes = graph.getState().keySeq().toArray();
-
-    // Clean up any data associated with any files that were
-    // removing during the tracing
-    prunedNodes.forEach(node => {
-      watcher.unwatch(node);
-      records.remove(node);
-    });
-
-    // Start watching any new files
-    const watched = watcher.getWatched();
-    newNodes
-      // We reduce system load by only watching files outside
-      // of the root node_modules directory
-      .filter(name => !startsWith(name, rootNodeModules))
-      .forEach(name => {
-        const dirname = path.dirname(name);
-        if (!includes(watched[dirname], path.basename(name))) {
-          watcher.add(name);
-        }
+  Promise.all(
+    graphState.keySeq().toArray().map(node => {
+      return Promise.all([
+        node,
+        records.hash(node),
+        records.code(node),
+        records.hashedFilename(node),
+        records.url(node),
+        records.isTextFile(node)
+      ]).catch(err => {
+        emitError(err, node);
+        emittedErrors.push(err);
+        return Promise.reject(err);
       });
-
-    console.log(chalk.bold(`\nGenerating code...`));
-
-    const graphState = graph.getState();
-    const buildStart = (new Date()).getTime();
-    const fileErrors = [];
-
-    Promise.all(
-      nodes.map(node => {
-        return Promise.all([
-          node,
-          records.hash(node),
-          records.code(node),
-          records.hashedFilename(node),
-          records.url(node),
-          records.isTextFile(node)
-        ]).catch(err => {
-          emitError(err, node);
-          fileErrors.push(err);
-          return Promise.reject(err);
-        });
-      })
-    ).then(() => {
-      const buildElapsed = (new Date()).getTime() - buildStart;
-      console.log(`${chalk.bold('Elapsed:')} ${buildElapsed}ms`);
-
+    })
+  )
+    .then(() => {
+      // If the graph is still the same as when we started the
+      // build, then we start pushing the code towards the user
       if (graph.getState() === graphState) {
-        const recordsState = records.getState();
-        onCodeGenerated({
-          recordsState,
-          graphState,
-          prunedNodes
-        });
+        const buildElapsed = (new Date()).getTime() - buildStart;
+        console.log(`${chalk.bold('Elapsed:')} ${buildElapsed}ms`);
+
+        emitBuild();
       }
     })
     .catch(err => {
-      if (includes(fileErrors, err)) {
-        // We've already emitted it
-        console.error(err);
+      // Prevent errors from being emitted twice
+      if (includes(emittedErrors, err)) {
         return;
       }
+
       emitError(err);
     });
-  });
-});
-
-io.on('connection', (socket) => {
-  sockets.push(socket);
-  socket.on('disconnect', () => {
-    pull(sockets, socket);
-  });
 });
 
 function emitError(err, file) {
@@ -603,13 +574,6 @@ function emitErrorMessage(message) {
   sockets.forEach(socket => socket.emit('build:error', cleanedMessage));
 }
 
-let serverState = imm.Map({
-  records: imm.Map(),
-  graph: imm.Map(),
-  recordsByUrl: imm.Map(),
-  isListening: false
-});
-
 function createRecordDescription(record) {
   // Produce a description of a record that the hot runtime
   // can consume
@@ -621,52 +585,65 @@ function createRecordDescription(record) {
   }
 }
 
-function onCodeGenerated({recordsState, graphState, prunedNodes}) {
-  const recordsByUrl = {};
-  const signal = {
+function emitBuild() {
+  const prevState = state;
+
+  const graphState = graph.getState();
+  const prevGraphState = prevState.get('graph');
+
+  const recordsState = records.getState();
+  const prevRecordsState = prevState.get('records');
+
+  state = state.merge({
+    records: recordsState,
+    graph: graphState,
+    // A map of records so that file endpoint can perform record
+    // look ups trivially. This saves us from having to iterate
+    // over every record
+    recordsByUrl: recordsState.mapKeys((_, record) => record.data.get('url'))
+  });
+
+  // Find all nodes that were removed from the graph during
+  // the build process
+  const prunedNodes = [];
+  prevGraphState.forEach((_, name) => {
+    if (!graphState.has(name)) {
+      prunedNodes.push(name);
+    }
+  });
+
+  // Clean up any data associated with any files that were
+  // removing during the tracing
+  prunedNodes.forEach(name => {
+    watcher.unwatch(name);
+    records.remove(name);
+  });
+
+  // The payload that we send with the `build:complete` signal.
+  // The hot runtime uses this to reconcile the front-end and
+  // start fetching or removing assets
+  const payload = {
     records: {},
     removed: {}
   };
 
   recordsState.forEach(record => {
-    // Populate a map so that the file endpoint can
-    // perform record look ups trivially
-    recordsByUrl[record.data.get('url')] = record;
-
     if (record.name !== runtimeFile) {
-      signal.records[record.name] = createRecordDescription(record);
+      payload.records[record.name] = createRecordDescription(record);
     }
   });
 
   prunedNodes.forEach(name => {
-    const record = serverState.get('records').get(name);
-    if (!record) {
-      // This issue pops up sometimes, but it's difficult to track
-      // down or replicate
-      throw new Error(`Cannot find pruned node ${name} in records`);
-    }
-    signal.removed[record.name] = createRecordDescription(record);
+    const prevRecord = prevRecordsState.get(name);
+    payload.removed[name] = createRecordDescription(prevRecord);
   });
 
-  serverState = serverState.merge({
-    records: recordsState,
-    graph: graphState,
-    recordsByUrl: recordsByUrl
-  });
-
-  if (!serverState.get('isListening')) {
-    serverState = serverState.set('isListening', true);
-    server.listen(3000, '127.0.0.1', () => {
-      console.log(`\n${chalk.bold('Server:')} http://127.0.0.1:3000`);
-    });
-  }
-
-  sockets.forEach(socket => socket.emit('build:complete', signal));
+  sockets.forEach(socket => socket.emit('build:complete', payload));
 }
 
 app.get('/', (req, res) => {
-  const records = serverState.get('records');
-  const graph = serverState.get('graph');
+  const records = state.get('records');
+  const graph = state.get('graph');
 
   const scripts = [];
   const styles = [];
@@ -749,7 +726,7 @@ app.get('/', (req, res) => {
 app.get(fileEndpoint + '*', (req, res) => {
   const url = req.path;
 
-  const record = serverState.get('recordsByUrl').get(url);
+  const record = state.get('recordsByUrl').get(url);
 
   if (!record) {
     return res.status(404).send('Not found');
@@ -765,4 +742,21 @@ app.get(fileEndpoint + '*', (req, res) => {
   }
 
   fs.createReadStream(record.name).pipe(res);
+});
+
+// Start the build
+envHash({files: [__filename, 'package.json']}).then(hash => {
+  console.log(chalk.bold('EnvHash: ') + hash + '\n');
+
+  const cacheRoot = path.join(__dirname, hash);
+  analyzedDependenciesCache = createFileCache(path.join(cacheRoot, 'dependency_identifiers'));
+  resolvedDependenciesCache = createFileCache(path.join(cacheRoot, 'resolved_dependencies'));
+
+  analyzedDependenciesCache.events.on('error', err => emitError(err));
+  resolvedDependenciesCache.events.on('error', err => emitError(err));
+
+  graphEntryPoints.forEach(file => {
+    graph.setNodeAsEntry(file);
+    graph.traceFromNode(file);
+  });
 });
