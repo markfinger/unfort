@@ -110,7 +110,7 @@
 
       if (!depName) {
         throw new Error(
-          'Module "' + mod.name + '" required an unknown identifier "' + id + '". ' +
+          'Module "' + mod.name + '" required an unknown identifier "' + id + '".\n' +
           'Available dependencies: ' + JSON.stringify(mod.deps, null, 2)
         );
       }
