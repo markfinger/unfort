@@ -272,6 +272,16 @@ const records = createRecordStore({
       });
     }
 
+    function createJSModule({name, deps, hash, code}) {
+      const lines = [
+        `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
+        code,
+        '}});'
+      ];
+
+      return lines.join('\n');
+    }
+
     if (ref.ext === '.js') {
       if (ref.name === runtimeFile) {
         return store.readText(ref);
@@ -293,16 +303,49 @@ const records = createRecordStore({
         babelFile,
         store.resolvedDependencies(ref),
         store.hash(ref)
-      ]).then(([file, dependencies, hash]) => {
-        const code = file.code;
+      ]).then(([file, deps, hash]) => {
+        return createJSModule({
+          name: ref.name,
+          deps,
+          hash,
+          code: file.code
+        });
+      });
+    }
 
-        const lines = [
-          `__modules.defineModule({name: ${JSON.stringify(ref.name)}, deps: ${JSON.stringify(dependencies)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
-          code,
-          '}});'
-        ];
+    if (ref.ext === '.json') {
+      return Promise.all([
+        store.readText(ref),
+        store.hash(ref)
+      ]).then(([text, hash]) => {
+        let code;
+        if (startsWith(ref.name, rootNodeModules)) {
+          code = 'module.exports = ${text};'
+        } else {
+          // We fake babel's commonjs shim so that hot swapping can occur
+          code = `
+            var json=${text};
+            exports.default=json;
+            if (typeof json == "object") {
+              for (var prop in json) {
+                if (json.hasOwnProperty(prop)) {
+                  exports[prop]=json[prop];
+                }
+              }
+            }
+            exports.__esModule = true;
+            if (module.hot) {
+              module.hot.accept();
+            }
+          `;
+        }
 
-        return lines.join('\n');
+        return createJSModule({
+          name: ref.name,
+          deps: {},
+          hash,
+          code
+        })
       });
     }
 
@@ -609,7 +652,10 @@ app.get('/', (req, res) => {
       );
     }
 
-    if (ext === '.js' && record.name !== runtimeFile) {
+    if (
+      (ext === '.js' || ext === '.json') &&
+      record.name !== runtimeFile
+    ) {
       scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
     }
   });

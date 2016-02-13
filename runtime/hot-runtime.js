@@ -285,11 +285,10 @@ function removeResource(name) {
     return removeStylesheet(name);
   }
 
-  if (endsWith(name, '.js')) {
+  if (endsWith(name, '.js') || endsWith(name, '.json')) {
     return removeScript(name);
   }
 
-  // TODO: support .json
   console.warn(`[hot] Unknown file type for module ${name}, cannot remove`);
 }
 
@@ -298,11 +297,10 @@ function updateResource(name, url) {
     return replaceStylesheet(name, url);
   }
 
-  if (endsWith(url, '.js')) {
+  if (endsWith(url, '.js') || endsWith(url, '.json')) {
     return replaceScript(name, url);
   }
 
-  // TODO: support .json
   console.warn(`[hot] Unknown file type for module ${name}, cannot update`);
 }
 
