@@ -24,8 +24,8 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
   mod = extendModule(mod);
 
   // The previous state of the module
-  if (mod.prev === undefined) {
-    mod.prev = null;
+  if (mod.previousState === undefined) {
+    mod.previousState = null;
   }
 
   // State associated with swapping the module
@@ -118,8 +118,9 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
         mod.hot.exportsProxy = prevMod.hot.exportsProxy;
 
         // We store the previous version of the module mostly as an escape hatch in
-        // case we ever want to do some extra crazy things during the swapping process
-        mod.prev = prevMod;
+        // case we ever want to introspect state or do some extra crazy things during
+        // the swapping process
+        mod.previousState = prevMod;
       }
 
       // Update the runtime's module registry
@@ -237,7 +238,7 @@ io.on('build:complete', ({records, removed}) => {
       __modules.modules[name] = undefined;
 
       // Ensure that the asset is removed from the document
-      removeResource(record);
+      removeRecordAssetFromDocument(record);
     });
     console.log(`[hot] Removed modules:\n${modulesToRemove.join('\n')}`);
   }
@@ -250,7 +251,7 @@ io.on('build:complete', ({records, removed}) => {
     const record = records[name];
 
     // Asynchronously fetch the asset
-    updateResource(record);
+    updateRecordAssetInDocument(record);
 
     // Ensure that the runtime knows that we are waiting for this specific
     // versions of the module. We need to keep this synced so that we can
@@ -277,6 +278,8 @@ io.on('build:complete', ({records, removed}) => {
       __modules.defineModule({
         name: record.name,
         hash: record.hash,
+        // Note: the factory is defined outside of this closure to prevent the
+        // signal payload from sitting in memory
         factory: createRecordUrlModule(record.url)
       });
     }
@@ -284,7 +287,7 @@ io.on('build:complete', ({records, removed}) => {
 });
 
 function createRecordUrlModule(url) {
-  return function(module, exports) {
+  return function recordUrlModule(module, exports) {
     exports.default = url;
     exports.__esModule = true;
     if (module.hot) {
@@ -293,7 +296,7 @@ function createRecordUrlModule(url) {
   };
 }
 
-function removeResource(record) {
+function removeRecordAssetFromDocument(record) {
   const {name, url} = record;
 
   if (!record.isTextFile) {
@@ -312,7 +315,7 @@ function removeResource(record) {
   console.warn(`[hot] Unknown file type for module ${name}, cannot remove`);
 }
 
-function updateResource(record) {
+function updateRecordAssetInDocument(record) {
   const {name, url} = record;
 
   if (!record.isTextFile) {
@@ -324,7 +327,10 @@ function updateResource(record) {
     return replaceStylesheet(record);
   }
 
-  if (endsWith(url, '.js') || endsWith(url, '.json')) {
+  if (
+    endsWith(url, '.js') ||
+    endsWith(url, '.json')
+  ) {
     return replaceScript(record);
   }
 

@@ -51,10 +51,12 @@
     }
 
     // A lot of Node modules use the `process` global to resolve if they
-    // should run in production mode or not, we pass this as a shim to
+    // should run in production mode or not, so we pass this in as a shim
     // when the factory is called
     if (mod.process === undefined) {
-      mod.process = {env: {}};
+      mod.process = {
+        env: {}
+      };
     }
 
     return mod;
@@ -74,7 +76,24 @@
     mod.executed = true;
 
     // Invoke the module's factory with a barrage of shims and wiring
-    mod.factory.call(mod.global, mod.commonjs, mod.commonjs.exports, mod.require, mod.process, mod.global);
+    mod.factory.call(
+      // We invoke the factory with the global object as its `this`
+      // value. This is mostly to shim around some old and crappy
+      // libraries that assume this behaviour and use it to bind
+      // global variables. Note: implicit `this` conflicts with
+      // strict mode
+      mod.global,
+      // `module`
+      mod.commonjs,
+      // `exports`
+      mod.commonjs.exports,
+      // `require`
+      mod.require,
+      // `process`
+      mod.process,
+      // `global`
+      mod.global
+    );
 
     return mod.commonjs.exports;
   };
