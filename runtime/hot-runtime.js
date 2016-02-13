@@ -59,9 +59,9 @@ forEach(__modules.modules, __modules.extendModule);
 // There's a bit of complexity in the handling of changed assets.
 // In particular, js modules that may depend on new dependencies
 // introduce the potential for race conditions as we may or may
-// not have a module available when we execute it's dependent
-// modules. To get around this, we buffer all the modules and only
-// start to apply them once every pending module has been buffered
+// not have a module available when we execute its dependent modules.
+// To get around this, we buffer all the modules and only start to
+// apply them once every pending module has been buffered
 __modules.pending = {};
 __modules.buffered = [];
 
@@ -247,6 +247,7 @@ io.on('build:complete', ({files, removed}) => {
   accepted.forEach(name => {
     const file = files[name];
 
+    // Asynchronously fetch the asset
     updateResource(file.name, file.url);
 
     // Ensure that the runtime knows that we are waiting for this specific
@@ -255,14 +256,18 @@ io.on('build:complete', ({files, removed}) => {
     __modules.pending[file.name] = file.hash;
   });
 
-  // As css assets wont trigger a call to `defineModule`, we need to manually
-  // call it to ensure that our module buffer is inevitably cleared and
-  // the runtime's module registry is updated. This prevents an issue where
-  // reverting a css asset to a hash that's in the registry will have no
-  // effect as the registry and the document are out of sync
+  // Note: this iteration *must* occur after `__modules.pending` has been
+  // configured. Otherwise, `__modules.defineModule` will give strange
+  // responses if we are trying to update multiple assets that include
+  // css files
   accepted.forEach(name => {
     const file = files[name];
 
+    // As css assets wont trigger a call to `defineModule`, we need to manually
+    // call it to ensure that our module buffer is inevitably cleared and
+    // the runtime's module registry is updated. This prevents an issue where
+    // reverting a css asset to a previous version may have no effect as the
+    // registry assumes it's already been applied
     if (endsWith(file.url, '.css')) {
       __modules.defineModule({
         name: file.name,
@@ -285,7 +290,7 @@ function removeResource(name) {
   }
 
   // TODO: support .json
-  console.warn(`[hot] Unknown file type ${name}, cannot remove`);
+  console.warn(`[hot] Unknown file type for module ${name}, cannot remove`);
 }
 
 function updateResource(name, url) {
@@ -298,14 +303,15 @@ function updateResource(name, url) {
   }
 
   // TODO: support .json
-  console.warn(`[hot] Unknown file type ${name}, cannot update`);
+  console.warn(`[hot] Unknown file type for module ${name}, cannot update`);
 }
 
 function replaceStylesheet(name, url) {
   const links = document.getElementsByTagName('link');
 
-  // Update any matching <link> element
   let replaced = false;
+
+  // Update any matching <link> element
   forEach(links, link => {
     const attributeName = link.getAttribute('data-unfort-name');
     if (attributeName === name) {
@@ -315,14 +321,21 @@ function replaceStylesheet(name, url) {
     }
   });
 
-  // Add a new <link>, if needed
-  if (!replaced) {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = url;
-    link.setAttribute('data-unfort-name', name);
-    document.head.appendChild(link);
+  if (replaced) {
+    return;
   }
+
+  // It's a new file, so we need to add a new <link> element
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = url;
+  link.setAttribute('data-unfort-name', name);
+  // We insert new stylesheets at the top of the head as this
+  // optimises for the common case where a stylesheet import is
+  // at the top of a file and its dependents may override the
+  // selectors. If we don't do this, the cascade can get messed
+  // up when you add new styles
+  document.head.insertBefore(link, document.head.firstChild);
 }
 
 function removeStylesheet(name) {
