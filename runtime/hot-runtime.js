@@ -174,14 +174,14 @@ io.on('build:error', err => {
   console.error(`[hot] Build error: ${err}`);
 });
 
-io.on('build:complete', ({files, removed}) => {
+io.on('build:complete', ({records, removed}) => {
   // With the complete signal, we can start updating our assets
   // and begin the process of hot swapping code.
 
   const accepted = [];
   const unaccepted = [];
 
-  forEach(files, (file, name) => {
+  forEach(records, (record, name) => {
     const mod = __modules.modules[name];
 
     // If it's a new module, we accept it
@@ -191,9 +191,10 @@ io.on('build:complete', ({files, removed}) => {
     }
 
     // If the module is outdated, we check if we can update it
-    if (mod.hash !== file.hash) {
-      if (endsWith(name, '.css')) {
-        // As css is stateless, we can blindly accept it
+    if (mod.hash !== record.hash) {
+      if (endsWith(name, '.css') || !record.isTextFile) {
+        // As css and binary files are stateless, we can
+        // blindly accept them
         accepted.push(name);
       } else if (mod.hot.accepted) {
         accepted.push(name);
@@ -219,15 +220,16 @@ io.on('build:complete', ({files, removed}) => {
   // If a module has already been buffered for execution, we can ignore
   // updates for it
   __modules.buffered = __modules.buffered.filter(({name, hash}) => {
-    if (includes(accepted, name) && files[name].hash === hash) {
+    if (includes(accepted, name) && records[name].hash === hash) {
       pull(accepted, name);
       return true;
     }
     return false;
   });
 
-  if (removed.length) {
-    removed.forEach(name => {
+  const modulesToRemove = keys(removed);
+  if (modulesToRemove.length) {
+    forEach(removed, (record, name) => {
       // We need to clear the state for any modules that have been removed
       // so that if they are re-added, they are executed again. This could
       // cause some issues for crazily stateful js, but it's needed to ensure
@@ -235,9 +237,9 @@ io.on('build:complete', ({files, removed}) => {
       __modules.modules[name] = undefined;
 
       // Ensure that the asset is removed from the document
-      removeResource(name);
+      removeResource(record);
     });
-    console.log(`[hot] Removed modules:\n${removed.join('\n')}`);
+    console.log(`[hot] Removed modules:\n${modulesToRemove.join('\n')}`);
   }
 
   if (!accepted.length) {
@@ -245,15 +247,15 @@ io.on('build:complete', ({files, removed}) => {
   }
 
   accepted.forEach(name => {
-    const file = files[name];
+    const record = records[name];
 
     // Asynchronously fetch the asset
-    updateResource(file.name, file.url);
+    updateResource(record);
 
     // Ensure that the runtime knows that we are waiting for this specific
     // versions of the module. We need to keep this synced so that we can
     // clear the buffered modules only when it's appropriate to
-    __modules.pending[file.name] = file.hash;
+    __modules.pending[record.name] = record.hash;
   });
 
   // Note: this iteration *must* occur after `__modules.pending` has been
@@ -261,50 +263,77 @@ io.on('build:complete', ({files, removed}) => {
   // responses if we are trying to update multiple assets that include
   // css files
   accepted.forEach(name => {
-    const file = files[name];
+    const record = records[name];
 
     // As css assets wont trigger a call to `defineModule`, we need to manually
     // call it to ensure that our module buffer is inevitably cleared and
     // the runtime's module registry is updated. This prevents an issue where
     // reverting a css asset to a previous version may have no effect as the
     // registry assumes it's already been applied
-    if (endsWith(file.url, '.css')) {
+    if (
+      endsWith(record.url, '.css') ||
+      !record.isTextFile
+    ) {
       __modules.defineModule({
-        name: file.name,
-        hash: file.hash,
-        factory: function(module) {
-          module.exports = '';
-        }
+        name: record.name,
+        hash: record.hash,
+        factory: createRecordUrlModule(record.url)
       });
     }
   });
 });
 
-function removeResource(name) {
-  if (endsWith(name, '.css')) {
-    return removeStylesheet(name);
+function createRecordUrlModule(url) {
+  return function(module, exports) {
+    exports.default = url;
+    exports.__esModule = true;
+    if (module.hot) {
+      module.hot.accept();
+    }
+  };
+}
+
+function removeResource(record) {
+  const {name, url} = record;
+
+  if (!record.isTextFile) {
+    // Nothing to do here
+    return;
   }
 
-  if (endsWith(name, '.js') || endsWith(name, '.json')) {
-    return removeScript(name);
+  if (endsWith(url, '.css')) {
+    return removeStylesheet(record);
+  }
+
+  if (endsWith(url, '.js') || endsWith(url, '.json')) {
+    return removeScript(record);
   }
 
   console.warn(`[hot] Unknown file type for module ${name}, cannot remove`);
 }
 
-function updateResource(name, url) {
+function updateResource(record) {
+  const {name, url} = record;
+
+  if (!record.isTextFile) {
+    // Nothing to do here
+    return;
+  }
+
   if (endsWith(url, '.css')) {
-    return replaceStylesheet(name, url);
+    return replaceStylesheet(record);
   }
 
   if (endsWith(url, '.js') || endsWith(url, '.json')) {
-    return replaceScript(name, url);
+    return replaceScript(record);
   }
 
   console.warn(`[hot] Unknown file type for module ${name}, cannot update`);
 }
 
-function replaceStylesheet(name, url) {
+function replaceStylesheet(record) {
+  const {name, url} = record;
+
   const links = document.getElementsByTagName('link');
 
   let replaced = false;
@@ -336,7 +365,9 @@ function replaceStylesheet(name, url) {
   document.head.insertBefore(link, document.head.firstChild);
 }
 
-function removeStylesheet(name) {
+function removeStylesheet(record) {
+  const {name} = record;
+
   const links = document.getElementsByTagName('link');
 
   forEach(links, link => {
@@ -348,7 +379,9 @@ function removeStylesheet(name) {
   });
 }
 
-function replaceScript(name, url) {
+function replaceScript(record) {
+  const {name, url} = record;
+
   // Clean up any pre-existing scripts
   removeScript(name);
 
@@ -359,7 +392,9 @@ function replaceScript(name, url) {
   document.body.appendChild(script);
 }
 
-function removeScript(name) {
+function removeScript(record) {
+  const {name} = record;
+
   const scripts = document.getElementsByTagName('script');
 
   forEach(scripts, script => {

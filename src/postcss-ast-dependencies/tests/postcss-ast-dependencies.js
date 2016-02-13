@@ -6,7 +6,7 @@ import {
 
 describe('postcss-ast-dependencies', () => {
   describe('#postcssAstDependencies', () => {
-    it('should extract multiple import identifiers', () => {
+    it('should find multiple import identifiers', () => {
       // Test data sourced from https://developer.mozilla.org/en/docs/Web/CSS/@import#Examples
 
       const ast = postcss.parse(`
@@ -32,6 +32,24 @@ describe('postcss-ast-dependencies', () => {
         );
       });
     });
+    it('should not find commented out import identifiers', () => {
+      // Test data sourced from https://developer.mozilla.org/en/docs/Web/CSS/@import#Examples
+
+      const ast = postcss.parse(`
+        /* @import url("foo.css"); */
+        @import url("bar.css");
+        /*@import url("foo.css");*/
+      `);
+
+      return postcssAstDependencies(ast).then(identifiers => {
+        assert.deepEqual(
+          identifiers,
+          [
+            {source: 'bar.css'}
+          ]
+        );
+      });
+    });
     it('should extract multiple url identifiers', () => {
       const ast = postcss.parse(`
         .foo {
@@ -52,9 +70,27 @@ describe('postcss-ast-dependencies', () => {
         );
       });
     });
+    it('should not find commented out url identifiers', () => {
+      // Test data sourced from https://developer.mozilla.org/en/docs/Web/CSS/@import#Examples
+
+      const ast = postcss.parse(`
+        .foo {
+          /*background-image: url('./foo.png');*/
+        }
+        /*
+        .bar {
+          background-image: url('./foo.png');
+        }
+        */
+      `);
+
+      return postcssAstDependencies(ast).then(identifiers => {
+        assert.deepEqual(identifiers, []);
+      });
+    });
   });
   describe('#getDependencyIdentifiersFromDeclarationValue', () => {
-    it('should', () => {
+    it('should find `url(...)` identifiers from strings', () => {
       assert.deepEqual(
         getDependencyIdentifiersFromDeclarationValue(``),
         []
@@ -82,6 +118,26 @@ describe('postcss-ast-dependencies', () => {
             url('./foo.png') url('./bar.png');
         `),
         ['./foo.png', './bar.png']
+      );
+    });
+    it('should not find commented out urls', () => {
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(
+          `/*background-image: url('./woz.jpg');*/`
+        ),
+        []
+      );
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(
+          `/* background-image: url('./bar.jpg'); */`
+        ),
+        []
+      );
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(
+          `  /*background-image: url('./foo.jpg');*/`
+        ),
+        []
       );
     });
   });

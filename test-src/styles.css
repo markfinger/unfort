@@ -1,5 +1,7 @@
 @import './styles-import.css';
 
 body {
-  background: lightgoldenrodyellow;
+  background-color: lightgoldenrodyellow;
+  /*background-image: url('./test2.jpg');*/
+  /*background-image: url('./test.png');*/
 }

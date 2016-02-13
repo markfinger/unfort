@@ -70,15 +70,22 @@ function createRelativeUrl(absPath) {
 }
 
 function createRecordUrl(record) {
-  const filename = record.data.get('filename');
+  const hashedFilename = record.data.get('hashedFilename');
   const dirname = path.dirname(record.name);
-  return createRelativeUrl(path.join(dirname, filename));
+  return createRelativeUrl(path.join(dirname, hashedFilename));
 }
 
 let analyzedDependenciesCache;
 let resolvedDependenciesCache;
 
 const records = createRecordStore({
+  isTextFile(ref) {
+    return (
+      ref.ext === '.js' ||
+      ref.ext === '.css' ||
+      ref.ext === '.json'
+    );
+  },
   readText(ref) {
     return readFile(ref.name, 'utf8');
   },
@@ -103,16 +110,22 @@ const records = createRecordStore({
       store.mtime(ref)
     ])
   },
-  filename(ref, store) {
+  hashedFilename(ref, store) {
     return store.hash(ref).then(hash => {
       const basename = path.basename(ref.name, ref.ext);
       return `${basename}-${hash}${ref.ext}`;
     });
   },
   url(ref, store) {
-    return store.filename(ref).then(filename => {
-      const dirname = path.dirname(ref.name);
-      return createRelativeUrl(path.join(dirname, filename));
+    return store.isTextFile(ref).then(isTextFile => {
+      if (!isTextFile) {
+        return createRelativeUrl(ref.name);
+      }
+
+      return store.hashedFilename(ref).then(filename => {
+        const dirname = path.dirname(ref.name);
+        return createRelativeUrl(path.join(dirname, filename));
+      });
     });
   },
   postcssAst(ref, store) {
@@ -255,75 +268,80 @@ const records = createRecordStore({
     ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps))
   },
   code(ref, store) {
-    if (ref.ext === '.css') {
-      return store.ast(ref).then(ast => {
-        // Remove import rules
-        ast.walkAtRules('import', rule => rule.remove());
-
-        const result = ast.toResult({
-          // Generate a source map, but keep it separate from the code
-          map: {
-            inline: false,
-            annotation: false
-          }
-        });
-
-        return result.css;
-      });
-    }
-
-    function createJSModule({name, deps, hash, code}) {
-      const lines = [
-        `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
-        code,
-        '}});'
-      ];
-
-      return lines.join('\n');
-    }
-
-    if (ref.ext === '.js') {
-      if (ref.name === runtimeFile) {
-        return store.readText(ref);
+    return store.isTextFile(ref).then(isTextFile => {
+      if (!isTextFile) {
+        return null;
       }
 
-      let babelFile;
-      if (startsWith(ref.name, rootNodeModules)) {
-        babelFile = Promise.all([
-          store.readText(ref),
-          store.babylonAst(ref)
-        ]).then(([text, ast]) => {
-          return babelGenerator(ast, null, text);
+      if (ref.ext === '.css') {
+        return store.ast(ref).then(ast => {
+          // Remove import rules
+          ast.walkAtRules('import', rule => rule.remove());
+
+          const result = ast.toResult({
+            // Generate a source map, but keep it separate from the code
+            map: {
+              inline: false,
+              annotation: false
+            }
+          });
+
+          return result.css;
         });
-      } else {
-        babelFile = store.babelTransform(ref);
       }
 
-      return Promise.all([
-        babelFile,
-        store.resolvedDependencies(ref),
-        store.hash(ref)
-      ]).then(([file, deps, hash]) => {
-        return createJSModule({
-          name: ref.name,
-          deps,
-          hash,
-          code: file.code
-        });
-      });
-    }
+      function createJSModule({name, deps, hash, code}) {
+        const lines = [
+          `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
+          code,
+          '}});'
+        ];
 
-    if (ref.ext === '.json') {
-      return Promise.all([
-        store.readText(ref),
-        store.hash(ref)
-      ]).then(([text, hash]) => {
-        let code;
+        return lines.join('\n');
+      }
+
+      if (ref.ext === '.js') {
+        if (ref.name === runtimeFile) {
+          return store.readText(ref);
+        }
+
+        let babelFile;
         if (startsWith(ref.name, rootNodeModules)) {
-          code = 'module.exports = ${text};'
+          babelFile = Promise.all([
+            store.readText(ref),
+            store.babylonAst(ref)
+          ]).then(([text, ast]) => {
+            return babelGenerator(ast, null, text);
+          });
         } else {
-          // We fake babel's commonjs shim so that hot swapping can occur
-          code = `
+          babelFile = store.babelTransform(ref);
+        }
+
+        return Promise.all([
+          babelFile,
+          store.resolvedDependencies(ref),
+          store.hash(ref)
+        ]).then(([file, deps, hash]) => {
+          return createJSModule({
+            name: ref.name,
+            deps,
+            hash,
+            code: file.code
+          });
+        });
+      }
+
+      if (ref.ext === '.json') {
+        return Promise.all([
+          store.readText(ref),
+          store.hash(ref)
+        ]).then(([text, hash]) => {
+          let code;
+          if (startsWith(ref.name, rootNodeModules)) {
+            code = 'module.exports = ${text};'
+          } else {
+            // We fake babel's commonjs shim so that hot swapping can occur
+            code = `
             var json=${text};
             exports.default=json;
             if (typeof json == "object") {
@@ -338,20 +356,21 @@ const records = createRecordStore({
               module.hot.accept();
             }
           `;
-        }
+          }
 
-        return createJSModule({
-          name: ref.name,
-          deps: {},
-          hash,
-          code
-        })
-      });
-    }
+          return createJSModule({
+            name: ref.name,
+            deps: {},
+            hash,
+            code
+          })
+        });
+      }
 
-    // TODO: handle `.json`
-    // TODO: handle binary files (images, etc)
-    return Promise.reject(`Cannot generate code for extension: ${ref.ext}. File: ${ref.name}`);
+      return Promise.reject(
+        `Unknown text file extension: ${ref.ext}. Cannot generate code for extension for file: ${ref.name}`
+      );
+    });
   }
 });
 
@@ -507,8 +526,9 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
           node,
           records.hash(node),
           records.code(node),
-          records.filename(node),
-          records.url(node)
+          records.hashedFilename(node),
+          records.url(node),
+          records.isTextFile(node)
         ]).catch(err => {
           emitError(err, node);
           fileErrors.push(err);
@@ -583,80 +603,125 @@ function emitErrorMessage(message) {
   sockets.forEach(socket => socket.emit('build:error', cleanedMessage));
 }
 
-const serverState = {
-  records: null,
-  graph: null,
-  recordsByUrl: null,
+let serverState = imm.Map({
+  records: imm.Map(),
+  graph: imm.Map(),
+  recordsByUrl: imm.Map(),
   isListening: false
-};
+});
+
+function createRecordDescription(record) {
+  // Produce a description of a record that the hot runtime
+  // can consume
+  return {
+    name: record.name,
+    hash: record.data.get('hash'),
+    url: createRecordUrl(record),
+    isTextFile: record.data.get('isTextFile')
+  }
+}
 
 function onCodeGenerated({recordsState, graphState, prunedNodes}) {
-  serverState.records = recordsState;
-  serverState.graph = graphState;
-  serverState.recordsByUrl = {};
+  const recordsByUrl = {};
+  const signal = {
+    records: {},
+    removed: {}
+  };
 
-  if (!serverState.isListening) {
-    serverState.isListening = true;
+  recordsState.forEach(record => {
+    // Populate a map so that the file endpoint can
+    // perform record look ups trivially
+    recordsByUrl[record.data.get('url')] = record;
+
+    if (record.name !== runtimeFile) {
+      signal.records[record.name] = createRecordDescription(record);
+    }
+  });
+
+  prunedNodes.forEach(name => {
+    const record = serverState.get('records').get(name);
+    if (!record) {
+      // This issue pops up sometimes, but it's difficult to track
+      // down or replicate
+      throw new Error(`Cannot find pruned node ${name} in records`);
+    }
+    signal.removed[record.name] = createRecordDescription(record);
+  });
+
+  serverState = serverState.merge({
+    records: recordsState,
+    graph: graphState,
+    recordsByUrl: recordsByUrl
+  });
+
+  if (!serverState.get('isListening')) {
+    serverState = serverState.set('isListening', true);
     server.listen(3000, '127.0.0.1', () => {
       console.log(`\n${chalk.bold('Server:')} http://127.0.0.1:3000`);
     });
   }
 
-  const files = {};
-
-  recordsState.forEach(record => {
-    serverState.recordsByUrl[record.data.get('url')] = record;
-
-    if (record.name !== runtimeFile) {
-      files[record.name] = {
-        name: record.name,
-        hash: record.data.get('hash'),
-        url: createRecordUrl(record)
-      };
-    }
-  });
-
-  const signal = {
-    files: files,
-    removed: prunedNodes
-    //graph: graphState.toJS()
-  };
-
   sockets.forEach(socket => socket.emit('build:complete', signal));
 }
 
 app.get('/', (req, res) => {
-  const records = serverState.records;
-  const graph = serverState.graph;
+  const records = serverState.get('records');
+  const graph = serverState.get('graph');
 
   const scripts = [];
   const styles = [];
-  const styleShims = [];
+  const shimModules = [];
 
   const runtimeUrl = records.get(runtimeFile).data.get('url');
 
   const executionOrder = resolveExecutionOrder(graph, entryPoints);
 
+  function createShimModule(record) {
+    const url = record.data.get('url');
+
+    let code;
+    if (startsWith(record.name, rootNodeModules)) {
+      code = `module.exports = ${JSON.stringify(url)}`;
+    } else {
+      code = `\
+        exports.default = ${JSON.stringify(url)};
+        exports.__esModule = true;
+        if (module.hot) {
+          module.hot.accept();
+        }`;
+    }
+
+    shimModules.push(`
+      __modules.defineModule({
+        name: ${JSON.stringify(record.name)},
+        hash: ${record.data.get('hash')},
+        factory: function(module, exports) {
+          ${code}
+        }
+      });
+    `);
+  }
+
   executionOrder.forEach(name => {
     const record = records.get(name);
-    const filename = record.data.get('filename');
+    const hashedFilename = record.data.get('hashedFilename');
     const url = record.data.get('url');
-    const ext = path.extname(filename);
+    const ext = path.extname(hashedFilename);
 
     if (ext === '.css') {
       styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
-      styleShims.push(
-        `__modules.defineModule({name: ${JSON.stringify(record.name)}, hash: ${record.data.get('hash')}, factory: function(module) {
-          module.exports = '';
-        }});`
-      );
+      createShimModule(record);
     }
 
     if (
-      (ext === '.js' || ext === '.json') &&
-      record.name !== runtimeFile
+      (ext === '.js' && record.name !== runtimeFile) ||
+      ext === '.json'
     ) {
       scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
+    }
+
+    if (!record.data.get('isTextFile')) {
+      createShimModule(record);
     }
   });
 
@@ -673,7 +738,7 @@ app.get('/', (req, res) => {
       <script src="${runtimeUrl}"></script>
       ${scripts.join('\n')}
       <script>
-        ${styleShims.join('\n')}
+        ${shimModules.join('\n')}
         ${entryPointsInit.join('\n')}
       </script>
     </body>
@@ -684,16 +749,20 @@ app.get('/', (req, res) => {
 app.get(fileEndpoint + '*', (req, res) => {
   const url = req.path;
 
-  const record = serverState.recordsByUrl[url];
+  const record = serverState.get('recordsByUrl').get(url);
 
   if (!record) {
     return res.status(404).send('Not found');
   }
 
-  const mimeType = mimeTypes.lookup(record.data.get('filename'));
+  const mimeType = mimeTypes.lookup(record.data.get('hashedFilename'));
   if (mimeType) {
     res.contentType(mimeType);
   }
 
-  return res.end(record.data.get('code'));
+  if (record.data.get('isTextFile')) {
+    return res.end(record.data.get('code'));
+  }
+
+  fs.createReadStream(record.name).pipe(res);
 });

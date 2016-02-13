@@ -1,11 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import {Counter} from './counter';
-import './styles.css';
+import styles from './styles.css';
 import {test} from './test';
 import json_test from './json_test.json';
+import testpng from './test.png';
 
-setInterval(() => console.log('test', test, 'json_test.foo', json_test.foo), 250);
+setInterval(() => {
+  console.log('test', test, 'styles', styles, 'json_test.foo', json_test.foo, 'testpng', testpng)
+}, 250);
 
 const main = document.createElement('div');
 document.body.appendChild(main);
