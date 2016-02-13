@@ -94,6 +94,12 @@
 
       var depMod = __modules.modules[depName];
 
+      if (!depMod) {
+        throw new Error(
+          'Module "' + mod.name + '" required module "' + depName + '" but the module has not been defined'
+        );
+      }
+
       // We need to respect the `executed` flag to prevent cyclic dependencies
       // from triggering multiple executions of a module
       if (depMod.executed) {
