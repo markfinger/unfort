@@ -1,4 +1,7 @@
 import {startsWith} from 'lodash/string';
+import * as cssSelectorTokenizer from 'css-selector-tokenizer';
+
+export const urlRegex = /url\(/g;
 
 export function postcssAstDependencies(ast) {
   const dependencies = [];
@@ -21,7 +24,37 @@ export function postcssAstDependencies(ast) {
     return Promise.reject(err);
   }
 
+  ast.walkDecls(decl => {
+    const value = decl.value;
+    if (value.match(urlRegex)) {
+      const identifiers = getDependencyIdentifiersFromDeclarationValue(value);
+      identifiers.forEach(addDependency);
+    }
+  });
+
   return Promise.resolve(dependencies);
+}
+
+export function getDependencyIdentifiersFromDeclarationValue(string) {
+  const node = cssSelectorTokenizer.parseValues(string);
+  const accum = [];
+
+  findUrlsInNode(node, accum);
+
+  return accum;
+}
+
+function findUrlsInNode(node, accum) {
+  if (node.type === 'url') {
+    return accum.push(node.url);
+  }
+
+  if (node.nodes) {
+    const len = node.nodes.length;
+    for (let i=0; i<len; i++) {
+      findUrlsInNode(node.nodes[i], accum);
+    }
+  }
 }
 
 export function getDependencyIdentifierFromImportRule(rule) {

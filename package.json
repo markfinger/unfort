@@ -34,6 +34,7 @@
     "chai-immutable": "^1.5.3",
     "chalk": "^1.1.1",
     "chokidar": "^1.4.2",
+    "css-selector-tokenizer": "^0.5.4",
     "express": "^4.13.3",
     "immutable": "^3.7.6",
     "imurmurhash": "^0.1.4",

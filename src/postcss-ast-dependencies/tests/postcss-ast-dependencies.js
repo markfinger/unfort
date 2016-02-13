@@ -1,10 +1,12 @@
 import {assert} from '../../utils/assert';
 import postcss from 'postcss';
-import {postcssAstDependencies, getDependencyIdentifierFromImportRule} from '../postcss-ast-dependencies';
+import {
+  postcssAstDependencies, getDependencyIdentifierFromImportRule, getDependencyIdentifiersFromDeclarationValue
+} from '../postcss-ast-dependencies';
 
 describe('postcss-ast-dependencies', () => {
   describe('#postcssAstDependencies', () => {
-    it('should extract multiple identifiers', () => {
+    it('should extract multiple import identifiers', () => {
       // Test data sourced from https://developer.mozilla.org/en/docs/Web/CSS/@import#Examples
 
       const ast = postcss.parse(`
@@ -29,6 +31,58 @@ describe('postcss-ast-dependencies', () => {
           ]
         );
       });
+    });
+    it('should extract multiple url identifiers', () => {
+      const ast = postcss.parse(`
+        .foo {
+          background-image: url('./foo.png');
+        }
+        .bar {
+          background-image: url('./bar.png');
+        }
+      `);
+
+      return postcssAstDependencies(ast).then(identifiers => {
+        assert.deepEqual(
+          identifiers,
+          [
+            {source: './foo.png'},
+            {source: './bar.png'}
+          ]
+        );
+      });
+    });
+  });
+  describe('#getDependencyIdentifiersFromDeclarationValue', () => {
+    it('should', () => {
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(``),
+        []
+      );
+
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(`
+          color: red;
+        `),
+        []
+      );
+
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(`
+          background-image: url('./foo.png');
+        `),
+        ['./foo.png']
+      );
+
+      // Not sure if there are any rules that allow multiple
+      // urls, but better safe than sorry
+      assert.deepEqual(
+        getDependencyIdentifiersFromDeclarationValue(`
+          background-image:
+            url('./foo.png') url('./bar.png');
+        `),
+        ['./foo.png', './bar.png']
+      );
     });
   });
   describe('#getDependencyIdentifierFromImportRule', () => {
