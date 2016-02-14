@@ -93,13 +93,34 @@ function createRecordUrl(record) {
   return createRelativeUrl(path.join(dirname, hashedFilename));
 }
 
+// We need to rebuild source maps for js files such that it
+// reflects the call to our module runtime. Unfortunately, source
+// maps are slow to both consume and generate. However, given
+// that we know our call to the runtime only consumes one line,
+// we can take advantage of the line offset character in source
+// maps to simply offset everything. For context, source maps
+// are encoded with Base64 and variable length quantity, and
+// semicolons are used to indicate line offset. Hence, we can
+// just prepend a semi-colon
+const JS_MODULE_SOURCE_MAP_LINE_OFFSET = ';';
+
+function createJSModule({name, deps, hash, code}) {
+  const lines = [
+    `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
+    code,
+    '}});'
+  ];
+
+  return lines.join('\n');
+}
+
 let analyzedDependenciesCache;
 let resolvedDependenciesCache;
 
 const records = createRecordStore({
   ready(ref, store) {
-    // All the jobs that we completed before we can
-    // emit the record
+    // All the jobs that must be completed before
+    // the record is emitted
     return Promise.all([
       ref.name,
       store.hash(ref),
@@ -324,17 +345,6 @@ const records = createRecordStore({
     }
 
     if (ref.ext === '.js') {
-      /* TODO
-        Similarly to the postcss plugin, it's probably worth a try at injecting
-        a babel plugin that finds dependencies during the transform's traversal.
-
-        One issue is that other plugins may add new dependencies which we wont
-        pick up during the traversal.
-
-        The last time I investigated this, Babel's `options.plugins` API was not
-        friendly towards programmatic usage. It assumed everything was importable
-        strings :(
-       */
       return store.ast(ref)
         .then(ast => babylonAstDependencies(ast));
     }
@@ -350,10 +360,10 @@ const records = createRecordStore({
       .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)));
   },
   resolver(ref, store) {
-    return (id) => {
-      return store.resolverOptions(ref)
-        .then(options => resolve(id, options));
-    }
+    return store.resolverOptions(ref)
+      .then(options => {
+        return id => resolve(id, options);
+      });
   },
   resolverOptions(ref) {
     return {
@@ -479,6 +489,10 @@ const records = createRecordStore({
 
         if (ref.ext === '.js') {
           return store.babelFile(ref).then(file => {
+            // Offset each line in the source map to reflect the call to
+            // the module runtime
+            file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
+
             return JSON.stringify(file.map);
           });
         }
@@ -493,16 +507,6 @@ const records = createRecordStore({
       });
   }
 });
-
-function createJSModule({name, deps, hash, code}) {
-  const lines = [
-    `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
-    code,
-    '}});'
-  ];
-
-  return lines.join('\n');
-}
 
 function getCachedData(cache, key, compute) {
   return key.then(key => getCachedDataOrCompute(cache, key, compute))
