@@ -4,4 +4,11 @@ body {
   background-color: lightgoldenrodyellow;
   /*background-image: url('./test2.jpg');*/
   /*background-image: url('./test.png');*/
+  /*animation: animatedBackground 2s linear infinite;*/
+}
+
+@keyframes animatedBackground {
+  0% { background-color: black; }
+  50% { background-color: white; }
+  100% { background-color: black; }
 }

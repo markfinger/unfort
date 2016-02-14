@@ -15,6 +15,7 @@ import babelGenerator from 'babel-generator';
 import chokidar from 'chokidar';
 import murmur from 'imurmurhash';
 import postcss from 'postcss';
+import autoprefixer from 'autoprefixer';
 import promisify from 'promisify-node';
 import chalk from 'chalk';
 import {startsWith, repeat} from 'lodash/string';
@@ -115,9 +116,17 @@ const records = createRecordStore({
     })
   },
   hash(ref, store) {
-    // TODO handle binary files - prob just mtime
-    return store.readText(ref).then(text => {
-      return new murmur(text).result();
+    return store.isTextFile(ref).then(isTextFile => {
+      if (!isTextFile) {
+        return store.mtime(ref)
+          .then(mtime => mtime.toString());
+      }
+
+      return store.readText(ref)
+        .then(text => {
+          const hash = new murmur(text).result();
+          return hash.toString();
+        });
     });
   },
   cacheKey(ref, store) {
@@ -145,9 +154,40 @@ const records = createRecordStore({
       });
     });
   },
-  postcssAst(ref, store) {
-    return store.readText(ref).then(text => {
-      return postcss.parse(text, {from: ref.name})
+  postcssPlugins(ref, store) {
+    // Finds any `@import ...` and `url(...)` identifiers and
+    // annotates the result object
+    const analyzeDependencies = postcss.plugin('unfort-analyze-dependencies', () => {
+      return (root, result) => {
+        result.unfortDependencies = postcssAstDependencies(root);
+      };
+    });
+
+    // As we serve the files with different names, we need to remove
+    // the `@import ...` rules
+    const removeImports = postcss.plugin('unfort-remove-imports', () => {
+      return root => {
+        root.walkAtRules('import', rule => rule.remove());
+      };
+    });
+
+    return [autoprefixer, analyzeDependencies, removeImports];
+  },
+  postcssProcessOptions(ref, store) {
+    return store.hashedFilename(ref).then(hashedFilename => {
+      return {
+        from: path.basename(ref.name),
+        to: hashedFilename
+      };
+    })
+  },
+  postcssTransform(ref, store) {
+    return Promise.all([
+      store.readText(ref),
+      store.postcssPlugins(ref),
+      store.postcssProcessOptions(ref)
+    ]).then(([text, postcssPlugins, processOptions]) => {
+      return postcss(postcssPlugins).process(text, processOptions)
     });
   },
   babelTransformOptions(ref) {
@@ -156,20 +196,6 @@ const records = createRecordStore({
       sourceRoot,
       sourceType: 'module',
       babelrc: false,
-      plugins: [
-        ['react-transform', {
-          transforms: [
-            //{
-            //transform: 'react-transform-hmr',
-            //imports: ['react'],
-            //locals: ['module']
-            //},
-            {
-            transform: 'react-transform-catch-errors',
-            imports: ['react', 'redbox-react']
-          }]
-        }]
-      ],
       presets: [
         'es2015',
         'react'
@@ -195,19 +221,10 @@ const records = createRecordStore({
     });
   },
   ast(ref, store) {
-    if (ref.ext === '.css') {
-      return store.postcssAst(ref);
-    }
-
     if (ref.ext === '.js') {
       if (startsWith(ref.name, rootNodeModules)) {
         return store.babylonAst(ref);
       }
-      // TODO
-      // Given we have the `code` job, should we use babylon for everything?
-      // Will need to handle new deps added by transforms as well. Currently
-      // the babelAst job is throwing away any generated code or maps, so
-      // we'll need to clean this up at some point
       return store.babelAst(ref);
     }
 
@@ -215,10 +232,23 @@ const records = createRecordStore({
   },
   analyzeDependencies(ref, store) {
     if (ref.ext === '.css') {
-      return store.ast(ref).then(ast => postcssAstDependencies(ast));
+      return store.postcssTransform(ref).then(result => {
+        return result.unfortDependencies;
+      });
     }
 
     if (ref.ext === '.js') {
+      /* TODO
+        Similarly to the postcss plugin, it's probably worth a try at injecting
+        a babel plugin that finds dependencies during the transform's traversal.
+
+        One issue is that other plugins may add new dependencies which we wont
+        pick up during the traversal.
+
+        The last time I investigated this, Babel's `options.plugins` API was not
+        friendly towards programmatic usage. It assumed everything was importable
+        strings :(
+       */
       return store.ast(ref).then(ast => babylonAstDependencies(ast));
     }
 
@@ -232,36 +262,34 @@ const records = createRecordStore({
     return store.dependencyIdentifiers(ref)
       .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)));
   },
-  resolveOptions(ref) {
+  resolver(ref, store) {
+    return (id) => {
+      return store.resolverOptions(ref)
+        .then(options => resolve(id, options));
+    }
+  },
+  resolverOptions(ref) {
     return {
       basedir: path.dirname(ref.name),
       extensions: ['.js', '.json'],
       modules: nodeCoreLibs
-    }
+    };
   },
   resolvePathDependencies(ref, store) {
     return store.dependencyIdentifiers(ref)
       .then(ids => ids.filter(id => id[0] === '.' || path.isAbsolute(id)))
-      .then(ids => {
-        return store.resolveOptions(ref)
-          .then(options => {
-            return Promise.all(
-              ids.map(id => resolve(id, options))
-            )
-          }).then(resolved => zipObject(ids, resolved));
-      });
+      .then(ids => store.resolver(ref)
+          .then(resolver => Promise.all(ids.map(id => resolver(id))))
+          .then(resolved => zipObject(ids, resolved))
+      );
   },
   resolvePackageDependencies(ref, store) {
     return store.packageDependencyIdentifiers(ref)
       .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)))
-      .then(ids => {
-        return store.resolveOptions(ref)
-          .then(options => {
-            return Promise.all(
-              ids.map(id => resolve(id, options))
-            )
-          }).then(resolved => zipObject(ids, resolved));
-      });
+      .then(ids => store.resolver(ref)
+        .then(resolver => Promise.all(ids.map(id => resolver(id))))
+        .then(resolved => zipObject(ids, resolved))
+      );
   },
   resolvedDependencies(ref, store) {
     const cache = resolvedDependenciesCache;
@@ -291,30 +319,9 @@ const records = createRecordStore({
       }
 
       if (ref.ext === '.css') {
-        return store.ast(ref).then(ast => {
-          // Remove import rules
-          ast.walkAtRules('import', rule => rule.remove());
-
-          const result = ast.toResult({
-            // Generate a source map, but keep it separate from the code
-            map: {
-              inline: false,
-              annotation: false
-            }
-          });
-
+        return store.postcssTransform(ref).then(result => {
           return result.css;
         });
-      }
-
-      function createJSModule({name, deps, hash, code}) {
-        const lines = [
-          `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
-          code,
-          '}});'
-        ];
-
-        return lines.join('\n');
       }
 
       if (ref.ext === '.js') {
@@ -355,24 +362,17 @@ const records = createRecordStore({
         ]).then(([text, hash]) => {
           let code;
           if (startsWith(ref.name, rootNodeModules)) {
-            code = 'module.exports = ${text};'
+            code = `module.exports = ${text};`
           } else {
             // We fake babel's commonjs shim so that hot swapping can occur
             code = `
-            var json=${text};
-            exports.default=json;
-            if (typeof json == "object") {
-              for (var prop in json) {
-                if (json.hasOwnProperty(prop)) {
-                  exports[prop]=json[prop];
-                }
+              var json = ${text};
+              exports.default = json;
+              exports.__esModule = true;
+              if (module.hot) {
+                module.hot.accept();
               }
-            }
-            exports.__esModule = true;
-            if (module.hot) {
-              module.hot.accept();
-            }
-          `;
+            `;
           }
 
           return createJSModule({
@@ -390,6 +390,16 @@ const records = createRecordStore({
     });
   }
 });
+
+function createJSModule({name, deps, hash, code}) {
+  const lines = [
+    `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
+    code,
+    '}});'
+  ];
+
+  return lines.join('\n');
+}
 
 function getCachedData(cache, key, compute) {
   return key.then(key => getCachedDataOrCompute(cache, key, compute))
@@ -653,6 +663,10 @@ app.get('/', (req, res) => {
 
   const executionOrder = resolveExecutionOrder(graph, entryPoints);
 
+  // For non-js assets, we inject shims that expose the asset's
+  // url, enabling JS assets to consume them. These module shims
+  // also play an important role in enabling the hot runtime to
+  // reconcile state changes between builds
   function createShimModule(record) {
     const url = record.data.get('url');
 
@@ -668,15 +682,14 @@ app.get('/', (req, res) => {
         }`;
     }
 
-    shimModules.push(`
-      __modules.defineModule({
-        name: ${JSON.stringify(record.name)},
-        hash: ${record.data.get('hash')},
-        factory: function(module, exports) {
-          ${code}
-        }
-      });
-    `);
+    shimModules.push(
+      createJSModule({
+        name: record.name,
+        deps: {},
+        hash: record.data.get('hash'),
+        code
+      })
+    );
   }
 
   executionOrder.forEach(name => {
