@@ -1,15 +1,11 @@
-import socketIoClient from 'socket.io-client';
-import {isFunction, isObject, isUndefined} from 'lodash/lang';
-import {forEach, filter, includes, every} from 'lodash/collection';
-import {keys} from 'lodash/object';
-import {pull} from 'lodash/array';
-import {startsWith, endsWith} from 'lodash/string';
+import socketIoClient from './vendor/socket.io-client';
+import _ from './vendor/lodash';
 
-if (!isFunction(Object.setPrototypeOf)) {
+if (!_.isFunction(Object.setPrototypeOf)) {
   throw new Error('Object.setPrototypeOf has not been defined, hot swap cannot occur');
 }
 
-if (!isFunction(Object.getPrototypeOf)) {
+if (!_.isFunction(Object.getPrototypeOf)) {
   throw new Error('Object.getPrototypeOf has not been defined, hot swap cannot occur');
 }
 
@@ -43,7 +39,7 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
       accept(cb) {
         mod.hot.accepted = true;
 
-        if (isFunction(cb)) {
+        if (_.isFunction(cb)) {
           mod.hot.onExit = cb;
         }
       }
@@ -54,14 +50,14 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
 };
 
 // Add the hot API to each module
-forEach(__modules.modules, __modules.extendModule);
+_.forEach(__modules.modules, __modules.extendModule);
 
 // There's a bit of complexity in the handling of changed assets.
 // In particular, js modules that may depend on new dependencies
 // introduce the potential for race conditions as we may or may
 // not have a module available when we execute its dependent modules.
 // To get around this, we buffer all the modules and only start to
-// apply them once every pending module has been buffered
+// apply them once _.every pending module has been buffered
 __modules.pending = {};
 __modules.buffered = [];
 
@@ -87,7 +83,7 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
 
   __modules.buffered.push(mod);
   __modules.pending[mod.name] = undefined;
-  const readyToApply = every(__modules.pending, isUndefined);
+  const readyToApply = _.every(__modules.pending, _.isUndefined);
 
   if (readyToApply) {
     __modules.pending = {};
@@ -146,8 +142,8 @@ __modules.executeModule = function executeModuleHotWrapper(name) {
   const mod = __modules.modules[name];
   const exports = mod.commonjs.exports;
   if (
-    isObject(exports) &&
-    !isFunction(exports) &&
+    _.isObject(exports) &&
+    !_.isFunction(exports) &&
     exports.__esModule
   ) {
     const exportsProxy = mod.hot.exportsProxy;
@@ -182,7 +178,7 @@ io.on('build:complete', ({records, removed}) => {
   const accepted = [];
   const unaccepted = [];
 
-  forEach(records, (record, name) => {
+  _.forEach(records, (record, name) => {
     const mod = __modules.modules[name];
 
     // If it's a new module, we accept it
@@ -193,7 +189,7 @@ io.on('build:complete', ({records, removed}) => {
 
     // If the module is outdated, we check if we can update it
     if (mod.hash !== record.hash) {
-      if (endsWith(name, '.css') || !record.isTextFile) {
+      if (_.endsWith(name, '.css') || !record.isTextFile) {
         // As css and binary files are stateless, we can
         // blindly accept them
         accepted.push(name);
@@ -221,16 +217,16 @@ io.on('build:complete', ({records, removed}) => {
   // If a module has already been buffered for execution, we can ignore
   // updates for it
   __modules.buffered = __modules.buffered.filter(({name, hash}) => {
-    if (includes(accepted, name) && records[name].hash === hash) {
-      pull(accepted, name);
+    if (_.includes(accepted, name) && records[name].hash === hash) {
+      _.pull(accepted, name);
       return true;
     }
     return false;
   });
 
-  const modulesToRemove = keys(removed);
+  const modulesToRemove = _.keys(removed);
   if (modulesToRemove.length) {
-    forEach(removed, (record, name) => {
+    _.forEach(removed, (record, name) => {
       // We need to clear the state for any modules that have been removed
       // so that if they are re-added, they are executed again. This could
       // cause some issues for crazily stateful js, but it's needed to ensure
@@ -272,12 +268,13 @@ io.on('build:complete', ({records, removed}) => {
     // reverting a css asset to a previous version may have no effect as the
     // registry assumes it's already been applied
     if (
-      endsWith(record.url, '.css') ||
+      _.endsWith(record.url, '.css') ||
       !record.isTextFile
     ) {
       __modules.defineModule({
         name: record.name,
         hash: record.hash,
+        deps: {},
         // Note: the factory is defined outside of this closure to prevent the
         // signal payload from sitting in memory
         factory: createRecordUrlModule(record.url)
@@ -304,11 +301,11 @@ function removeRecordAssetFromDocument(record) {
     return;
   }
 
-  if (endsWith(url, '.css')) {
+  if (_.endsWith(url, '.css')) {
     return removeStylesheet(record);
   }
 
-  if (endsWith(url, '.js') || endsWith(url, '.json')) {
+  if (_.endsWith(url, '.js') || _.endsWith(url, '.json')) {
     return removeScript(record);
   }
 
@@ -323,13 +320,13 @@ function updateRecordAssetInDocument(record) {
     return;
   }
 
-  if (endsWith(url, '.css')) {
+  if (_.endsWith(url, '.css')) {
     return replaceStylesheet(record);
   }
 
   if (
-    endsWith(url, '.js') ||
-    endsWith(url, '.json')
+    _.endsWith(url, '.js') ||
+    _.endsWith(url, '.json')
   ) {
     return replaceScript(record);
   }
@@ -345,7 +342,7 @@ function replaceStylesheet(record) {
   let replaced = false;
 
   // Update any matching <link> element
-  forEach(links, link => {
+  _.forEach(links, link => {
     const attributeName = link.getAttribute('data-unfort-name');
     if (attributeName === name) {
       link.href = url;
@@ -376,7 +373,7 @@ function removeStylesheet(record) {
 
   const links = document.getElementsByTagName('link');
 
-  forEach(links, link => {
+  _.forEach(links, link => {
     const attributeName = link.getAttribute('data-unfort-name');
     if (attributeName === name) {
       link.parentNode.removeChild(link);
@@ -403,7 +400,7 @@ function removeScript(record) {
 
   const scripts = document.getElementsByTagName('script');
 
-  forEach(scripts, script => {
+  _.forEach(scripts, script => {
     const attributeName = script.getAttribute('data-unfort-name');
     if (attributeName === name) {
       script.parentNode.removeChild(script);
