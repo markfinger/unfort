@@ -18,7 +18,7 @@ import postcss from 'postcss';
 import autoprefixer from 'autoprefixer';
 import promisify from 'promisify-node';
 import chalk from 'chalk';
-import {startsWith, repeat} from 'lodash/string';
+import {startsWith, endsWith, repeat} from 'lodash/string';
 import {pull, flatten, zipObject} from 'lodash/array';
 import {forOwn, values, assign} from 'lodash/object';
 import {isUndefined, isObject, isNumber} from 'lodash/lang';
@@ -97,6 +97,21 @@ let analyzedDependenciesCache;
 let resolvedDependenciesCache;
 
 const records = createRecordStore({
+  ready(ref, store) {
+    // All the jobs that we completed before we can
+    // emit the record
+    return Promise.all([
+      ref.name,
+      store.hash(ref),
+      store.code(ref),
+      store.url(ref),
+      store.sourceMap(ref),
+      store.sourceMapUrl(ref),
+      store.sourceMapAnnotation(ref),
+      store.hashedFilename(ref),
+      store.isTextFile(ref)
+    ]);
+  },
   isTextFile(ref) {
     return (
       ref.ext === '.js' ||
@@ -111,23 +126,27 @@ const records = createRecordStore({
     return stat(ref.name);
   },
   mtime(ref, store) {
-    return store.stat(ref).then(stat => {
-      return stat.mtime.getTime()
-    })
+    return store.stat(ref)
+      .then(stat => {
+        return stat.mtime.getTime();
+      });
+  },
+  hashText(ref, store) {
+    return store.readText(ref)
+      .then(text => {
+        const hash = new murmur(text).result();
+        return hash.toString();
+      });
   },
   hash(ref, store) {
-    return store.isTextFile(ref).then(isTextFile => {
-      if (!isTextFile) {
-        return store.mtime(ref)
-          .then(mtime => mtime.toString());
-      }
-
-      return store.readText(ref)
-        .then(text => {
-          const hash = new murmur(text).result();
-          return hash.toString();
-        });
-    });
+    return store.isTextFile(ref)
+      .then(isTextFile => {
+        if (!isTextFile) {
+          return store.mtime(ref);
+        }
+        return store.hashText(ref);
+      })
+      .then(hash => hash.toString());
   },
   cacheKey(ref, store) {
     return Promise.all([
@@ -137,21 +156,52 @@ const records = createRecordStore({
     ])
   },
   hashedFilename(ref, store) {
-    return store.hash(ref).then(hash => {
-      const basename = path.basename(ref.name, ref.ext);
-      return `${basename}-${hash}${ref.ext}`;
-    });
+    return store.hash(ref)
+      .then(hash => {
+        const basename = path.basename(ref.name, ref.ext);
+        return `${basename}-${hash}${ref.ext}`;
+      });
+  },
+  hashedPath(ref, store) {
+    return store.hashedFilename(ref)
+      .then(hashedFilename => {
+        return path.join(path.basename(ref.name), hashedFilename);
+      });
   },
   url(ref, store) {
-    return store.isTextFile(ref).then(isTextFile => {
-      if (!isTextFile) {
-        return createRelativeUrl(ref.name);
+    return store.isTextFile(ref)
+      .then(isTextFile => {
+        if (!isTextFile) {
+          return createRelativeUrl(ref.name);
+        }
+
+        return store.hashedFilename(ref).then(filename => {
+          const dirname = path.dirname(ref.name);
+          return createRelativeUrl(path.join(dirname, filename));
+        });
+      });
+  },
+  sourceMapUrl(ref, store) {
+    return store.url(ref)
+      .then(url => url + '.map');
+  },
+  sourceMapAnnotation(ref, store) {
+    return Promise.all([
+      store.url(ref),
+      store.sourceMapUrl(ref)
+    ]).then(([url, sourceMapUrl]) => {
+      if (endsWith(url, '.css')) {
+        return `\n/*# sourceMappingURL=${sourceMapUrl} */`;
       }
 
-      return store.hashedFilename(ref).then(filename => {
-        const dirname = path.dirname(ref.name);
-        return createRelativeUrl(path.join(dirname, filename));
-      });
+      if (
+        endsWith(url, '.js') ||
+        endsWith(url, '.json')
+      ) {
+        return `\n//# sourceMappingURL=${sourceMapUrl}`;
+      }
+
+      return null;
     });
   },
   postcssPlugins(ref, store) {
@@ -174,12 +224,18 @@ const records = createRecordStore({
     return [autoprefixer, analyzeDependencies, removeImports];
   },
   postcssProcessOptions(ref, store) {
-    return store.hashedFilename(ref).then(hashedFilename => {
-      return {
-        from: path.basename(ref.name),
-        to: hashedFilename
-      };
-    })
+    return store.hashedPath(ref)
+      .then(hashedPath => {
+        return {
+          from: path.relative(sourceRoot, ref.name),
+          to: path.relative(sourceRoot, hashedPath),
+          // Generate a source map, but keep it separate from the code
+          map: {
+            inline: false,
+            annotation: false
+          }
+        };
+      });
   },
   postcssTransform(ref, store) {
     return Promise.all([
@@ -195,6 +251,7 @@ const records = createRecordStore({
       filename: ref.name,
       sourceRoot,
       sourceType: 'module',
+      sourceMaps: true,
       babelrc: false,
       presets: [
         'es2015',
@@ -210,15 +267,43 @@ const records = createRecordStore({
       return babel.transform(text, options);
     });
   },
+  babelGeneratorOptions(ref, store) {
+    return store.url(ref)
+      .then(url => {
+        return {
+          sourceMaps: true,
+          sourceMapTarget: path.basename(url),
+          sourceFileName: path.basename(ref.name)
+        }
+      });
+  },
+  babelGenerator(ref, store) {
+    return Promise.all([
+      store.readText(ref),
+      store.babylonAst(ref),
+      store.babelGeneratorOptions(ref)
+    ]).then(([text, ast, options]) => {
+      return babelGenerator(ast, options, text);
+    });
+  },
+  babelFile(ref, store) {
+    if (startsWith(ref.name, rootNodeModules)) {
+      return store.babelGenerator(ref);
+    }
+
+    return store.babelTransform(ref);
+  },
   babelAst(ref, store) {
-    return store.babelTransform(ref).then(file => file.ast);
+    return store.babelTransform(ref)
+      .then(file => file.ast);
   },
   babylonAst(ref, store) {
-    return store.readText(ref).then(text => {
-      return babylon.parse(text, {
-        sourceType: 'script'
+    return store.readText(ref)
+      .then(text => {
+        return babylon.parse(text, {
+          sourceType: 'script'
+        });
       });
-    });
   },
   ast(ref, store) {
     if (ref.ext === '.js') {
@@ -232,9 +317,10 @@ const records = createRecordStore({
   },
   analyzeDependencies(ref, store) {
     if (ref.ext === '.css') {
-      return store.postcssTransform(ref).then(result => {
-        return result.unfortDependencies;
-      });
+      return store.postcssTransform(ref)
+        .then(result => {
+          return result.unfortDependencies;
+        });
     }
 
     if (ref.ext === '.js') {
@@ -249,7 +335,8 @@ const records = createRecordStore({
         friendly towards programmatic usage. It assumed everything was importable
         strings :(
        */
-      return store.ast(ref).then(ast => babylonAstDependencies(ast));
+      return store.ast(ref)
+        .then(ast => babylonAstDependencies(ast));
     }
 
     return [];
@@ -313,81 +400,97 @@ const records = createRecordStore({
     ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps))
   },
   code(ref, store) {
-    return store.isTextFile(ref).then(isTextFile => {
-      if (!isTextFile) {
-        return null;
-      }
-
-      if (ref.ext === '.css') {
-        return store.postcssTransform(ref).then(result => {
-          return result.css;
-        });
-      }
-
-      if (ref.ext === '.js') {
-        if (ref.name === runtimeFile) {
-          return store.readText(ref);
+    return store.isTextFile(ref)
+      .then(isTextFile => {
+        if (!isTextFile) {
+          return null;
         }
 
-        let babelFile;
-        if (startsWith(ref.name, rootNodeModules)) {
-          babelFile = Promise.all([
-            store.readText(ref),
-            store.babylonAst(ref)
-          ]).then(([text, ast]) => {
-            return babelGenerator(ast, null, text);
-          });
-        } else {
-          babelFile = store.babelTransform(ref);
+        if (ref.ext === '.css') {
+          return store.postcssTransform(ref)
+            .then(result => result.css);
         }
 
-        return Promise.all([
-          babelFile,
-          store.resolvedDependencies(ref),
-          store.hash(ref)
-        ]).then(([file, deps, hash]) => {
-          return createJSModule({
-            name: ref.name,
-            deps,
-            hash,
-            code: file.code
-          });
-        });
-      }
-
-      if (ref.ext === '.json') {
-        return Promise.all([
-          store.readText(ref),
-          store.hash(ref)
-        ]).then(([text, hash]) => {
-          let code;
-          if (startsWith(ref.name, rootNodeModules)) {
-            code = `module.exports = ${text};`
-          } else {
-            // We fake babel's commonjs shim so that hot swapping can occur
-            code = `
-              var json = ${text};
-              exports.default = json;
-              exports.__esModule = true;
-              if (module.hot) {
-                module.hot.accept();
-              }
-            `;
+        if (ref.ext === '.js') {
+          if (ref.name === runtimeFile) {
+            return store.readText(ref);
           }
 
-          return createJSModule({
-            name: ref.name,
-            deps: {},
-            hash,
-            code
-          })
-        });
-      }
+          return Promise.all([
+            store.babelFile(ref),
+            store.resolvedDependencies(ref),
+            store.hash(ref)
+          ]).then(([file, deps, hash]) => {
+            return createJSModule({
+              name: ref.name,
+              deps,
+              hash,
+              code: file.code
+            });
+          });
+        }
 
-      return Promise.reject(
-        `Unknown text file extension: ${ref.ext}. Cannot generate code for extension for file: ${ref.name}`
-      );
-    });
+        if (ref.ext === '.json') {
+          return Promise.all([
+            store.readText(ref),
+            store.hash(ref)
+          ]).then(([text, hash]) => {
+            let code;
+            if (startsWith(ref.name, rootNodeModules)) {
+              code = `module.exports = ${text};`
+            } else {
+              // We fake babel's commonjs shim so that hot swapping can occur
+              code = `
+                var json = ${text};
+                exports.default = json;
+                exports.__esModule = true;
+                if (module.hot) {
+                  module.hot.accept();
+                }
+              `;
+            }
+
+            return createJSModule({
+              name: ref.name,
+              deps: {},
+              hash,
+              code
+            })
+          });
+        }
+
+        return Promise.reject(
+          `Unknown text file extension: ${ref.ext}. Cannot generate code for file: ${ref.name}`
+        );
+      });
+  },
+  sourceMap(ref, store) {
+    return store.isTextFile(ref)
+      .then(isTextFile => {
+        if (!isTextFile) {
+          return null;
+        }
+
+        if (ref.ext === '.css') {
+          return store.postcssTransform(ref).then(result => {
+            return result.map.toString();
+          });
+        }
+
+        if (ref.ext === '.js') {
+          return store.babelFile(ref).then(file => {
+            return JSON.stringify(file.map);
+          });
+        }
+
+        if (ref.ext === '.json') {
+          return null;
+        }
+
+        return Promise.reject(
+          `Unknown text file extension: ${ref.ext}. Cannot generate source map for file: ${ref.name}`
+        );
+      });
   }
 });
 
@@ -406,16 +509,17 @@ function getCachedData(cache, key, compute) {
 }
 
 function getCachedDataOrCompute(cache, key, compute) {
-  return cache.get(key).then(data => {
-    if (data) {
-      return data;
-    }
+  return cache.get(key)
+    .then(data => {
+      if (data) {
+        return data;
+      }
 
-    return compute().then(computed => {
-      cache.set(key, computed);
-      return computed;
+      return compute().then(computed => {
+        cache.set(key, computed);
+        return computed;
+      });
     });
-  });
 }
 
 const watcher = chokidar.watch([], {
@@ -463,9 +567,10 @@ const graph = createGraph({
       }
     }
 
-    return records.resolvedDependencies(file).then(resolved => {
-      return values(resolved);
-    });
+    return records.resolvedDependencies(file)
+      .then(resolved => {
+        return values(resolved);
+      });
   }
 });
 
@@ -512,19 +617,13 @@ graph.events.on('completed', ({errors}) => {
   const emittedErrors = [];
 
   Promise.all(
-    graphState.keySeq().toArray().map(node => {
-      return Promise.all([
-        node,
-        records.hash(node),
-        records.code(node),
-        records.hashedFilename(node),
-        records.url(node),
-        records.isTextFile(node)
-      ]).catch(err => {
-        emitError(err, node);
-        emittedErrors.push(err);
-        return Promise.reject(err);
-      });
+    graphState.keySeq().toArray().map(name => {
+      return records.ready(name)
+        .catch(err => {
+          emitError(err, name);
+          emittedErrors.push(err);
+          return Promise.reject(err);
+        });
     })
   )
     .then(() => {
@@ -607,10 +706,14 @@ function emitBuild() {
   state = state.merge({
     records: recordsState,
     graph: graphState,
-    // A map of records so that file endpoint can perform record
-    // look ups trivially. This saves us from having to iterate
-    // over every record
-    recordsByUrl: recordsState.mapKeys((_, record) => record.data.get('url'))
+    // Maps of records so that the file endpoint can perform record look ups
+    // trivially. This saves us from having to iterate over every record
+    recordsByUrl: recordsState
+      .filter(record => !!record.data.get('url'))
+      .mapKeys((_, record) => record.data.get('url')),
+    recordsBySourceMapUrl: recordsState
+      .filter(record => !!record.data.get('sourceMapAnnotation'))
+      .mapKeys((_, record) => record.data.get('sourceMapUrl'))
   });
 
   // Find all nodes that were removed from the graph during
@@ -736,25 +839,45 @@ app.get('/', (req, res) => {
   `);
 });
 
+function writeRecordToStream(record, stream) {
+  const mimeType = mimeTypes.lookup(record.data.get('hashedFilename'));
+  if (mimeType) {
+    stream.contentType(mimeType);
+  }
+
+  if (record.data.get('isTextFile')) {
+    stream.write(record.data.get('code'));
+
+    const sourceMapAnnotation = record.data.get('sourceMapAnnotation');
+    if (sourceMapAnnotation) {
+      stream.write(sourceMapAnnotation);
+    }
+
+    return stream.end();
+  }
+
+  fs.createReadStream(record.name).pipe(stream);
+}
+
+function writeSourceMapToStream(record, stream) {
+  const sourceMap = record.data.get('sourceMap');
+  stream.end(sourceMap);
+}
+
 app.get(fileEndpoint + '*', (req, res) => {
   const url = req.path;
 
   const record = state.get('recordsByUrl').get(url);
-
-  if (!record) {
-    return res.status(404).send('Not found');
+  if (record) {
+    return writeRecordToStream(record, res);
   }
 
-  const mimeType = mimeTypes.lookup(record.data.get('hashedFilename'));
-  if (mimeType) {
-    res.contentType(mimeType);
+  const sourceMapRecord = state.get('recordsBySourceMapUrl').get(url);
+  if (sourceMapRecord) {
+    return writeSourceMapToStream(sourceMapRecord, res);
   }
 
-  if (record.data.get('isTextFile')) {
-    return res.end(record.data.get('code'));
-  }
-
-  fs.createReadStream(record.name).pipe(res);
+  return res.status(404).send('Not found');
 });
 
 // Start the build
