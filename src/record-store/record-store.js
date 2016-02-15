@@ -45,26 +45,26 @@ export function createRecordStore(jobs = {}) {
 
   const jobStore = {};
 
-  forOwn(jobs, (value, key) => {
-    if (!isFunction(value)) {
-      throw new Error(`Properties should only be functions. Received \`${key}: ${value}\``);
+  forOwn(jobs, (func, jobName) => {
+    if (!isFunction(func)) {
+      throw new Error(`Properties should only be functions. Received \`${jobName}: ${func}\``);
     }
 
-    if (store.hasOwnProperty(key)) {
-      throw new Error(`Property name "${key}" conflicts with the record store's API`);
+    if (store.hasOwnProperty(jobName)) {
+      throw new Error(`Job name "${jobName}" conflicts with the record store's API`);
     }
 
-    Object.defineProperty(store, key, {
-      value: createRequestHandler(key),
+    Object.defineProperty(store, jobName, {
+      value: createRequestHandler(jobName),
       enumerable: true
     });
 
-    Object.defineProperty(jobStore, key, {
-      value: createJobHandler(key, value)
+    Object.defineProperty(jobStore, jobName, {
+      value: createJobHandler(jobName, func)
     });
   });
 
-  function createRequestHandler(propName) {
+  function createRequestHandler(jobName) {
     return function requestHandler(name) {
       throwIfUnknownRecord(state, name);
 
@@ -74,10 +74,10 @@ export function createRecordStore(jobs = {}) {
         name,
         ext: path.extname(name),
         reference: record.reference,
-        origin: propName
+        origin: jobName
       });
 
-      return Promise.resolve(ref).then(jobStore[propName])
+      return Promise.resolve(ref).then(jobStore[jobName])
         .catch(err => {
           if (isIntercept(err)) {
             return Promise.reject(err);

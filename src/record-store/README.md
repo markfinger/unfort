@@ -15,34 +15,38 @@ system together.
 
 To avoid these issues, jobs are passed back and forth within the the store,
 which allows us to apply some small abstraction layers that enable jobs to be
-intercepted and exited early.
+intercepted and rejected either before they start or once they have completed.
 
-Once a job has exited early, you can handle the intercept at a higher level and
-interrogate the store for the reasoning behind the exit.
+If a job was intercepted and rejected, you can handle the intercept further
+along the promise chain. You can also interrogate the intercept via the
+store's API, if you want to handle things more gracefully.
 
 
 ### Handling intercepts
 
-```
-function buildFile(name) {
-  return store.someFunc(name)
-    .then(data => {
-      // Handle success
+```js
+store.someJob(name)
+  .catch(err => {
+    if (store.isIntercept(err)) {
+      // Handle the intercept
       // ...
-    })
-    .catch(err => {
-      if (store.intercepts.wasRecordRemoved(err)) {
-        // Handle record removal
-        // ...
-      }
+    }
 
-      if (store.intercepts.wasRecordInvalid(err)) {
-        // The record was invalidated, so we
-        // restart the build
-        return buildFile(name);
-      }
+    if (store.isRecordRemovedIntercept(err)) {
+      // Handle record removal
+      // ...
+    }
 
-      return Promise.reject(err);
-    });
-}
+    if (store.isRecordInvalidIntercept(err)) {
+      // The record was removed but then re-created,
+      // so the data was job can be restarted
+      // ...
+    }
+
+    return Promise.reject(err);
+  })
+  .then(data => {
+    // Handle success
+    // ...
+  });
 ```
