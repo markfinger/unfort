@@ -41,7 +41,7 @@
     "lodash": "^4.2.1",
     "mime-types": "^2.1.9",
     "mkdirp": "^0.5.1",
-    "node-libs-browser": "^0.5.3",
+    "node-libs-browser": "^1.0.0",
     "postcss": "^5.0.15",
     "promisify-node": "^0.3.0",
     "react-dom": "^0.14.6",
@@ -58,7 +58,7 @@
     "react": "^0.14.6",
     "redux": "^3.0.5",
     "rimraf": "^2.5.0",
-    "source-map-support": "^0.3.3",
+    "source-map-support": "^0.4.0",
     "v8-profiler": "^5.5.0"
   }
 }
