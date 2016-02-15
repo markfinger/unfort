@@ -113,11 +113,11 @@ export function createRecordStore(jobs = {}) {
     };
   }
 
-  function createJobHandler(propName, func) {
+  function createJobHandler(jobName, func) {
     return function jobHandler(ref) {
       if (!(ref instanceof Reference)) {
         throw new Error(
-          `Failed to provide a Reference when calling ${propName}. ` +
+          `Failed to provide a Reference when calling ${jobName}. ` +
           `Received ${typeof ref}: ${ref}`
         );
       }
@@ -132,8 +132,8 @@ export function createRecordStore(jobs = {}) {
       // If the job has already started for this record, we simply pass it
       // it back so it can resolve to multiple consumers
       const jobs = record.get('jobs');
-      if (jobs.has(propName)) {
-        return jobs.get(propName);
+      if (jobs.has(jobName)) {
+        return jobs.get(jobName);
       }
 
       const promise = Promise.resolve()
@@ -153,7 +153,7 @@ export function createRecordStore(jobs = {}) {
           if (isUndefined(data)) {
             return Promise.reject(
               new Error(
-                `Job "${propName}" returned undefined for file "${ref.name}". All jobs must resolve to a value other than undefined`
+                `Job "${jobName}" returned undefined for file "${ref.name}". All jobs must resolve to a value other than undefined`
               )
             );
           }
@@ -164,7 +164,7 @@ export function createRecordStore(jobs = {}) {
           if (isNull(recordData)) {
             recordData = RecordData();
           }
-          const updatedRecordData = recordData.set(propName, data);
+          const updatedRecordData = recordData.set(jobName, data);
           const updatedRecord = latestRecord.set('data', updatedRecordData);
           state = state.set(record.name, updatedRecord);
 
@@ -173,7 +173,7 @@ export function createRecordStore(jobs = {}) {
 
       // Bind the pending job to the record's `jobs` map, this enables
       // successive calls to reuse the result of the initial one
-      const updatedJobs = jobs.set(propName, promise);
+      const updatedJobs = jobs.set(jobName, promise);
       const updatedRecord = record.set('jobs', updatedJobs);
       state = state.set(record.name, updatedRecord);
 

@@ -202,7 +202,7 @@ const records = createRecordStore({
     return Promise.all([
       store.cacheKey(ref),
       store.readCache(ref)
-    ]).then(([key, data]) => recordCache.set(key, data));
+    ]).then(([key, cache]) => recordCache.set(key, cache));
   },
   hashedFilename(ref, store) {
     return store.hash(ref)
@@ -386,15 +386,15 @@ const records = createRecordStore({
   },
   dependencyIdentifiers(ref, store) {
     return store.readCache(ref)
-      .then(data => {
-        if (data.dependencyIdentifiers) {
-          return data.dependencyIdentifiers;
+      .then(cache => {
+        if (cache.dependencyIdentifiers) {
+          return cache.dependencyIdentifiers;
         }
 
         return store.analyzeDependencies(ref)
           .then(deps => deps.map(dep => dep.source))
           .then(ids => {
-            data.dependencyIdentifiers = ids;
+            cache.dependencyIdentifiers = ids;
             return ids;
           });
       });
@@ -434,24 +434,26 @@ const records = createRecordStore({
   },
   resolvedDependencies(ref, store) {
     return store.readCache(ref)
-      .then(data => {
+      .then(cache => {
         // Aggressively cache resolved paths for files that live in node_modules
         if (startsWith(ref.name, rootNodeModules)) {
-          if (data.resolvedDependencies) {
-            return data.resolvedDependencies;
+          if (cache.resolvedDependencies) {
+            return cache.resolvedDependencies;
           }
 
           return Promise.all([
             store.resolvePathDependencies(ref),
             store.resolvePackageDependencies(ref)
           ]).then(([pathDeps, packageDeps]) => {
-            return data.resolvedDependencies = assign({}, pathDeps, packageDeps);
+            const deps = assign({}, pathDeps, packageDeps);
+            cache.resolvedDependencies = deps;
+            return deps;
           });
         }
 
         // To avoid any edge-cases caused by caching path-based dependencies,
         // we only cache the resolved paths which relate to packages
-        let packageDeps = data.resolvedDependencies;
+        let packageDeps = cache.resolvedDependencies;
         if (!packageDeps) {
           packageDeps = store.resolvePackageDependencies(ref);
         }
@@ -459,8 +461,8 @@ const records = createRecordStore({
           store.resolvePathDependencies(ref),
           packageDeps
         ]).then(([pathDeps, packageDeps]) => {
-          data.resolvedDependencies = packageDeps;
-          return assign({}, pathDeps, packageDeps)
+          cache.resolvedDependencies = packageDeps;
+          return assign({}, pathDeps, packageDeps);
         });
       });
   },
@@ -472,15 +474,15 @@ const records = createRecordStore({
         }
 
         return store.readCache(ref)
-          .then(data => {
-            if (data.code) {
-              return data.code;
+          .then(cache => {
+            if (cache.code) {
+              return cache.code;
             }
 
             if (ref.ext === '.css') {
               return store.postcssTransform(ref)
                 .then(result => {
-                  data.code = result.css;
+                  cache.code = result.css;
                   return result.css;
                 });
             }
@@ -501,7 +503,7 @@ const records = createRecordStore({
                   hash,
                   code: file.code
                 });
-                data.code = code;
+                cache.code = code;
                 return code;
               });
             }
@@ -533,7 +535,7 @@ const records = createRecordStore({
                   code: jsModuleCode
                 });
 
-                data.code = code;
+                cache.code = code;
 
                 return code;
               });
@@ -553,15 +555,15 @@ const records = createRecordStore({
         }
 
         return store.readCache(ref)
-          .then(data => {
-            if (data.sourceMap) {
-              return data.sourceMap;
+          .then(cache => {
+            if (cache.sourceMap) {
+              return cache.sourceMap;
             }
 
             if (ref.ext === '.css') {
               return store.postcssTransform(ref).then(result => {
                 const sourceMap = result.map.toString();
-                data.sourceMap = sourceMap;
+                cache.sourceMap = sourceMap;
                 return sourceMap;
               });
             }
@@ -573,7 +575,7 @@ const records = createRecordStore({
                 file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
 
                 const sourceMap = JSON.stringify(file.map);
-                data.sourceMap = sourceMap;
+                cache.sourceMap = sourceMap;
                 return sourceMap;
               });
             }
@@ -805,7 +807,7 @@ graph.events.on('completed', ({errors}) => {
 
   const graphState = graph.getState();
 
-  console.log(chalk.bold(`Code generation...`));
+  console.log(chalk.bold('Code generation...'));
 
   const buildStart = (new Date()).getTime();
   const errorsDuringReadyJob = [];

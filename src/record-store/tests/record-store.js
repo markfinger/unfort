@@ -157,8 +157,8 @@ describe('record-store/record-store', () => {
 
       store.create('test');
 
-      //return assert.isFulfilled(
-        return store.foo('test').then(() => {
+      return assert.isFulfilled(
+        store.foo('test').then(() => {
           const record = store.get('test');
           assert.equal(record.data.foo, 'foo');
           assert.isNull(record.data.bar);
@@ -169,7 +169,7 @@ describe('record-store/record-store', () => {
             assert.equal(record.data.bar, 'bar');
           });
         })
-      //);
+      );
     });
   });
 });
