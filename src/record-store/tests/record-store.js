@@ -58,7 +58,10 @@ describe('record-store/record-store', () => {
       let count = 0;
 
       const store = createRecordStore({
-        counter: () => count += 1
+        counter: () => {
+          count += 1;
+          return count;
+        }
       });
 
       store.create('1');
@@ -124,7 +127,9 @@ describe('record-store/record-store', () => {
       assert.isFunction(store.create);
 
       assert.throws(
-        () => createRecordStore({create(){}}),
+        () => createRecordStore({
+          create: () => {}
+        }),
         'Property name "create" conflicts with the record store\'s API'
       );
     });

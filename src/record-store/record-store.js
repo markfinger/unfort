@@ -19,7 +19,7 @@ export const Reference = imm.Record({
   reference: null
 });
 
-export function createRecordStore(functions={}) {
+export function createRecordStore(jobs = {}) {
   let state = imm.Map();
 
   const store = {
@@ -45,7 +45,7 @@ export function createRecordStore(functions={}) {
 
   const jobStore = {};
 
-  forOwn(functions, (value, key) => {
+  forOwn(jobs, (value, key) => {
     if (!isFunction(value)) {
       throw new Error(`Properties should only be functions. Received \`${key}: ${value}\``);
     }

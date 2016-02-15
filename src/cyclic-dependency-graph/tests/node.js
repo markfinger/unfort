@@ -232,7 +232,7 @@ describe('cyclic-dependency-graph/node', () => {
         a -> d
       `);
 
-      let data = pruneNodeAndUniqueDependencies(nodes, 'a');
+      const data = pruneNodeAndUniqueDependencies(nodes, 'a');
 
       assert.equal(data.nodes, Map());
 

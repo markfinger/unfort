@@ -99,7 +99,6 @@ function createJSModule({name, deps, hash, code}) {
   return lines.join('\n');
 }
 
-let analyzedDependenciesCache;
 let resolvedDependenciesCache;
 
 const records = createRecordStore({
@@ -807,10 +806,10 @@ function emitBuild() {
       // Maps of records so that the file endpoint can perform record look ups
       // trivially. This saves us from having to iterate over every record
       recordsByUrl: recordsState
-        .filter(record => !!record.data.get('url'))
+        .filter(record => Boolean(record.data.get('url')))
         .mapKeys((_, record) => record.data.get('url')),
       recordsBySourceMapUrl: recordsState
-        .filter(record => !!record.data.get('sourceMapAnnotation'))
+        .filter(record => Boolean(record.data.get('sourceMapAnnotation')))
         .mapKeys((_, record) => record.data.get('sourceMapUrl')),
       errors: null
     })
@@ -985,10 +984,8 @@ envHash({files: [__filename, 'package.json']}).then(hash => {
   console.log(chalk.bold('EnvHash: ') + hash + '\n');
 
   const cacheRoot = path.join(__dirname, hash);
-  analyzedDependenciesCache = createFileCache(path.join(cacheRoot, 'dependency_identifiers'));
   resolvedDependenciesCache = createFileCache(path.join(cacheRoot, 'resolved_dependencies'));
 
-  analyzedDependenciesCache.events.on('error', err => emitError(err));
   resolvedDependenciesCache.events.on('error', err => emitError(err));
 
   graphEntryPoints.forEach(file => {

@@ -116,7 +116,9 @@ export function findNodesDisconnectedFromEntryNodes(nodes) {
   const entries = nodes.filter(node => node.isEntryNode);
 
   const disconnected = Object.create(null);
-  nodes.keySeq().forEach(name => disconnected[name] = true);
+  nodes.keySeq().forEach(name => {
+    disconnected[name] = true;
+  });
 
   function checkFromNode(node) {
     disconnected[node.name] = false;

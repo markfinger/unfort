@@ -44,7 +44,7 @@ export function getPrunedNodesFromDiff(diff) {
 export function getChangedNodes(diff) {
   const {from, to} = diff;
   const changedNodes = [];
-  
+
   to.forEach((value, key) => {
     if (from.has(key) && !is(value, from.get(key))) {
       changedNodes.push(key);

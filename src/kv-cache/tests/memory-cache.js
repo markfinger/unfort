@@ -40,7 +40,7 @@ describe('memory-cache', () => {
       return cache.set('foo', 'bar').then(value => {
         assert.equal(value, 'bar');
         assert.equal(
-          cache._memoryCache['test'],
+          cache._memoryCache.test,
           '"bar"'
         );
       });

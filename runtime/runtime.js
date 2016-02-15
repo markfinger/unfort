@@ -1,4 +1,11 @@
-(function (root, factory) {
+(function(factory) {
+  var root;
+  if (typeof window === 'object') {
+    root = window;
+  } else {
+    root = global;
+  }
+
   if (typeof exports === 'object' && typeof exports.nodeName !== 'string') {
     // CommonJS
     factory(exports);
@@ -9,7 +16,7 @@
     }
     factory((root.__modules = {}), root);
   }
-}((typeof window == 'object' ? window : global), function (exports, global) {
+}(function(exports, global) {
 
   var __modules = exports;
 

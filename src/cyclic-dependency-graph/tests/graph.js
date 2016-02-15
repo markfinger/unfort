@@ -282,7 +282,7 @@ describe('cyclic-dependency-graph/graph', () => {
       });
       it('should create a pending job for the node', () => {
         const graph = createGraph({
-          getDependencies(){}
+          getDependencies() {}
         });
 
         graph.traceFromNode('test');

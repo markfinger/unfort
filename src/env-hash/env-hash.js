@@ -77,7 +77,7 @@ export function hashFileSystemDataLists(data) {
     return '';
   }
 
-  let hash = new murmur(data[0][0]);
+  const hash = new murmur(data[0][0]);
 
   data.forEach((entry, i) => {
     // On the first iteration, skip the first cell as we applied it above
@@ -101,7 +101,8 @@ export function getOptions(overrides={}) {
 export function envHash(options) {
   options = getOptions(options);
 
-  let {root, files, directories} = options;
+  const {root} = options;
+  let {files, directories} = options;
 
   files = files.map(file => join(root, file));
   directories = directories.map(dir => join(root, dir));
