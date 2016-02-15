@@ -4,7 +4,11 @@ const child_process = require('child_process');
 const path = require('path');
 const _ = require('lodash');
 
-const PROJECT_ROOT = __dirname;
+const argv = require('yargs')
+    .alias('o', 'once').default('once', false)
+    .argv;
+
+const PROJECT_ROOT = path.dirname(__dirname);
 
 console.log(`Building project from ${PROJECT_ROOT}`);
 
@@ -29,15 +33,29 @@ _.map(SOURCE_DIRS, 1).forEach(function(outputDir) {
   }
 });
 
-// Rebuild from the source files
-console.log('\nRebuilding and watching directories...');
+const once = argv.once;
+
+if (once) {
+  console.log('\nRebuilding directories...');
+} else {
+  console.log('\nRebuilding and watching directories...');
+}
+
 _.forEach(SOURCE_DIRS, (dirs) => {
   const sourceDir = dirs[0];
   const outputDir = dirs[1];
 
+  const params = [
+    sourceDir, '--out-dir', outputDir, '--source-maps', 'inline', '--copy-files'
+  ];
+
+  if (!once) {
+    params.push('--watch');
+  }
+
   const babel = child_process.spawn(
     path.join(PROJECT_ROOT, 'node_modules', '.bin', 'babel'),
-    [sourceDir, '--out-dir', outputDir, '--source-maps', 'inline', '--watch', '--copy-files']
+    params
   );
 
   babel.stderr.on('data', (data) => {
