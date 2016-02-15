@@ -17,10 +17,11 @@ import postcss from 'postcss';
 import autoprefixer from 'autoprefixer';
 import promisify from 'promisify-node';
 import chalk from 'chalk';
-import {startsWith, endsWith} from 'lodash/string';
+import {startsWith, endsWith, repeat} from 'lodash/string';
 import {pull, zipObject, uniq} from 'lodash/array';
 import {values, assign} from 'lodash/object';
 import {includes} from 'lodash/collection';
+import {isNull} from 'lodash/lang';
 import envHash from '../env-hash';
 import babylonAstDependencies from '../babylon-ast-dependencies';
 import postcssAstDependencies from '../postcss-ast-dependencies';
@@ -29,6 +30,7 @@ import browserResolve from 'browser-resolve';
 import {createFileCache} from '../kv-cache';
 import {createGraph, resolveExecutionOrder} from '../cyclic-dependency-graph';
 import createRecordStore from '../record-store';
+import packageJson from '../../package.json';
 
 sourceMapSupport.install();
 
@@ -43,11 +45,14 @@ const resolve = promisify(browserResolve);
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
-const runtimeFile = require.resolve('../../runtimes/bootstrap');
+const bootstrapRuntime = require.resolve('../../runtimes/bootstrap');
+
 const entryPoints = [
   require.resolve('../../runtimes/hot'),
   require.resolve('../../test-src/entry')
 ];
+
+console.log(`${chalk.bold('Unfort:')} v${packageJson.version}`);
 
 const app = express();
 const server = http.createServer(app);
@@ -99,7 +104,7 @@ function createJSModule({name, deps, hash, code}) {
   return lines.join('\n');
 }
 
-let resolvedDependenciesCache;
+let recordCache;
 
 const records = createRecordStore({
   ready(ref, store) {
@@ -159,6 +164,22 @@ const records = createRecordStore({
       store.readText(ref),
       store.mtime(ref)
     ]);
+  },
+  readCache(ref, store) {
+    return store.cacheKey(ref)
+      .then(key => recordCache.get(key))
+      .then(data => {
+        if (isNull(data)) {
+          return {};
+        }
+        return data;
+      });
+  },
+  writeCache(ref, store) {
+    return Promise.all([
+      store.cacheKey(ref),
+      store.readCache(ref)
+    ]).then(([key, data]) => recordCache.set(key, data));
   },
   hashedFilename(ref, store) {
     return store.hash(ref)
@@ -341,8 +362,19 @@ const records = createRecordStore({
     return [];
   },
   dependencyIdentifiers(ref, store) {
-    return store.analyzeDependencies(ref)
-      .then(ids => ids.map(id => id.source));
+    return store.readCache(ref)
+      .then(data => {
+        if (data.dependencyIdentifiers) {
+          return data.dependencyIdentifiers;
+        }
+
+        return store.analyzeDependencies(ref)
+          .then(deps => deps.map(dep => dep.source))
+          .then(ids => {
+            data.dependencyIdentifiers = ids;
+            return ids;
+          });
+      });
   },
   packageDependencyIdentifiers(ref, store) {
     return store.dependencyIdentifiers(ref)
@@ -378,25 +410,36 @@ const records = createRecordStore({
       );
   },
   resolvedDependencies(ref, store) {
-    const cache = resolvedDependenciesCache;
-    const key = store.cacheKey(ref);
+    return store.readCache(ref)
+      .then(data => {
+        // Aggressively cache resolved paths for files that live in node_modules
+        if (startsWith(ref.name, rootNodeModules)) {
+          if (data.resolvedDependencies) {
+            return data.resolvedDependencies;
+          }
 
-    // Aggressively cache resolved paths for files that live in node_modules
-    if (startsWith(ref.name, rootNodeModules)) {
-      return getCachedData(cache, key, () => {
+          return Promise.all([
+            store.resolvePathDependencies(ref),
+            store.resolvePackageDependencies(ref)
+          ]).then(([pathDeps, packageDeps]) => {
+            return data.resolvedDependencies = assign({}, pathDeps, packageDeps);
+          });
+        }
+
+        // To avoid any edge-cases caused by caching path-based dependencies,
+        // we only cache the resolved paths which relate to packages
+        let packageDeps = data.resolvedDependencies;
+        if (!packageDeps) {
+          packageDeps = store.resolvePackageDependencies(ref);
+        }
         return Promise.all([
           store.resolvePathDependencies(ref),
-          store.resolvePackageDependencies(ref)
-        ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps));
+          packageDeps
+        ]).then(([pathDeps, packageDeps]) => {
+          data.resolvedDependencies = packageDeps;
+          return assign({}, pathDeps, packageDeps)
+        });
       });
-    }
-
-    // To avoid any edge-cases caused by caching path-based dependencies,
-    // we only cache the resolved paths which relate to packages
-    return Promise.all([
-      store.resolvePathDependencies(ref),
-      getCachedData(cache, key, () => store.resolvePackageDependencies(ref))
-    ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps));
   },
   code(ref, store) {
     return store.isTextFile(ref)
@@ -405,62 +448,78 @@ const records = createRecordStore({
           return null;
         }
 
-        if (ref.ext === '.css') {
-          return store.postcssTransform(ref)
-            .then(result => result.css);
-        }
-
-        if (ref.ext === '.js') {
-          if (ref.name === runtimeFile) {
-            return store.readText(ref);
-          }
-
-          return Promise.all([
-            store.babelFile(ref),
-            store.resolvedDependencies(ref),
-            store.hash(ref)
-          ]).then(([file, deps, hash]) => {
-            return createJSModule({
-              name: ref.name,
-              deps,
-              hash,
-              code: file.code
-            });
-          });
-        }
-
-        if (ref.ext === '.json') {
-          return Promise.all([
-            store.readText(ref),
-            store.hash(ref)
-          ]).then(([text, hash]) => {
-            let code;
-            if (startsWith(ref.name, rootNodeModules)) {
-              code = `module.exports = ${text};`;
-            } else {
-              // We fake babel's commonjs shim so that hot swapping can occur
-              code = `
-                var json = ${text};
-                exports.default = json;
-                exports.__esModule = true;
-                if (module.hot) {
-                  module.hot.accept();
-                }
-              `;
+        return store.readCache(ref)
+          .then(data => {
+            if (data.code) {
+              return data.code;
             }
 
-            return createJSModule({
-              name: ref.name,
-              deps: {},
-              hash,
-              code
-            });
-          });
-        }
+            if (ref.ext === '.css') {
+              return store.postcssTransform(ref)
+                .then(result => {
+                  data.code = result.css;
+                  return result.css;
+                });
+            }
 
-        return Promise.reject(
-          `Unknown text file extension: ${ref.ext}. Cannot generate code for file: ${ref.name}`
-        );
+            if (ref.ext === '.js') {
+              if (ref.name === bootstrapRuntime) {
+                return store.readText(ref);
+              }
+
+              return Promise.all([
+                store.babelFile(ref),
+                store.resolvedDependencies(ref),
+                store.hash(ref)
+              ]).then(([file, deps, hash]) => {
+                const code = createJSModule({
+                  name: ref.name,
+                  deps,
+                  hash,
+                  code: file.code
+                });
+                data.code = code;
+                return code;
+              });
+            }
+
+            if (ref.ext === '.json') {
+              return Promise.all([
+                store.readText(ref),
+                store.hash(ref)
+              ]).then(([text, hash]) => {
+                let code;
+                if (startsWith(ref.name, rootNodeModules)) {
+                  code = `module.exports = ${text};`;
+                } else {
+                  // We fake babel's commonjs shim so that hot swapping can occur
+                  code = `
+                    var json = ${text};
+                    exports.default = json;
+                    exports.__esModule = true;
+                    if (module.hot) {
+                      module.hot.accept();
+                    }
+                  `;
+                }
+
+                const jsModule = createJSModule({
+                  name: ref.name,
+                  deps: {},
+                  hash,
+                  code
+                });
+
+                data.code = jsModule;
+
+                return code;
+              });
+            }
+
+            return Promise.reject(
+              `Unknown text file extension: ${ref.ext}. Cannot generate code for file: ${ref.name}`
+            );
+          });
       });
   },
   sourceMap(ref, store) {
@@ -470,52 +529,47 @@ const records = createRecordStore({
           return null;
         }
 
-        if (ref.ext === '.css') {
-          return store.postcssTransform(ref).then(result => {
-            return result.map.toString();
+        return store.readCache(ref)
+          .then(data => {
+            if (data.sourceMap) {
+              return data.sourceMap;
+            }
+
+            if (ref.ext === '.css') {
+              return store.postcssTransform(ref).then(result => {
+                const sourceMap = result.map.toString();
+                data.sourceMap = sourceMap;
+                return sourceMap;
+              });
+            }
+
+            if (ref.ext === '.js') {
+              return store.babelFile(ref).then(file => {
+                // Offset each line in the source map to reflect the call to
+                // the module runtime
+                file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
+
+                const sourceMap = JSON.stringify(file.map);
+                data.sourceMap = sourceMap;
+                return sourceMap;
+              });
+            }
+
+            if (ref.ext === '.json') {
+              return null;
+            }
+
+            return Promise.reject(
+              `Unknown text file extension: ${ref.ext}. Cannot generate source map for file: ${ref.name}`
+            );
           });
-        }
-
-        if (ref.ext === '.js') {
-          return store.babelFile(ref).then(file => {
-            // Offset each line in the source map to reflect the call to
-            // the module runtime
-            file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
-
-            return JSON.stringify(file.map);
-          });
-        }
-
-        if (ref.ext === '.json') {
-          return null;
-        }
-
-        return Promise.reject(
-          `Unknown text file extension: ${ref.ext}. Cannot generate source map for file: ${ref.name}`
-        );
       });
   }
 });
 
-function getCachedData(cache, key, compute) {
-  return key.then(key => getCachedDataOrCompute(cache, key, compute));
-}
-
-function getCachedDataOrCompute(cache, key, compute) {
-  return cache.get(key)
-    .then(data => {
-      if (data) {
-        return data;
-      }
-
-      return compute().then(computed => {
-        cache.set(key, computed);
-        return computed;
-      });
-    });
-}
-
-// A map of directories that we're watching
+// The directories that our watcher has been instructed to observe.
+// We use an object as a map as it's far more performant than
+// chokidar's `getWatched` method
 const watchedDirectories = {};
 
 const watcher = chokidar.watch([], {
@@ -524,42 +578,46 @@ const watcher = chokidar.watch([], {
 });
 
 watcher.on('addDir', dirname => {
-  if (!watchedDirectories[dirname]) {
-    watchDirectory(dirname);
-  }
+  watchDirectory(dirname);
 
-  if (buildBlockedByErrors()) {
-    restartBuildForFailedNodes();
-  }
+  restartBuildForFailedNodes();
 });
-watcher.on('add', () => {
-  if (buildBlockedByErrors()) {
-    restartBuildForFailedNodes();
-  }
-});
+watcher.on('add', restartBuildForFailedNodes);
 watcher.on('unlinkDir', restartBuildForFailedNodes);
 watcher.on('change', onChangeToFile);
 watcher.on('unlink', onChangeToFile);
-watcher.on('error', error => console.log(`Watcher error: ${error}`));
+watcher.on('error', error => console.error(`Watcher error: ${error}`));
 
+// We use another watcher that does a shallow watch on node_modules.
+// We generally treat node_modules as a fairly static lump of data,
+// but there are plenty of real world situations where we need to
+// detect changes so that we can rebuild a failed or invalid graph
 const nodeModulesWatcher = chokidar.watch([rootNodeModules], {
   persistent: true,
   depth: 0
 });
 
-nodeModulesWatcher.on('ready', () => {
-  nodeModulesWatcher.on('addDir', () => {
-    if (buildBlockedByErrors()) {
-      restartBuildForFailedNodes();
-    }
-  });
+nodeModulesWatcher.on('error', error => console.error(`\`node_modules\` watcher error: ${error}`));
 
+// We wait until the node_modules directory has been scanned, as we
+// only care about directories that are added or removed
+nodeModulesWatcher.on('ready', () => {
+
+  // If npm has installed a package, it's quite likely that a failed
+  // build might complete successfully now
+  nodeModulesWatcher.on('addDir', restartBuildForFailedNodes);
+
+  // If a directory has been removed, we need to find every node that
+  // used to live in it and potentially rebuild the graph
   nodeModulesWatcher.on('unlinkDir', dirname => {
     const nodesImpactingOthers = [];
 
     graph.getState().forEach((node, name) => {
       if (startsWith(name, dirname)) {
         node.dependents.forEach(dependentName => {
+          // If the file was a dependency of a file in either another
+          // package or a file outside of node_modules, then we need
+          // to remove it from the graph
           if (
             !startsWith(dependentName, rootNodeModules) ||
             !startsWith(dependentName, dirname)
@@ -574,28 +632,42 @@ nodeModulesWatcher.on('ready', () => {
   });
 });
 
+/**
+ * Ensures that the watcher is observing a particular directory
+ *
+ * @param {String} dirname
+ */
 function watchDirectory(dirname) {
   if (startsWith(dirname, rootNodeModules)) {
+    // We leave everything in node_modules to be handled by
+    // it's specific watcher
     return;
   }
 
-  watchedDirectories[dirname] = true;
-  watcher.add(dirname);
+  if (!watchedDirectories[dirname]) {
+    watchedDirectories[dirname] = true;
+    watcher.add(dirname);
+  }
 }
 
+/**
+ * Given a particular file that has changed, invalidate any data
+ * and restart the build if necessary
+ *
+ * @param {String} file
+ */
 function onChangeToFile(file) {
-  console.log('change to file');
   if (graph.getState().has(file)) {
     restartTraceOfFile(file);
-  } else if (buildBlockedByErrors()) {
+  } else {
     restartBuildForFailedNodes();
   }
 }
 
-function buildBlockedByErrors() {
-  return state.has('errors');
-}
-
+/**
+ * If a previous build failed, we start a retrace of nodes that
+ * were known to have failed
+ */
 function restartBuildForFailedNodes() {
   const errors = state.get('errors');
   if (errors) {
@@ -610,6 +682,14 @@ function restartBuildForFailedNodes() {
   }
 }
 
+/**
+ * Removes all data associated with a particular file, then
+ * reconstructs any missing parts of the graph and starts
+ * retracing the graph from the files that used to depend on
+ * it
+ *
+ * @param {String} file
+ */
 function restartTraceOfFile(file) {
   console.log(`${chalk.bold('Retracing:')} ${file}`);
 
@@ -623,7 +703,7 @@ function restartTraceOfFile(file) {
 
   // If the file is an entry point, we need to start re-tracing
   // it directly
-  if (includes(graphEntryPoints, file)) {
+  if (file === bootstrapRuntime || includes(entryPoints, file)) {
     graph.setNodeAsEntry(file);
     graph.traceFromNode(file);
   }
@@ -634,8 +714,6 @@ function restartTraceOfFile(file) {
   });
 }
 
-const graphEntryPoints = [runtimeFile, ...entryPoints];
-
 const graph = createGraph({
   getDependencies: (file) => {
     if (!records.has(file)) {
@@ -645,16 +723,15 @@ const graph = createGraph({
     // We reduce system load by only watching files outside
     // of the root node_modules directory
     if (startsWith(file, sourceRoot) && !startsWith(file, rootNodeModules)) {
-      const directoriesToWatch = [];
-
       const sourceRootLength = sourceRoot.length;
+
+      // We walk up the directory structure to the source root and
+      // start watching every directory
       let dirname = path.dirname(file);
-      while (!watchedDirectories[dirname] && dirname.length > sourceRootLength) {
-        directoriesToWatch.push(dirname);
+      while (dirname.length > sourceRootLength) {
+        watchDirectory(dirname);
         dirname = path.dirname(dirname);
       }
-
-      directoriesToWatch.forEach(watchDirectory);
     }
 
     return records.resolvedDependencies(file)
@@ -693,7 +770,7 @@ graph.events.on('completed', ({errors}) => {
     return;
   }
 
-  console.log(`${chalk.bold('Elapsed:')} ${elapsed}ms`);
+  console.log(`${chalk.bold('Trace elapsed:')} ${elapsed}ms`);
 
   // Traverse the graph and prune all nodes which are disconnected
   // from the entry points. This ensures that the graph never
@@ -702,7 +779,7 @@ graph.events.on('completed', ({errors}) => {
 
   const graphState = graph.getState();
 
-  console.log(chalk.bold(`\nGenerating code...`));
+  console.log(chalk.bold(`Code generation...`));
 
   const buildStart = (new Date()).getTime();
   const errorsDuringReadyJob = [];
@@ -728,7 +805,7 @@ graph.events.on('completed', ({errors}) => {
       // build, then we start pushing the code towards the user
       if (graph.getState() === graphState) {
         const buildElapsed = (new Date()).getTime() - buildStart;
-        console.log(`${chalk.bold('Elapsed:')} ${buildElapsed}ms`);
+        console.log(`${chalk.bold('Code generation elapsed:')} ${buildElapsed}ms`);
 
         emitBuild();
       }
@@ -741,6 +818,8 @@ graph.events.on('completed', ({errors}) => {
       }
 
       setState(state.set('errors', errorsDuringReadyJob));
+
+      console.log(repeat('-', 80));
     });
 });
 
@@ -796,6 +875,25 @@ function emitBuild() {
   const graphState = graph.getState();
   const prevGraphState = prevState.get('graph');
 
+  // Find all the nodes that were removed from the graph during the
+  // build process
+  const prunedNodes = [];
+  prevGraphState.forEach((_, name) => {
+    if (!graphState.has(name)) {
+      prunedNodes.push(name);
+    }
+  });
+
+  // Remove all records that are no longer represented in the graph.
+  // While most of the graph structure would have settled quite early
+  // in the build process, we leave the records in memory for as long
+  // as possible. This enables us to respond more swiftly to changes
+  // that occur during the build, as we've preserved the computationally
+  // expensive part of the process
+  prunedNodes.forEach(name => {
+    records.remove(name);
+  });
+
   const recordsState = records.getState();
   const prevRecordsState = prevState.get('records');
 
@@ -815,32 +913,21 @@ function emitBuild() {
     })
   );
 
-  // Find all nodes that were removed from the graph during
-  // the build process
-  const prunedNodes = [];
-  prevGraphState.forEach((_, name) => {
-    if (!graphState.has(name)) {
-      prunedNodes.push(name);
-    }
-  });
-
-  // Clean up any data associated with any files that were
-  // removing during the tracing
-  prunedNodes.forEach(name => {
-    watcher.unwatch(name);
-    records.remove(name);
-  });
-
   // The payload that we send with the `build:complete` signal.
-  // The hot runtime uses this to reconcile the front-end and
-  // start fetching or removing assets
+  // The hot runtime uses this to reconcile the front-end by
+  // adding, updating or removing assets. We don't send the assets
+  // down the wire, we only tell the runtime what has changed and
+  // where it can fetch each asset from
   const payload = {
     records: {},
     removed: {}
   };
 
+  const recordsToCache = [];
+
   recordsState.forEach(record => {
-    if (record.name !== runtimeFile) {
+    if (record.name !== bootstrapRuntime) {
+      recordsToCache.push(record.name);
       payload.records[record.name] = createRecordDescription(record);
     }
   });
@@ -850,7 +937,36 @@ function emitBuild() {
     payload.removed[name] = createRecordDescription(prevRecord);
   });
 
+  // Send the payload over the wire to any connected browser
   sockets.forEach(socket => socket.emit('build:complete', payload));
+
+  // We write all the computationally expensive data to disk, so that
+  // we can reduce the startup cost of repeated builds
+  console.log(`${chalk.bold('Cache write:')} ${recordsToCache.length} records...`);
+  const cacheWriteStart = (new Date()).getTime();
+  Promise.all(
+    recordsToCache.map(name => records.writeCache(name))
+  )
+    .then(() => {
+      const elapsed = (new Date()).getTime() - cacheWriteStart;
+      console.log(`${chalk.bold('Cache write elapsed:')} ${elapsed}ms`);
+    })
+    .catch(err => {
+      if (records.isIntercept(err)) {
+        // If the record store emitted an intercept, it means that a record
+        // was removed or invalidated during the cache write. In this case,
+        // we can just ignore it, as the tracing would have already restarted
+        return;
+      }
+
+      err.message = 'Cache write error: ' + err.message;
+      emitError(err);
+    })
+    .then(() => {
+      // We should provide some form of visual indication that the build
+      // has finished
+      console.log(repeat('-', 80));
+    });
 }
 
 app.get('/', (req, res) => {
@@ -861,7 +977,7 @@ app.get('/', (req, res) => {
   const styles = [];
   const shimModules = [];
 
-  const runtimeUrl = records.get(runtimeFile).data.get('url');
+  const runtimeUrl = records.get(bootstrapRuntime).data.get('url');
 
   const executionOrder = resolveExecutionOrder(graph, entryPoints);
 
@@ -906,7 +1022,7 @@ app.get('/', (req, res) => {
     }
 
     if (
-      (ext === '.js' && record.name !== runtimeFile) ||
+      (ext === '.js' && record.name !== bootstrapRuntime) ||
       ext === '.json'
     ) {
       scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
@@ -981,14 +1097,14 @@ app.get(fileEndpoint + '*', (req, res) => {
 
 // Start the build
 envHash({files: [__filename, 'package.json']}).then(hash => {
-  console.log(chalk.bold('EnvHash: ') + hash + '\n');
+  console.log(chalk.bold('EnvHash: ') + hash);
+  console.log(repeat('-', 80));
 
-  const cacheRoot = path.join(__dirname, hash);
-  resolvedDependenciesCache = createFileCache(path.join(cacheRoot, 'resolved_dependencies'));
+  const cacheDirectory = path.join(sourceRoot, '.unfort', hash);
+  recordCache = createFileCache(cacheDirectory);
+  recordCache.events.on('error', err => emitError(err));
 
-  resolvedDependenciesCache.events.on('error', err => emitError(err));
-
-  graphEntryPoints.forEach(file => {
+  [bootstrapRuntime, ...entryPoints].forEach(file => {
     graph.setNodeAsEntry(file);
     graph.traceFromNode(file);
   });

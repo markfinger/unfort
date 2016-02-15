@@ -122,16 +122,17 @@ export function createFileCache(dirname, options={}) {
     // Ensure that the in-memory cache is fresh
     cache[filename] = undefined;
 
-    return unlink(filename).catch(err => {
-      // We can ignore missing files, as it indicates that the entry
-      // wasn't in the cache
-      if (err.code === 'ENOENT') {
-        return;
-      }
+    return unlink(filename)
+      .catch(err => {
+        // We can ignore missing files, as it indicates that the entry
+        // wasn't in the cache
+        if (err.code === 'ENOENT') {
+          return;
+        }
 
-      events.emit('error', err);
-      return Promise.resolve(err);
-    });
+        events.emit('error', err);
+        return Promise.resolve(err);
+      });
   }
 
   return {
