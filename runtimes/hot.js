@@ -11,10 +11,10 @@ if (!_.isFunction(Object.getPrototypeOf)) {
 
 __modules.hotSwapExportReferences = Object.create(null);
 
-let log = console.log.bind(console);
-if (true) {
-//if (global.SILENT_HOT_RUNTIME) {
-  log = () => {};
+function log() {
+  if (global.SILENT_HOT_RUNTIME !== true) {
+    console.log.apply(console, arguments);
+  }
 }
 
 // Before we start monkey-patching the runtime, we need to preserve some references
@@ -31,7 +31,7 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
       // The previous state of the module
       previous: null,
       exportsProxy: {},
-      accepted: true,
+      accepted: false,
       acceptedCallback: null,
       onExit: null,
       exitData: undefined,
@@ -136,7 +136,6 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
         log(`[hot] Initializing ${name} at hash ${hash}`);
       }
 
-      log('prevMod', mod, prevMod)
       if (prevMod) {
         // Trigger any callbacks associated with removing a module
         if (prevMod.hot.acceptedCallback) {
