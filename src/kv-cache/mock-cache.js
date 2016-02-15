@@ -13,5 +13,5 @@ export function createMockCache() {
       return Promise.resolve(null);
     },
     events
-  }
+  };
 }

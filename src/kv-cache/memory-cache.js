@@ -51,5 +51,5 @@ export function createMemoryCache(options={}) {
     },
     events,
     _memoryCache: cache
-  }
+  };
 }

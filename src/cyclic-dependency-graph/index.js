@@ -1,7 +1,7 @@
 export {
   createGraph as default,
   createGraph
-} from './graph'
+} from './graph';
 export {Node} from './node';
 export {
   Diff,

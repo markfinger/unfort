@@ -66,7 +66,7 @@ export function getDependencyIdentifierFromImportRule(rule) {
 
   if (
     !startsWith(params, 'url(') &&
-    !startsWith(params, "'") &&
+    !startsWith(params, '\'') &&
     !startsWith(params, '"')
   ) {
     throwMalformedImport();
@@ -80,8 +80,8 @@ export function getDependencyIdentifierFromImportRule(rule) {
   }
 
   let closingToken;
-  if (text[0] === "'") {
-    closingToken = "'";
+  if (text[0] === '\'') {
+    closingToken = '\'';
   } else if (text[0] === '"') {
     closingToken = '"';
   } else {

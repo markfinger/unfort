@@ -33,13 +33,13 @@ export function createNodesFromNotation(text) {
     // Create each node
     names.forEach(name => {
       if (!nodes.has(name)) {
-        nodes = addNode(nodes, name)
+        nodes = addNode(nodes, name);
       }
     });
 
     // Add edges
     for (let i=0; i<names.length - 1; i++) {
-      nodes = addEdge(nodes, names[i], names[i + 1])
+      nodes = addEdge(nodes, names[i], names[i + 1]);
     }
   });
 

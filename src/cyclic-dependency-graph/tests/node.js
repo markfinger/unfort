@@ -67,7 +67,7 @@ describe('cyclic-dependency-graph/node', () => {
       assert.deepEqual(
         withEdge,
         createNodesFromNotation('a -> b')
-      )
+      );
     });
     it('should throw if the node names are the same', () => {
       assert.throws(
@@ -103,7 +103,7 @@ describe('cyclic-dependency-graph/node', () => {
           a
           b
         `)
-      )
+      );
     });
     it('should throw if either node does not already exist', () => {
       let nodes = Map();
@@ -123,14 +123,14 @@ describe('cyclic-dependency-graph/node', () => {
   });
   describe('#defineEntryNode', () => {
     it('should set the node\'s isEntryNode property to true', () => {
-      let nodes = createNodesFromNotation(`a`);
+      let nodes = createNodesFromNotation('a');
       nodes = defineEntryNode(nodes, 'a');
       assert.isTrue(
         nodes.get('a').isEntryNode
-      )
+      );
     });
     it('should preserve the node\'s other values', () => {
-      let nodes = createNodesFromNotation(`a -> b`);
+      let nodes = createNodesFromNotation('a -> b');
 
       nodes = defineEntryNode(nodes, 'a');
       assert.equal(nodes.get('a').dependencies, Set(['b']));
@@ -142,7 +142,7 @@ describe('cyclic-dependency-graph/node', () => {
       assert.throw(
         () => defineEntryNode(Map(), 'a'),
         'Cannot define entry node "a" as it does not exist'
-      )
+      );
     });
   });
   describe('#findNodesDisconnectedFromEntryNodes', () => {

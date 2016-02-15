@@ -205,7 +205,7 @@ io.on('build:complete', ({records, removed}) => {
   if (unaccepted.length) {
     let message = `[hot] Cannot accept any changes as the following modules have not accepted hot swaps:\n${unaccepted.join('\n')}`;
     if (accepted.length) {
-      message += `\n\nUpdates to the following modules have been blocked:\n${accepted.join('\n')}`
+      message += `\n\nUpdates to the following modules have been blocked:\n${accepted.join('\n')}`;
     }
     return console.warn(message);
   }

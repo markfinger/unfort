@@ -25,7 +25,7 @@ describe('file-cache', () => {
       try {
         createFileCache();
       } catch(err) {
-        assert.equal(err.message, 'A `dirname` option must be provided')
+        assert.equal(err.message, 'A `dirname` option must be provided');
       }
     });
 
@@ -128,7 +128,7 @@ describe('file-cache', () => {
     });
     it('should accept a `generateHash` option', () => {
       const generateHash = () => {
-        return 'test'
+        return 'test';
       };
 
       const cache = createFileCache(dirname, {generateHash});

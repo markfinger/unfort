@@ -32,7 +32,7 @@ describe('memory-cache', () => {
     });
     it('should accept a `generateHash` option', () => {
       const generateHash = () => {
-        return 'test'
+        return 'test';
       };
 
       const cache = createMemoryCache({generateHash});

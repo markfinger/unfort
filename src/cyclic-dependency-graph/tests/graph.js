@@ -452,7 +452,7 @@ describe('cyclic-dependency-graph/graph', () => {
     describe('.setNodeAsEntry', () => {
       it('should allow nodes to be denoted as entry nodes', () => {
         const graph = createGraph({
-          state: createNodesFromNotation(`a -> b`)
+          state: createNodesFromNotation('a -> b')
         });
 
         const diff = graph.setNodeAsEntry('a');

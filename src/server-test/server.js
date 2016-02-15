@@ -8,7 +8,7 @@ import express from 'express';
 import * as mimeTypes from 'mime-types';
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
-import imm from 'immutable'
+import imm from 'immutable';
 import stripAnsi from 'strip-ansi';
 import babelCodeFrame from 'babel-code-frame';
 import babelGenerator from 'babel-generator';
@@ -26,12 +26,7 @@ import {includes} from 'lodash/collection';
 import envHash from '../env-hash';
 import babylonAstDependencies from '../babylon-ast-dependencies';
 import postcssAstDependencies from '../postcss-ast-dependencies';
-import {
-  getAggressivelyCachedResolvedDependencies, getCachedResolvedDependencies, getCachedAst,
-  getCachedDependencyIdentifiers
-} from '../dependencies/cached-dependencies';
-import {getCachedStyleSheetImports, buildPostCssAst} from '../dependencies/css-dependencies';
-import {nodeCoreLibs} from '../dependencies/node-core-libs';
+import {nodeCoreLibs} from '../utils/node-core-libs';
 import browserResolve from 'browser-resolve';
 import {createFileCache} from '../kv-cache';
 import {
@@ -168,7 +163,7 @@ const records = createRecordStore({
       ref.name,
       store.readText(ref),
       store.mtime(ref)
-    ])
+    ]);
   },
   hashedFilename(ref, store) {
     return store.hash(ref)
@@ -263,7 +258,7 @@ const records = createRecordStore({
       store.postcssPlugins(ref),
       store.postcssProcessOptions(ref)
     ]).then(([text, postcssPlugins, processOptions]) => {
-      return postcss(postcssPlugins).process(text, processOptions)
+      return postcss(postcssPlugins).process(text, processOptions);
     });
   },
   babelTransformOptions(ref) {
@@ -294,7 +289,7 @@ const records = createRecordStore({
           sourceMaps: true,
           sourceMapTarget: path.basename(url),
           sourceFileName: path.basename(ref.name)
-        }
+        };
       });
   },
   babelGenerator(ref, store) {
@@ -397,7 +392,7 @@ const records = createRecordStore({
         return Promise.all([
           store.resolvePathDependencies(ref),
           store.resolvePackageDependencies(ref)
-        ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps))
+        ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps));
       });
     }
 
@@ -406,7 +401,7 @@ const records = createRecordStore({
     return Promise.all([
       store.resolvePathDependencies(ref),
       getCachedData(cache, key, () => store.resolvePackageDependencies(ref))
-    ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps))
+    ]).then(([pathDeps, packageDeps]) => assign({}, pathDeps, packageDeps));
   },
   code(ref, store) {
     return store.isTextFile(ref)
@@ -446,7 +441,7 @@ const records = createRecordStore({
           ]).then(([text, hash]) => {
             let code;
             if (startsWith(ref.name, rootNodeModules)) {
-              code = `module.exports = ${text};`
+              code = `module.exports = ${text};`;
             } else {
               // We fake babel's commonjs shim so that hot swapping can occur
               code = `
@@ -464,7 +459,7 @@ const records = createRecordStore({
               deps: {},
               hash,
               code
-            })
+            });
           });
         }
 
@@ -508,7 +503,7 @@ const records = createRecordStore({
 });
 
 function getCachedData(cache, key, compute) {
-  return key.then(key => getCachedDataOrCompute(cache, key, compute))
+  return key.then(key => getCachedDataOrCompute(cache, key, compute));
 }
 
 function getCachedDataOrCompute(cache, key, compute) {
@@ -640,7 +635,7 @@ function restartTraceOfFile(file) {
 
   // Ensure that the file's dependents are updated as well
   node.dependents.forEach(dependent => {
-    graph.traceFromNode(dependent)
+    graph.traceFromNode(dependent);
   });
 }
 
@@ -795,7 +790,7 @@ function createRecordDescription(record) {
     hash: record.data.get('hash'),
     url: record.data.get('url'),
     isTextFile: record.data.get('isTextFile')
-  }
+  };
 }
 
 function emitBuild() {

@@ -27,16 +27,16 @@ export function createRecordStore(functions={}) {
       return state;
     },
     create(name) {
-      state = createRecord(state, name)
+      state = createRecord(state, name);
     },
     has(name) {
-      return state.has(name)
+      return state.has(name);
     },
     get(name) {
-      return state.get(name)
+      return state.get(name);
     },
     remove(name) {
-      state = state.remove(name)
+      state = state.remove(name);
     },
     isIntercept,
     isRecordRemovedIntercept,
@@ -47,7 +47,7 @@ export function createRecordStore(functions={}) {
 
   forOwn(functions, (value, key) => {
     if (!isFunction(value)) {
-      throw new Error(`Properties should only be functions. Received \`${key}: ${value}\``)
+      throw new Error(`Properties should only be functions. Received \`${key}: ${value}\``);
     }
 
     if (store.hasOwnProperty(key)) {
@@ -98,7 +98,7 @@ export function createRecordStore(functions={}) {
 
           return data;
         });
-    }
+    };
   }
 
   function createJobHandler(propName, func) {
@@ -163,7 +163,7 @@ export function createRecordStore(functions={}) {
       state = state.set(record.name, updatedRecord);
 
       return promise;
-    }
+    };
   }
 
   return store;

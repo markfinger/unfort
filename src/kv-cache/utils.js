@@ -7,7 +7,7 @@ export function generateMurmurHash(key) {
   }
 
   if (!key.length) {
-    throw new Error(`Key array does not contain any entries`);
+    throw new Error('Key array does not contain any entries');
   }
 
   return key

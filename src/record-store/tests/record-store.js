@@ -30,7 +30,7 @@ describe('record-store/record-store', () => {
           assert.equal(ref.name, 'foo.bar');
           assert.equal(ref.ext, '.bar');
           assert.isObject(store);
-          return 'woz'
+          return 'woz';
         }
       });
 
@@ -125,7 +125,7 @@ describe('record-store/record-store', () => {
 
       assert.throws(
         () => createRecordStore({create(){}}),
-        `Property name "create" conflicts with the record store's API`
+        'Property name "create" conflicts with the record store\'s API'
       );
     });
     it('should reject if a job does not return a value', () => {
@@ -138,7 +138,7 @@ describe('record-store/record-store', () => {
       return assert.isRejected(
         store.foo('bar'),
         /Job "foo" returned undefined for file "bar"/
-      )
+      );
     });
     it('should apply resolved data to a Record\'s `data` map', () => {
       const store = createRecordStore({
@@ -154,7 +154,7 @@ describe('record-store/record-store', () => {
           const record = store.get('bar');
           assert.equal(record.data.get('foo'), 'foo');
         })
-      )
+      );
     });
   });
 });

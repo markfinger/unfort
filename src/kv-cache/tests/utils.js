@@ -22,7 +22,7 @@ describe('utils', () => {
     it('should throw if the array does not contain any entries', () => {
       assert.throws(
         () => generateMurmurHash([]),
-        `Key array does not contain any entries`
+        'Key array does not contain any entries'
       );
     });
     it('should produce a hash of a non-string value', () => {

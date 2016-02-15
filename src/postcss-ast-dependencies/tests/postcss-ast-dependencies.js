@@ -92,7 +92,7 @@ describe('postcss-ast-dependencies', () => {
   describe('#getDependencyIdentifiersFromDeclarationValue', () => {
     it('should find `url(...)` identifiers from strings', () => {
       assert.deepEqual(
-        getDependencyIdentifiersFromDeclarationValue(``),
+        getDependencyIdentifiersFromDeclarationValue(''),
         []
       );
 
@@ -123,19 +123,19 @@ describe('postcss-ast-dependencies', () => {
     it('should not find commented out urls', () => {
       assert.deepEqual(
         getDependencyIdentifiersFromDeclarationValue(
-          `/*background-image: url('./woz.jpg');*/`
+          '/*background-image: url("./woz.jpg");*/'
         ),
         []
       );
       assert.deepEqual(
         getDependencyIdentifiersFromDeclarationValue(
-          `/* background-image: url('./bar.jpg'); */`
+          '/* background-image: url("./bar.jpg"); */'
         ),
         []
       );
       assert.deepEqual(
         getDependencyIdentifiersFromDeclarationValue(
-          `  /*background-image: url('./foo.jpg');*/`
+          '  /*background-image: url("./foo.jpg");*/'
         ),
         []
       );
@@ -153,7 +153,7 @@ describe('postcss-ast-dependencies', () => {
       identifier = getDependencyIdentifierFromImportRule(rule);
       assert.equal(identifier, 'bluish.css');
 
-      rule = postcss.parse("@import 'custom.css';").first;
+      rule = postcss.parse('@import "custom.css";').first;
       identifier = getDependencyIdentifierFromImportRule(rule);
       assert.equal(identifier, 'custom.css');
 
@@ -165,7 +165,7 @@ describe('postcss-ast-dependencies', () => {
       identifier = getDependencyIdentifierFromImportRule(rule);
       assert.equal(identifier, 'common.css');
 
-      rule = postcss.parse("@import url('landscape.css') screen and (orientation:landscape);").first;
+      rule = postcss.parse('@import url(\'landscape.css\') screen and (orientation:landscape);').first;
       identifier = getDependencyIdentifierFromImportRule(rule);
       assert.equal(identifier, 'landscape.css');
     });

@@ -4,7 +4,7 @@ import * as types from 'babel-types';
 
 export function babylonAstDependencies(ast) {
   if (!isObject(ast)) {
-    throw new Error(`An \`ast\` must be provided`);
+    throw new Error('An `ast` must be provided');
   }
 
   const dependencies = [];
