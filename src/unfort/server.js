@@ -43,9 +43,9 @@ const resolve = promisify(browserResolve);
 const sourceRoot = process.cwd();
 const rootNodeModules = path.join(sourceRoot, 'node_modules');
 
-const runtimeFile = require.resolve('../../runtime/runtime');
+const runtimeFile = require.resolve('../../runtimes/bootstrap');
 const entryPoints = [
-  require.resolve('../../runtime/hot-runtime'),
+  require.resolve('../../runtimes/hot'),
   require.resolve('../../test-src/entry')
 ];
 
@@ -734,8 +734,8 @@ graph.events.on('completed', ({errors}) => {
       }
     })
     .catch(err => {
-      // Handle errors that occurred outside of the `ready` job
       if (!includes(errorsDuringReadyJob, err)) {
+        // Handle an error that occurred outside of the `ready` jobs
         emitError(err);
         errorsDuringReadyJob.push(err);
       }

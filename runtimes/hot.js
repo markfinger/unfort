@@ -28,7 +28,6 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
   if (mod.hot === undefined) {
     mod.hot = {
       accepted: false,
-      onExit: null,
       exportsProxy: {}
     };
   }
@@ -36,12 +35,8 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
   // The `module.hot` API
   if (mod.commonjs.hot === undefined) {
     mod.commonjs.hot = {
-      accept(cb) {
-        mod.hot.accepted = true;
-
-        if (_.isFunction(cb)) {
-          mod.hot.onExit = cb;
-        }
+      accept(cb=true) {
+        mod.hot.accepted = cb;
       }
     };
   }
@@ -105,8 +100,8 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
 
       if (prevMod) {
         // Trigger any callbacks associated with removing a module
-        if (prevMod.hot.onExit) {
-          prevMod.hot.onExit();
+        if (_.isFunction(prevMod.hot.accepted)) {
+          prevMod.hot.accepted();
         }
 
         // We pass the exports proxy between module states so that dependent modules
