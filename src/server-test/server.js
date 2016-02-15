@@ -19,7 +19,7 @@ import autoprefixer from 'autoprefixer';
 import promisify from 'promisify-node';
 import chalk from 'chalk';
 import {startsWith, endsWith, repeat} from 'lodash/string';
-import {pull, flatten, zipObject} from 'lodash/array';
+import {pull, flatten, zipObject, uniq} from 'lodash/array';
 import {forOwn, values, assign} from 'lodash/object';
 import {isUndefined, isObject, isNumber} from 'lodash/lang';
 import {includes} from 'lodash/collection';
@@ -82,15 +82,9 @@ let state = imm.Map({
   recordsByUrl: imm.Map()
 });
 
-function createRelativeUrl(absPath) {
-  const relPath = path.relative(sourceRoot, absPath);
-  return fileEndpoint + relPath;
-}
-
-function createRecordUrl(record) {
-  const hashedFilename = record.data.get('hashedFilename');
-  const dirname = path.dirname(record.name);
-  return createRelativeUrl(path.join(dirname, hashedFilename));
+function setState(newState) {
+  state = newState;
+  // TODO: handle request block and flushing
 }
 
 // We need to rebuild source maps for js files such that it
@@ -190,6 +184,11 @@ const records = createRecordStore({
       });
   },
   url(ref, store) {
+    function createRelativeUrl(absPath) {
+      const relPath = path.relative(sourceRoot, absPath);
+      return fileEndpoint + relPath;
+    }
+
     return store.isTextFile(ref)
       .then(isTextFile => {
         if (!isTextFile) {
@@ -526,32 +525,92 @@ function getCachedDataOrCompute(cache, key, compute) {
     });
 }
 
+// A map of directories that we're watching
+const watchedDirectories = {};
+
 const watcher = chokidar.watch([], {
-  persistent: true
+  persistent: true,
+  depth: 0
 });
 
-function handleFileChange(file) {
-  // Update the records and graph
-  records.remove(file);
+watcher.on('addDir', dirname => {
+  if (!watchedDirectories[dirname]) {
+    watchDirectory(dirname);
+  }
+
+  if (buildBlockedByErrors()) {
+    restartBuildForFailedNodes();
+  }
+});
+watcher.on('add', () => {
+  if (buildBlockedByErrors()) {
+    restartBuildForFailedNodes();
+  }
+});
+watcher.on('unlinkDir', restartBuildForFailedNodes);
+watcher.on('change', onChangeToFile);
+watcher.on('unlink', onChangeToFile);
+watcher.on('error', error => console.log(`Watcher error: ${error}`));
+
+function watchDirectory(dirname) {
+  if (startsWith(dirname, rootNodeModules)) {
+    return;
+  }
+
+  watchedDirectories[dirname] = true;
+  watcher.add(dirname);
+}
+
+function onChangeToFile(file) {
+  console.log('change to file');
+  if (graph.getState().has(file)) {
+    restartTraceOfFile(file);
+  } else if (buildBlockedByErrors()) {
+    restartBuildForFailedNodes();
+  }
+}
+
+function buildBlockedByErrors() {
+  return state.has('errors');
+}
+
+function restartBuildForFailedNodes() {
+  const errors = state.get('errors');
+  if (errors) {
+    console.log('onChangeToFileStructure with errors');
+    const nodesToRetrace = errors
+      .map(error => error.node)
+      .filter(node => node);
+
+    uniq(nodesToRetrace).forEach(node => {
+      restartTraceOfFile(node);
+    });
+  }
+}
+
+function restartTraceOfFile(file) {
+  console.log(`${chalk.bold('Retracing:')} ${file}`);
+
   const node = graph.getState().get(file);
+
+  // Remove any data associated with the file
+  records.remove(file);
+
+  // Remove the node and any edges associated with it
   graph.pruneNode(file);
+
+  // If the file is an entry point, we need to start re-tracing
+  // it directly
   if (includes(graphEntryPoints, file)) {
     graph.setNodeAsEntry(file);
     graph.traceFromNode(file);
   }
-  // Re-trace any dependents of the file
-  node.dependents.forEach(dependent => graph.traceFromNode(dependent));
+
+  // Ensure that the file's dependents are updated as well
+  node.dependents.forEach(dependent => {
+    graph.traceFromNode(dependent)
+  });
 }
-
-watcher.on('change', (file) => {
-  console.log(`\n${chalk.italic('File change:')} ${file}\n`);
-  handleFileChange(file);
-});
-
-watcher.on('unlink', (file) => {
-  console.log(`\n${chalk.italic('File unlink:')} ${file}\n`);
-  handleFileChange(file);
-});
 
 const graphEntryPoints = [runtimeFile, ...entryPoints];
 
@@ -561,14 +620,19 @@ const graph = createGraph({
       records.create(file);
     }
 
-    const watched = watcher.getWatched();
     // We reduce system load by only watching files outside
     // of the root node_modules directory
-    if (!startsWith(file, rootNodeModules)) {
-      const dirname = path.dirname(file);
-      if (!includes(watched[dirname], path.basename(file))) {
-        watcher.add(file);
+    if (startsWith(file, sourceRoot) && !startsWith(file, rootNodeModules)) {
+      const directoriesToWatch = [];
+
+      const sourceRootLength = sourceRoot.length;
+      let dirname = path.dirname(file);
+      while (!watchedDirectories[dirname] && dirname.length > sourceRootLength) {
+        directoriesToWatch.push(dirname);
+        dirname = path.dirname(dirname);
       }
+
+      directoriesToWatch.forEach(watchDirectory);
     }
 
     return records.resolvedDependencies(file)
@@ -603,6 +667,7 @@ graph.events.on('completed', ({errors}) => {
 
   if (errors.length) {
     console.log(`${chalk.bold('Errors:')} ${errors.length}`);
+    setState(state.set('errors', errors));
     return;
   }
 
@@ -618,15 +683,21 @@ graph.events.on('completed', ({errors}) => {
   console.log(chalk.bold(`\nGenerating code...`));
 
   const buildStart = (new Date()).getTime();
-  const emittedErrors = [];
+  const errorsDuringReadyJob = [];
 
   Promise.all(
     graphState.keySeq().toArray().map(name => {
       return records.ready(name)
         .catch(err => {
           emitError(err, name);
-          emittedErrors.push(err);
-          return Promise.reject(err);
+
+          const errObject = {
+            error: err,
+            node: name
+          };
+          errorsDuringReadyJob.push(errObject);
+
+          return Promise.reject(errObject);
         });
     })
   )
@@ -641,12 +712,13 @@ graph.events.on('completed', ({errors}) => {
       }
     })
     .catch(err => {
-      // Prevent errors from being emitted twice
-      if (includes(emittedErrors, err)) {
-        return;
+      // Handle errors that occurred outside of the `ready` job
+      if (!includes(errorsDuringReadyJob, err)) {
+        emitError(err);
+        errorsDuringReadyJob.push(err);
       }
 
-      emitError(err);
+      setState(state.set('errors', errorsDuringReadyJob));
     });
 });
 
@@ -677,10 +749,6 @@ function emitError(err, file) {
 
   const message = lines.join('\n');
 
-  emitErrorMessage(message);
-}
-
-function emitErrorMessage(message) {
   console.error('\n' + message);
 
   const cleanedMessage = stripAnsi(message);
@@ -693,7 +761,7 @@ function createRecordDescription(record) {
   return {
     name: record.name,
     hash: record.data.get('hash'),
-    url: createRecordUrl(record),
+    url: record.data.get('url'),
     isTextFile: record.data.get('isTextFile')
   }
 }
@@ -707,18 +775,21 @@ function emitBuild() {
   const recordsState = records.getState();
   const prevRecordsState = prevState.get('records');
 
-  state = state.merge({
-    records: recordsState,
-    graph: graphState,
-    // Maps of records so that the file endpoint can perform record look ups
-    // trivially. This saves us from having to iterate over every record
-    recordsByUrl: recordsState
-      .filter(record => !!record.data.get('url'))
-      .mapKeys((_, record) => record.data.get('url')),
-    recordsBySourceMapUrl: recordsState
-      .filter(record => !!record.data.get('sourceMapAnnotation'))
-      .mapKeys((_, record) => record.data.get('sourceMapUrl'))
-  });
+  setState(
+    state.merge({
+      records: recordsState,
+      graph: graphState,
+      // Maps of records so that the file endpoint can perform record look ups
+      // trivially. This saves us from having to iterate over every record
+      recordsByUrl: recordsState
+        .filter(record => !!record.data.get('url'))
+        .mapKeys((_, record) => record.data.get('url')),
+      recordsBySourceMapUrl: recordsState
+        .filter(record => !!record.data.get('sourceMapAnnotation'))
+        .mapKeys((_, record) => record.data.get('sourceMapUrl')),
+      errors: null
+    })
+  );
 
   // Find all nodes that were removed from the graph during
   // the build process
