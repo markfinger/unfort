@@ -552,6 +552,38 @@ watcher.on('change', onChangeToFile);
 watcher.on('unlink', onChangeToFile);
 watcher.on('error', error => console.log(`Watcher error: ${error}`));
 
+const nodeModulesWatcher = chokidar.watch([rootNodeModules], {
+  persistent: true,
+  depth: 0
+});
+
+nodeModulesWatcher.on('ready', () => {
+  nodeModulesWatcher.on('addDir', dirname => {
+    if (buildBlockedByErrors()) {
+      restartBuildForFailedNodes();
+    }
+  });
+
+  nodeModulesWatcher.on('unlinkDir', dirname => {
+    const nodesImpactingOthers = [];
+
+    graph.getState().forEach((node, name) => {
+      if (startsWith(name, dirname)) {
+        node.dependents.forEach(dependentName => {
+          if (
+            !startsWith(dependentName, rootNodeModules) ||
+            !startsWith(dependentName, dirname)
+          ) {
+            nodesImpactingOthers.push(name);
+          }
+        });
+      }
+    });
+
+    uniq(nodesImpactingOthers).forEach(restartTraceOfFile);
+  });
+});
+
 function watchDirectory(dirname) {
   if (startsWith(dirname, rootNodeModules)) {
     return;
