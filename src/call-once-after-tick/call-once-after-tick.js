@@ -1,6 +1,3 @@
-module.exports = callOnceAfterTick;
-module.exports.callOnceAfterTick = callOnceAfterTick;
-
 /**
  * Enables multiple call-sites to enqueue a function call that will
  * occur both asynchronously and only once per tick.
@@ -8,7 +5,7 @@ module.exports.callOnceAfterTick = callOnceAfterTick;
  * @param {Function} fn
  * @returns {Function}
  */
-function callOnceAfterTick(fn) {
+module.exports = function callOnceAfterTick(fn) {
   var latestCallId;
   return function callOnceAfterTickInner() {
     var callId = {};
@@ -22,4 +19,4 @@ function callOnceAfterTick(fn) {
       fn();
     });
   };
-}
+};

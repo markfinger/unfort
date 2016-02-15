@@ -1,8 +1,4 @@
-import {clone} from 'lodash/lang';
-import {forOwn} from 'lodash/object';
-import {pull} from 'lodash/array';
-import {contains} from 'lodash/collection';
-import {Record, List, Set} from 'immutable';
+import {Record, Set} from 'immutable';
 
 export const Node = Record({
   name: '',

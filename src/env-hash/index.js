@@ -1,4 +1,4 @@
 export {
   envHash as default,
-  envHash,
+  envHash
 } from './env-hash';

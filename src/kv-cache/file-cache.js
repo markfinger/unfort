@@ -3,7 +3,7 @@ import path from 'path';
 import EventEmitter from 'events';
 import mkdirp from 'mkdirp';
 import promisify from 'promisify-node';
-import {isString, isObject} from 'lodash/lang';
+import {isString} from 'lodash/lang';
 import {generateMurmurHash} from './utils';
 
 const readFile = promisify(fs.readFile);
@@ -115,9 +115,8 @@ export function createFileCache(dirname, options={}) {
    * Note: writes to memory are synchronous, writes to disk are asynchronous.
    *
    * @param {String} key
-   * @param {Function} [cb]
    */
-  function invalidate(key, cb) {
+  function invalidate(key) {
     const filename = path.join(dirname, generateHash(key) + '.json');
 
     // Ensure that the in-memory cache is fresh

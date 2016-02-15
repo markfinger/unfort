@@ -2,7 +2,6 @@ import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import socketIo from 'socket.io';
-import async from 'async';
 import sourceMapSupport from 'source-map-support';
 import express from 'express';
 import * as mimeTypes from 'mime-types';
@@ -18,20 +17,17 @@ import postcss from 'postcss';
 import autoprefixer from 'autoprefixer';
 import promisify from 'promisify-node';
 import chalk from 'chalk';
-import {startsWith, endsWith, repeat} from 'lodash/string';
-import {pull, flatten, zipObject, uniq} from 'lodash/array';
-import {forOwn, values, assign} from 'lodash/object';
-import {isUndefined, isObject, isNumber} from 'lodash/lang';
+import {startsWith, endsWith} from 'lodash/string';
+import {pull, zipObject, uniq} from 'lodash/array';
+import {values, assign} from 'lodash/object';
 import {includes} from 'lodash/collection';
 import envHash from '../env-hash';
 import babylonAstDependencies from '../babylon-ast-dependencies';
 import postcssAstDependencies from '../postcss-ast-dependencies';
-import {nodeCoreLibs} from '../utils/node-core-libs';
+import browserifyBuiltins from 'browserify/lib/builtins';
 import browserResolve from 'browser-resolve';
 import {createFileCache} from '../kv-cache';
-import {
-  createGraph, getNewNodesFromDiff, getPrunedNodesFromDiff, mergeDiffs, resolveExecutionOrder
-} from '../cyclic-dependency-graph';
+import {createGraph, resolveExecutionOrder} from '../cyclic-dependency-graph';
 import createRecordStore from '../record-store';
 
 sourceMapSupport.install();
@@ -219,7 +215,7 @@ const records = createRecordStore({
       return null;
     });
   },
-  postcssPlugins(ref, store) {
+  postcssPlugins() {
     // Finds any `@import ...` and `url(...)` identifiers and
     // annotates the result object
     const analyzeDependencies = postcss.plugin('unfort-analyze-dependencies', () => {
@@ -363,7 +359,7 @@ const records = createRecordStore({
     return {
       basedir: path.dirname(ref.name),
       extensions: ['.js', '.json'],
-      modules: nodeCoreLibs
+      modules: browserifyBuiltins
     };
   },
   resolvePathDependencies(ref, store) {
@@ -553,7 +549,7 @@ const nodeModulesWatcher = chokidar.watch([rootNodeModules], {
 });
 
 nodeModulesWatcher.on('ready', () => {
-  nodeModulesWatcher.on('addDir', dirname => {
+  nodeModulesWatcher.on('addDir', () => {
     if (buildBlockedByErrors()) {
       restartBuildForFailedNodes();
     }
@@ -762,7 +758,9 @@ function emitError(err, file) {
     let text;
     try {
       text = fs.readFileSync(file, 'utf8');
-    } catch (err) {}
+    } catch (err) {
+      // Ignore the error
+    }
     if (text) {
       err.codeFrame = babelCodeFrame(text, err.loc.line, err.loc.column);
     }

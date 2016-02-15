@@ -1,16 +1,15 @@
 import EventEmitter from 'events';
-import {Map, is} from 'immutable';
+import {Map} from 'immutable';
 import {isArray} from 'lodash/lang';
-import {pull, unique} from 'lodash/array';
-import {contains} from 'lodash/collection';
-import {callOnceAfterTick} from '../utils/call-once-after-tick';
+import {pull} from 'lodash/array';
+import callOnceAfterTick from '../call-once-after-tick/call-once-after-tick';
 import {
   addNode, addEdge, removeEdge, removeNode, defineEntryNode,
   findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
 } from './node';
 import {Diff} from './diff';
 
-export function createGraph({state=Map(), getDependencies, trackStats=false}={}) {
+export function createGraph({state=Map(), getDependencies}={}) {
   const events = new EventEmitter;
   const pendingJobs = [];
   let previousCompleteState = state;

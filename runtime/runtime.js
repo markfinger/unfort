@@ -28,7 +28,7 @@
   __modules.extendModule = function extendModuleObject(mod) {
     // A flag that we use to prevent multiple executions of a module
     // when cyclic dependencies are encountered
-    if (mod.executed = undefined) {
+    if (mod.executed === undefined) {
       mod.executed = false;
     }
 

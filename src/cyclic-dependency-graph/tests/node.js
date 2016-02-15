@@ -1,5 +1,5 @@
 import {difference} from 'lodash/array';
-import {Map, List, Set} from 'immutable';
+import {Map, Set} from 'immutable';
 import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies} from '../node';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';

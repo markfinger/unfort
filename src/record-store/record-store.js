@@ -1,6 +1,6 @@
 import path from 'path';
 import {forOwn} from 'lodash/object';
-import {isString, isObject, isFunction, isUndefined} from 'lodash/lang';
+import {isString, isFunction, isUndefined} from 'lodash/lang';
 import imm from 'immutable';
 import {
   createIntercept, isIntercept, isRecordRemovedIntercept, isRecordInvalidIntercept
@@ -55,7 +55,7 @@ export function createRecordStore(functions={}) {
     }
 
     Object.defineProperty(store, key, {
-      value: createRequestHandler(key, value),
+      value: createRequestHandler(key),
       enumerable: true
     });
 
@@ -64,7 +64,7 @@ export function createRecordStore(functions={}) {
     });
   });
 
-  function createRequestHandler(propName, func) {
+  function createRequestHandler(propName) {
     return function requestHandler(name) {
       throwIfUnknownRecord(state, name);
 

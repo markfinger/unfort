@@ -1,4 +1,4 @@
-import {Record, Map, is} from 'immutable';
+import {Record, is} from 'immutable';
 
 export const Diff = Record({
   from: null,

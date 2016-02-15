@@ -1,10 +1,8 @@
 import path from 'path';
 import fs from 'fs';
-import async from 'async';
 import murmur from 'imurmurhash';
 import {zip, flatten} from 'lodash/array';
 import {assign} from 'lodash/object';
-import {isFunction, isObject} from 'lodash/lang';
 
 export function join(root, file) {
   if (path.isAbsolute(file)) {

@@ -1,7 +1,4 @@
-import path from 'path';
-import rimraf from 'rimraf';
 import {assert} from '../../utils/assert';
-import {createFileCache} from '../file-cache';
 import {createMockCache} from '../mock-cache';
 
 describe('mock-cache', () => {

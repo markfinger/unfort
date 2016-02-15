@@ -1,4 +1,4 @@
-import {Map, List, Set} from 'immutable';
+import {Map, Set} from 'immutable';
 import {Node} from '../node';
 import {createNodesFromNotation, resolveExecutionOrder} from '../utils';
 import {assert} from '../../utils/assert';

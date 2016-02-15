@@ -1,4 +1,3 @@
-import {Map, Set} from 'immutable';
 import {Diff, mergeDiffs, getNewNodesFromDiff, getPrunedNodesFromDiff, getChangedNodes} from '../diff';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';

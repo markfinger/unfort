@@ -1,6 +1,6 @@
 export {
   createRecordStore as default,
-  createRecordStore,
+  createRecordStore
 } from './record-store';
 
 export {

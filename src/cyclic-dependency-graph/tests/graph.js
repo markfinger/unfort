@@ -1,8 +1,8 @@
 import EventEmitter from 'events';
-import {Map, Set} from 'immutable';
+import {Map} from 'immutable';
 import {isNodePending, isNodeDefined, createGraph} from '../graph';
-import {Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode} from '../node';
-import {Diff, getPrunedNodesFromDiff, getChangedNodes} from '../diff';
+import {Node, defineEntryNode} from '../node';
+import {getPrunedNodesFromDiff, getChangedNodes} from '../diff';
 import {createNodesFromNotation} from '../utils';
 import {assert} from '../../utils/assert';
 

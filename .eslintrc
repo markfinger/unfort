@@ -1,6 +1,8 @@
 {
   "parser": "babel-eslint",
+  "extends": "eslint:recommended",
   "rules": {
+    "no-console": 0,
     "strict": 0,
     "semi": [2, "always"],
     "quotes": [2, "single"]
@@ -10,6 +12,11 @@
     "node": true
   },
   "globals": {
-    "__modules": true
+    "__modules": true,
+    "describe": true,
+    "it": true,
+    "beforeEach": true,
+    "after": true,
+    "Promise": true
   }
 }
