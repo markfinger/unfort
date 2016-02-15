@@ -140,7 +140,9 @@ export function createRecordStore(functions={}) {
           // to return a value
           if (isUndefined(data)) {
             return Promise.reject(
-              new Error(`Job "${propName}" returned undefined for file "${ref.name}"`)
+              new Error(
+                `Job "${propName}" returned undefined for file "${ref.name}". All jobs must resolve to a value other than undefined`
+              )
             );
           }
 
