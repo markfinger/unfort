@@ -17,10 +17,8 @@ module.hot.exit(() => {
   clearInterval(interval);
   return main;
 });
-module.hot.changes(() => {
-  console.log('changes');
-  init();
-});
+
+module.hot.changes(init);
 
 init();
 

@@ -1,5 +1,7 @@
 import React from 'react';
 
+module.hot.accept();
+
 export class Counter extends React.Component {
   constructor(props) {
     super(props);
