@@ -141,6 +141,11 @@ export function createGraph({state=Map(), getDependencies, trackStats=false}={})
         // Indicate that this job is no longer blocking the `completed` stage
         pull(pendingJobs, job);
 
+        // If the job has been invalidated, we ignore the error
+        if (!job.isValid) {
+          return;
+        }
+
         const signal = {
           error: err,
           node: name,
