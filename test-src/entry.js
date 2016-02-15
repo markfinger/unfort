@@ -10,15 +10,28 @@ const interval = setInterval(() => {
   console.log('test', test, 'styles', styles, 'json_test.foo', json_test.foo, 'testpng', testpng)
 }, 250);
 
-const main = document.createElement('div');
-document.body.appendChild(main);
+let main;
 
-ReactDOM.render(
-  <Counter initialCount={0} />,
-  main
-);
-
-module.hot.accept(() => {
+module.hot.enter(el => main = el);
+module.hot.exit(() => {
   clearInterval(interval);
-  main.parentNode.removeChild(main);
+  return main;
 });
+module.hot.changes(() => {
+  console.log('changes');
+  init();
+});
+
+init();
+
+function init() {
+  if (!main) {
+    main = document.createElement('div');
+    document.body.appendChild(main);
+  }
+
+  ReactDOM.render(
+    <Counter initialCount={0} />,
+    main
+  );
+}

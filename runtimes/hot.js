@@ -11,6 +11,12 @@ if (!_.isFunction(Object.getPrototypeOf)) {
 
 __modules.hotSwapExportReferences = Object.create(null);
 
+let log = console.log.bind(console);
+if (true) {
+//if (global.SILENT_HOT_RUNTIME) {
+  log = () => {};
+}
+
 // Before we start monkey-patching the runtime, we need to preserve some references
 const extendModule = __modules.extendModule;
 const defineModule = __modules.defineModule;
@@ -19,24 +25,53 @@ const defineModule = __modules.defineModule;
 __modules.extendModule = function extendModuleHotWrapper(mod) {
   mod = extendModule(mod);
 
-  // The previous state of the module
-  if (mod.previousState === undefined) {
-    mod.previousState = null;
-  }
-
   // State associated with swapping the module
   if (mod.hot === undefined) {
     mod.hot = {
-      accepted: false,
-      exportsProxy: {}
+      // The previous state of the module
+      previous: null,
+      exportsProxy: {},
+      accepted: true,
+      acceptedCallback: null,
+      onExit: null,
+      exitData: undefined,
+      onChanges: null
     };
   }
 
   // The `module.hot` API
   if (mod.commonjs.hot === undefined) {
     mod.commonjs.hot = {
-      accept(cb=true) {
-        mod.hot.accepted = cb;
+      accept(cb) {
+        mod.hot.accepted = true;
+
+        if (_.isFunction(cb)) {
+          mod.hot.acceptedCallback = cb;
+        }
+      },
+      enter(cb) {
+        if (!_.isFunction(cb)) {
+          throw new Error(`module.hot.enter must be provided with a function. Received: ${cb}`);
+        }
+
+        const prevMod = mod.hot.previous;
+        if (prevMod) {
+          return cb(prevMod.hot.exitData);
+        }
+      },
+      exit(cb) {
+        mod.hot.accepted = true;
+
+        if (!_.isFunction(cb)) {
+          throw new Error(`module.hot.exit must be provided with a function. Received: ${cb}`);
+        }
+        mod.hot.onExit = cb;
+      },
+      changes(cb) {
+        if (!_.isFunction(cb)) {
+          throw new Error(`module.hot.changes must be provided with a function. Received: ${cb}`);
+        }
+        mod.hot.onChanges = cb;
       }
     };
   }
@@ -64,14 +99,14 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
 
   // Prevent unexpected modules from being applied
   if (__modules.pending[name] === undefined) {
-    return console.log(
+    return log(
       `[hot] Attempted to add module "${name}", but it is not registered as pending and will be ignored`
     );
   }
 
   // Prevent an unexpected version from being applied
   if (__modules.pending[name] !== hash) {
-    return console.log(
+    return log(
       `[hot] Unexpected update for module ${name}. Hash ${hash} does not reflect the expected hash ${__modules.pending[name]} and will be ignored`
     );
   }
@@ -85,7 +120,10 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
     const _buffered = __modules.buffered;
     __modules.buffered = [];
 
+    const modulesSwapped = Object.create(null);
+
     const toSwap = _buffered.map(mod => {
+      modulesSwapped[mod.name] = true;
       return [mod, __modules.modules[mod.name]];
     });
 
@@ -93,25 +131,35 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
       const {name, hash} = mod;
 
       if (prevMod) {
-        console.log(`[hot] Hot swapping ${name} from hash ${prevMod.hash} to hash ${hash}`);
+        log(`[hot] Hot swapping ${name} from hash ${prevMod.hash} to hash ${hash}`);
       } else {
-        console.log(`[hot] Initializing ${name} at hash ${hash}`);
+        log(`[hot] Initializing ${name} at hash ${hash}`);
       }
 
+      log('prevMod', mod, prevMod)
       if (prevMod) {
         // Trigger any callbacks associated with removing a module
-        if (_.isFunction(prevMod.hot.accepted)) {
-          prevMod.hot.accepted();
+        if (prevMod.hot.acceptedCallback) {
+          prevMod.hot.acceptedCallback();
+        }
+        if (prevMod.hot.onExit) {
+          prevMod.hot.exitData = prevMod.hot.onExit();
+          log('exitData', prevMod.hot.exitData);
+        }
+
+        // Prevent memory leaks by clearing the reference to
+        // the previous module
+        if (prevMod.hot.previous) {
+          prevMod.hot.previous = null;
         }
 
         // We pass the exports proxy between module states so that dependent modules
         // have their references updated when we swap
         mod.hot.exportsProxy = prevMod.hot.exportsProxy;
 
-        // We store the previous version of the module mostly as an escape hatch in
-        // case we ever want to introspect state or do some extra crazy things during
-        // the swapping process
-        mod.previousState = prevMod;
+        // Store the previous version of the module so that the next version
+        // can introspect it
+        mod.hot.previous = prevMod;
       }
 
       // Update the runtime's module registry
@@ -125,6 +173,12 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
       // called yet
       if (!mod.executed) {
         __modules.executeModule(mod.name);
+      }
+    });
+
+    _.forOwn(__modules.modules, mod => {
+      if (!modulesSwapped[mod.name] && mod.hot.onChanges) {
+        mod.hot.onChanges();
       }
     });
   }
@@ -155,11 +209,11 @@ __modules.executeModule = function executeModuleHotWrapper(name) {
 const io = socketIoClient();
 
 io.on('connect', () => {
-  console.log('[hot] Connected');
+  log('[hot] Connected');
 });
 
 io.on('build:started', () => {
-  console.log('[hot] Build started');
+  log('[hot] Build started');
 });
 
 io.on('build:error', err => {
@@ -231,11 +285,11 @@ io.on('build:complete', ({records, removed}) => {
       // Ensure that the asset is removed from the document
       removeRecordAssetFromDocument(record);
     });
-    console.log(`[hot] Removed modules:\n${modulesToRemove.join('\n')}`);
+    log(`[hot] Removed modules:\n${modulesToRemove.join('\n')}`);
   }
 
   if (!accepted.length) {
-    return console.log('[hot] No updates to apply');
+    return log('[hot] No updates to apply');
   }
 
   accepted.forEach(name => {
