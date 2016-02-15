@@ -59,7 +59,7 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 const sockets = [];
-io.on('connection', (socket) => {
+io.on('connection', socket => {
   sockets.push(socket);
   socket.on('disconnect', () => {
     pull(sockets, socket);
@@ -80,7 +80,29 @@ let state = imm.Map({
 
 function setState(newState) {
   state = newState;
-  // TODO: handle request block and flushing
+}
+
+let isBuildComplete = false;
+let buildPendingCallbacks = [];
+function onBuildCompleted(cb) {
+  if (isBuildComplete) {
+    cb();
+  } else {
+    buildPendingCallbacks.push(cb);
+  }
+}
+
+function signalBuildStarted() {
+  isBuildComplete = false;
+}
+
+function signalBuildCompleted() {
+  isBuildComplete = true;
+
+  const _buildPendingCallbacks = buildPendingCallbacks;
+  buildPendingCallbacks = [];
+
+  _buildPendingCallbacks.forEach(cb => cb());
 }
 
 // We need to rebuild source maps for js files such that it
@@ -88,10 +110,11 @@ function setState(newState) {
 // maps are slow to both consume and generate. However, given
 // that we know our call to the runtime only consumes one line,
 // we can take advantage of the line offset character in source
-// maps to simply offset everything. For context, source maps
-// are encoded with Base64 and variable length quantity, and
-// semicolons are used to indicate line offset. Hence, we can
-// just prepend a semi-colon
+// maps to simply offset everything.
+//
+// For context, source maps are encoded such that that semicolons
+// are used to indicate line offset. Hence, we can just prepend
+// a semi-colon to achieve the desired effect
 const JS_MODULE_SOURCE_MAP_LINE_OFFSET = ';';
 
 function createJSModule({name, deps, hash, code}) {
@@ -488,12 +511,12 @@ const records = createRecordStore({
                 store.readText(ref),
                 store.hash(ref)
               ]).then(([text, hash]) => {
-                let code;
+                let jsModuleCode;
                 if (startsWith(ref.name, rootNodeModules)) {
-                  code = `module.exports = ${text};`;
+                  jsModuleCode = `module.exports = ${text};`;
                 } else {
                   // We fake babel's commonjs shim so that hot swapping can occur
-                  code = `
+                  jsModuleCode = `
                     var json = ${text};
                     exports.default = json;
                     exports.__esModule = true;
@@ -503,14 +526,14 @@ const records = createRecordStore({
                   `;
                 }
 
-                const jsModule = createJSModule({
+                const code = createJSModule({
                   name: ref.name,
                   deps: {},
                   hash,
-                  code
+                  code: jsModuleCode
                 });
 
-                data.code = jsModule;
+                data.code = code;
 
                 return code;
               });
@@ -743,6 +766,8 @@ const graph = createGraph({
 
 let traceStart;
 graph.events.on('started', () => {
+  signalBuildStarted();
+
   traceStart = (new Date()).getTime();
 
   sockets.forEach(socket => socket.emit('build:started'));
@@ -767,7 +792,8 @@ graph.events.on('completed', ({errors}) => {
   if (errors.length) {
     console.log(`${chalk.bold('Errors:')} ${errors.length}`);
     setState(state.set('errors', errors));
-    return;
+    console.log(repeat('-', 80));
+    return signalBuildCompleted();
   }
 
   console.log(`${chalk.bold('Trace elapsed:')} ${elapsed}ms`);
@@ -820,10 +846,21 @@ graph.events.on('completed', ({errors}) => {
       setState(state.set('errors', errorsDuringReadyJob));
 
       console.log(repeat('-', 80));
+
+      signalBuildCompleted();
     });
 });
 
 function emitError(err, file) {
+  const message = buildErrorMessage(err, file);
+
+  console.error('\n' + message);
+
+  const cleanedMessage = stripAnsi(message);
+  sockets.forEach(socket => socket.emit('build:error', cleanedMessage));
+}
+
+function buildErrorMessage(err, file) {
   const lines = [];
 
   if (file) {
@@ -850,12 +887,19 @@ function emitError(err, file) {
 
   lines.push(err.stack);
 
-  const message = lines.join('\n');
+  return lines.join('\n');
+}
 
-  console.error('\n' + message);
-
-  const cleanedMessage = stripAnsi(message);
-  sockets.forEach(socket => socket.emit('build:error', cleanedMessage));
+function describeBuildErrors(errors) {
+  return errors
+    .map(obj => {
+      if (obj instanceof Error) {
+        return buildErrorMessage(obj);
+      } else {
+        return buildErrorMessage(obj.error, obj.node);
+      }
+    })
+    .join('\n');
 }
 
 function createRecordDescription(record) {
@@ -966,92 +1010,128 @@ function emitBuild() {
       // We should provide some form of visual indication that the build
       // has finished
       console.log(repeat('-', 80));
+
+      signalBuildCompleted();
     });
 }
 
 app.get('/', (req, res) => {
-  const records = state.get('records');
-  const graph = state.get('graph');
+  onBuildCompleted(() => {
+    const errors = state.get('errors');
+    if (errors) {
+      let message = describeBuildErrors(errors);
+      message = stripAnsi(message);
+      return res.status(500).end(message);
+    }
 
-  const scripts = [];
-  const styles = [];
-  const shimModules = [];
+    const records = state.get('records');
+    const graph = state.get('graph');
 
-  const runtimeUrl = records.get(bootstrapRuntime).data.get('url');
+    const scripts = [];
+    const styles = [];
+    const shimModules = [];
 
-  const executionOrder = resolveExecutionOrder(graph, entryPoints);
+    const runtimeUrl = records.get(bootstrapRuntime).data.get('url');
 
-  // For non-js assets, we inject shims that expose the asset's
-  // url, enabling JS assets to consume them. These module shims
-  // also play an important role in enabling the hot runtime to
-  // reconcile state changes between builds
-  function createShimModule(record) {
-    const url = record.data.get('url');
+    const executionOrder = resolveExecutionOrder(graph, entryPoints);
 
-    let code;
-    if (startsWith(record.name, rootNodeModules)) {
-      code = `module.exports = ${JSON.stringify(url)}`;
-    } else {
-      code = `\
+    // For non-js assets, we inject shims that expose the asset's
+    // url, enabling JS assets to consume them. These module shims
+    // also play an important role in enabling the hot runtime to
+    // reconcile state changes between builds
+    function createShimModule(record) {
+      const url = record.data.get('url');
+
+      let code;
+      if (startsWith(record.name, rootNodeModules)) {
+        code = `module.exports = ${JSON.stringify(url)}`;
+      } else {
+        code = `\
         exports.default = ${JSON.stringify(url)};
         exports.__esModule = true;
         if (module.hot) {
           module.hot.accept();
         }`;
+      }
+
+      shimModules.push(
+        createJSModule({
+          name: record.name,
+          deps: {},
+          hash: record.data.get('hash'),
+          code
+        })
+      );
     }
 
-    shimModules.push(
-      createJSModule({
-        name: record.name,
-        deps: {},
-        hash: record.data.get('hash'),
-        code
-      })
-    );
-  }
+    executionOrder.forEach(name => {
+      const record = records.get(name);
+      const hashedFilename = record.data.get('hashedFilename');
+      const url = record.data.get('url');
+      const ext = path.extname(hashedFilename);
 
-  executionOrder.forEach(name => {
-    const record = records.get(name);
-    const hashedFilename = record.data.get('hashedFilename');
-    const url = record.data.get('url');
-    const ext = path.extname(hashedFilename);
+      if (ext === '.css') {
+        styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
+        createShimModule(record);
+      }
 
-    if (ext === '.css') {
-      styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
-      createShimModule(record);
-    }
+      if (
+        (ext === '.js' && record.name !== bootstrapRuntime) ||
+        ext === '.json'
+      ) {
+        scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
+      }
 
-    if (
-      (ext === '.js' && record.name !== bootstrapRuntime) ||
-      ext === '.json'
-    ) {
-      scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
-    }
+      if (!record.data.get('isTextFile')) {
+        createShimModule(record);
+      }
+    });
 
-    if (!record.data.get('isTextFile')) {
-      createShimModule(record);
-    }
+    const entryPointsInit = entryPoints.map(file => {
+      return `__modules.executeModule(${JSON.stringify(file)});`;
+    });
+
+    res.end(`
+      <html>
+      <head>
+        ${styles.join('\n')}
+      </head>
+      <body>
+        <script src="${runtimeUrl}"></script>
+        ${scripts.join('\n')}
+        <script>
+          ${shimModules.join('\n')}
+          ${entryPointsInit.join('\n')}
+        </script>
+      </body>
+      </html>
+    `);
   });
+});
 
-  const entryPointsInit = entryPoints.map(file => {
-    return `__modules.executeModule(${JSON.stringify(file)});`;
+app.get(fileEndpoint + '*', (req, res) => {
+  onBuildCompleted(() => {
+    const errors = state.get('errors');
+    if (errors) {
+      let message = describeBuildErrors(errors);
+      message = stripAnsi(message);
+      return res.status(500).end(message);
+    }
+
+    const url = req.path;
+
+    const record = state.get('recordsByUrl').get(url);
+    if (record) {
+      return writeRecordToStream(record, res);
+    }
+
+    const sourceMapRecord = state.get('recordsBySourceMapUrl').get(url);
+    if (sourceMapRecord) {
+      return writeSourceMapToStream(sourceMapRecord, res);
+    }
+
+    return res.status(404).send('Not found');
   });
-
-  res.end(`
-    <html>
-    <head>
-      ${styles.join('\n')}
-    </head>
-    <body>
-      <script src="${runtimeUrl}"></script>
-      ${scripts.join('\n')}
-      <script>
-        ${shimModules.join('\n')}
-        ${entryPointsInit.join('\n')}
-      </script>
-    </body>
-    </html>
-  `);
 });
 
 function writeRecordToStream(record, stream) {
@@ -1078,22 +1158,6 @@ function writeSourceMapToStream(record, stream) {
   const sourceMap = record.data.get('sourceMap');
   stream.end(sourceMap);
 }
-
-app.get(fileEndpoint + '*', (req, res) => {
-  const url = req.path;
-
-  const record = state.get('recordsByUrl').get(url);
-  if (record) {
-    return writeRecordToStream(record, res);
-  }
-
-  const sourceMapRecord = state.get('recordsBySourceMapUrl').get(url);
-  if (sourceMapRecord) {
-    return writeSourceMapToStream(sourceMapRecord, res);
-  }
-
-  return res.status(404).send('Not found');
-});
 
 // Start the build
 envHash({files: [__filename, 'package.json']}).then(hash => {
