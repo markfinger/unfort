@@ -1041,19 +1041,20 @@ app.get('/', (req, res) => {
     // url, enabling JS assets to consume them. These module shims
     // also play an important role in enabling the hot runtime to
     // reconcile state changes between builds
-    function createShimModule(record) {
+    function addShimModule(record) {
       const url = record.data.url;
 
       let code;
       if (startsWith(record.name, rootNodeModules)) {
         code = `module.exports = ${JSON.stringify(url)}`;
       } else {
-        code = `\
-        exports.default = ${JSON.stringify(url)};
-        exports.__esModule = true;
-        if (module.hot) {
-          module.hot.accept();
-        }`;
+        code = (
+          `exports.default = ${JSON.stringify(url)};
+          exports.__esModule = true;
+          if (module.hot) {
+            module.hot.accept();
+          }`
+        );
       }
 
       shimModules.push(
@@ -1074,7 +1075,7 @@ app.get('/', (req, res) => {
 
       if (ext === '.css') {
         styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
-        createShimModule(record);
+        addShimModule(record);
       }
 
       if (
@@ -1085,7 +1086,7 @@ app.get('/', (req, res) => {
       }
 
       if (!record.data.isTextFile) {
-        createShimModule(record);
+        addShimModule(record);
       }
     });
 
