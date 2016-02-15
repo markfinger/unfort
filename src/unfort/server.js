@@ -907,9 +907,9 @@ function createRecordDescription(record) {
   // can consume
   return {
     name: record.name,
-    hash: record.data.get('hash'),
-    url: record.data.get('url'),
-    isTextFile: record.data.get('isTextFile')
+    hash: record.data.hash,
+    url: record.data.url,
+    isTextFile: record.data.isTextFile
   };
 }
 
@@ -948,11 +948,11 @@ function emitBuild() {
       // Maps of records so that the file endpoint can perform record look ups
       // trivially. This saves us from having to iterate over every record
       recordsByUrl: recordsState
-        .filter(record => Boolean(record.data.get('url')))
-        .mapKeys((_, record) => record.data.get('url')),
+        .filter(record => Boolean(record.data.url))
+        .mapKeys((_, record) => record.data.url),
       recordsBySourceMapUrl: recordsState
-        .filter(record => Boolean(record.data.get('sourceMapAnnotation')))
-        .mapKeys((_, record) => record.data.get('sourceMapUrl')),
+        .filter(record => Boolean(record.data.sourceMapAnnotation))
+        .mapKeys((_, record) => record.data.sourceMapUrl),
       errors: null
     })
   );
@@ -1031,7 +1031,7 @@ app.get('/', (req, res) => {
     const styles = [];
     const shimModules = [];
 
-    const runtimeUrl = records.get(bootstrapRuntime).data.get('url');
+    const runtimeUrl = records.get(bootstrapRuntime).data.url;
 
     const executionOrder = resolveExecutionOrder(graph, entryPoints);
 
@@ -1040,7 +1040,7 @@ app.get('/', (req, res) => {
     // also play an important role in enabling the hot runtime to
     // reconcile state changes between builds
     function createShimModule(record) {
-      const url = record.data.get('url');
+      const url = record.data.url;
 
       let code;
       if (startsWith(record.name, rootNodeModules)) {
@@ -1058,7 +1058,7 @@ app.get('/', (req, res) => {
         createJSModule({
           name: record.name,
           deps: {},
-          hash: record.data.get('hash'),
+          hash: record.data.hash,
           code
         })
       );
@@ -1066,8 +1066,8 @@ app.get('/', (req, res) => {
 
     executionOrder.forEach(name => {
       const record = records.get(name);
-      const hashedFilename = record.data.get('hashedFilename');
-      const url = record.data.get('url');
+      const hashedFilename = record.data.hashedFilename;
+      const url = record.data.url;
       const ext = path.extname(hashedFilename);
 
       if (ext === '.css') {
@@ -1082,7 +1082,7 @@ app.get('/', (req, res) => {
         scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
       }
 
-      if (!record.data.get('isTextFile')) {
+      if (!record.data.isTextFile) {
         createShimModule(record);
       }
     });
@@ -1135,15 +1135,15 @@ app.get(fileEndpoint + '*', (req, res) => {
 });
 
 function writeRecordToStream(record, stream) {
-  const mimeType = mimeTypes.lookup(record.data.get('hashedFilename'));
+  const mimeType = mimeTypes.lookup(record.data.hashedFilename);
   if (mimeType) {
     stream.contentType(mimeType);
   }
 
-  if (record.data.get('isTextFile')) {
-    stream.write(record.data.get('code'));
+  if (record.data.isTextFile) {
+    stream.write(record.data.code);
 
-    const sourceMapAnnotation = record.data.get('sourceMapAnnotation');
+    const sourceMapAnnotation = record.data.sourceMapAnnotation;
     if (sourceMapAnnotation) {
       stream.write(sourceMapAnnotation);
     }
@@ -1155,7 +1155,7 @@ function writeRecordToStream(record, stream) {
 }
 
 function writeSourceMapToStream(record, stream) {
-  const sourceMap = record.data.get('sourceMap');
+  const sourceMap = record.data.sourceMap;
   stream.end(sourceMap);
 }
 

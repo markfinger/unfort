@@ -130,7 +130,7 @@ describe('record-store/record-store', () => {
         () => createRecordStore({
           create: () => {}
         }),
-        'Property name "create" conflicts with the record store\'s API'
+        'Job name "create" conflicts with the record store\'s API'
       );
     });
     it('should reject if a job does not return a value', () => {
@@ -145,21 +145,31 @@ describe('record-store/record-store', () => {
         /Job "foo" returned undefined for file "bar"/
       );
     });
-    it('should apply resolved data to a Record\'s `data` map', () => {
+    it('should apply resolved data to a RecordData object available as a `data` prop', () => {
       const store = createRecordStore({
         foo: () => {
           return Promise.resolve('foo');
+        },
+        bar: () => {
+          return Promise.resolve('bar');
         }
       });
 
-      store.create('bar');
+      store.create('test');
 
-      return assert.isFulfilled(
-        store.foo('bar').then(() => {
-          const record = store.get('bar');
-          assert.equal(record.data.get('foo'), 'foo');
+      //return assert.isFulfilled(
+        return store.foo('test').then(() => {
+          const record = store.get('test');
+          assert.equal(record.data.foo, 'foo');
+          assert.isNull(record.data.bar);
+
+          store.bar('test').then(() => {
+            const record = store.get('test');
+            assert.equal(record.data.foo, 'foo');
+            assert.equal(record.data.bar, 'bar');
+          });
         })
-      );
+      //);
     });
   });
 });

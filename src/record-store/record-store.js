@@ -1,6 +1,7 @@
 import path from 'path';
+import {includes} from 'lodash/collection';
 import {forOwn} from 'lodash/object';
-import {isString, isFunction, isUndefined} from 'lodash/lang';
+import {isString, isFunction, isUndefined, isNull} from 'lodash/lang';
 import imm from 'immutable';
 import {
   createIntercept, isIntercept, isRecordRemovedIntercept, isRecordInvalidIntercept
@@ -9,7 +10,7 @@ import {
 export const Record = imm.Record({
   name: null,
   reference: null,
-  data: imm.Map(),
+  data: null,
   jobs: imm.Map()
 });
 
@@ -45,6 +46,9 @@ export function createRecordStore(jobs = {}) {
 
   const jobStore = {};
 
+  // The properties that are exposed on `Record.data` objects
+  const recordDataAPI = {};
+
   forOwn(jobs, (func, jobName) => {
     if (!isFunction(func)) {
       throw new Error(`Properties should only be functions. Received \`${jobName}: ${func}\``);
@@ -53,6 +57,12 @@ export function createRecordStore(jobs = {}) {
     if (store.hasOwnProperty(jobName)) {
       throw new Error(`Job name "${jobName}" conflicts with the record store's API`);
     }
+
+    if (includes(['set', 'get', 'has'], jobName)) {
+      throw new Error(`Job name "${jobName}" conflicts with the record data API`);
+    }
+
+    recordDataAPI[jobName] = null;
 
     Object.defineProperty(store, jobName, {
       value: createRequestHandler(jobName),
@@ -63,6 +73,8 @@ export function createRecordStore(jobs = {}) {
       value: createJobHandler(jobName, func)
     });
   });
+
+  const RecordData = imm.Record(recordDataAPI);
 
   function createRequestHandler(jobName) {
     return function requestHandler(name) {
@@ -148,7 +160,10 @@ export function createRecordStore(jobs = {}) {
 
           // Update the `data` property of the record
           const latestRecord = state.get(record.name);
-          const recordData = latestRecord.get('data');
+          let recordData = latestRecord.get('data');
+          if (isNull(recordData)) {
+            recordData = RecordData();
+          }
           const updatedRecordData = recordData.set(propName, data);
           const updatedRecord = latestRecord.set('data', updatedRecordData);
           state = state.set(record.name, updatedRecord);
