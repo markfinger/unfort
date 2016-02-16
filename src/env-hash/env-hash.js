@@ -89,7 +89,9 @@ export function hashFileSystemDataLists(data) {
   return hash.result();
 }
 
-export function getOptions(overrides={}) {
+export function getOptions(overrides) {
+  overrides = overrides || {};
+
   return {
     root: overrides.root || process.cwd(),
     files: overrides.files || ['package.json'],

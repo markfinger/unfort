@@ -26,8 +26,8 @@ export const State = imm.Record({
   rootNodeModules: path.join(cwd, 'node_modules'),
 
   cacheDirectory: path.join(cwd, '.unfort'),
-  envHashFiles: null,
-  envHashDirectories: null,
+  envHash: null,
+  environmentHash: null,
 
   bootstrapRuntime: require.resolve('../../runtimes/bootstrap'),
   hotRuntime: hotRuntime,
@@ -366,11 +366,10 @@ export function createUnfort(options={}) {
 
     state.server.start();
 
-    envHash({
-      files: state.envHashFiles,
-      directories: state.envHashDirectories
-    })
+    envHash(state.envHash)
       .then(hash => {
+        state = state.set('environmentHash', hash);
+
         console.log(chalk.bold('EnvHash: ') + hash);
         console.log(repeat('-', 80));
 
