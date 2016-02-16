@@ -696,7 +696,6 @@ function onChangeToFile(file) {
 function restartBuildForFailedNodes() {
   const errors = state.get('errors');
   if (errors) {
-    console.log('onChangeToFileStructure with errors');
     const nodesToRetrace = errors
       .map(error => error.node)
       .filter(node => node);
@@ -856,6 +855,8 @@ graph.events.on('completed', ({errors}) => {
 function emitError(err, file) {
   const message = buildErrorMessage(err, file);
 
+  // Output the error on a new line to get around any
+  // formatting issues with progress indicators
   console.error('\n' + message);
 
   const cleanedMessage = stripAnsi(message);
