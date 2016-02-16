@@ -2,7 +2,6 @@ import path from 'path';
 import fs from 'fs';
 import murmur from 'imurmurhash';
 import {zip, flatten} from 'lodash/array';
-import {assign} from 'lodash/object';
 
 export function join(root, file) {
   if (path.isAbsolute(file)) {
@@ -91,11 +90,11 @@ export function hashFileSystemDataLists(data) {
 }
 
 export function getOptions(overrides={}) {
-  return assign({
-    root: process.cwd(),
-    files: ['package.json'],
-    directories: ['node_modules']
-  }, overrides);
+  return {
+    root: overrides.root || process.cwd(),
+    files: overrides.files || ['package.json'],
+    directories: overrides.directories || ['node_modules']
+  };
 }
 
 export function envHash(options) {
