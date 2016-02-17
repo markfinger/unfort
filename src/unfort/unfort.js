@@ -358,7 +358,9 @@ export function createUnfort(options={}) {
 
     state = state.set('watchers', createWatchers({getState, restartTraceOfFile}));
 
-    state.server.start();
+    state.server.httpServer.listen(state.port, state.hostname, () => {
+      console.log(`${chalk.bold('Server:')} http://${state.hostname}:${state.port}`);
+    });
 
     // We generate a hash of the environment's state, so that we can
     // namespace all the cached date. This enables us to ignore any

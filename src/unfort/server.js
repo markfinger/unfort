@@ -13,18 +13,27 @@ import {
   createJSModuleDefinition
 } from './utils';
 
+/**
+ * The API returned by `createServer`
+ *
+ * @type {Record}
+ * @property httpServer - a `http` server instance
+ * @property app - an `express` application bound to `httpServer`
+ * @property io - a `socket.io` instance bound to `httpServer`
+ * @property {Array} sockets - an array of socket instances connected to `io`
+ */
 const Server = imm.Record({
-  server: null,
-  sockets: null,
+  httpServer: null,
   app: null,
   io: null,
-  start: null
+  // TODO: change to `getSockets`, so that we don't need to expose a mutable object
+  sockets: null
 });
 
 export function createServer({getState, onBuildCompleted}) {
   const app = express();
-  const server = http.createServer(app);
-  const io = socketIo(server);
+  const httpServer = http.createServer(app);
+  const io = socketIo(httpServer);
 
   const sockets = [];
   io.on('connection', socket => {
@@ -164,15 +173,9 @@ export function createServer({getState, onBuildCompleted}) {
   });
 
   return Server({
-    server,
+    httpServer,
     io,
     app,
-    sockets,
-    start() {
-      const {port, hostname} = getState();
-      server.listen(port, hostname, () => {
-        console.log(`${chalk.bold('Server:')} http://${hostname}:${port}`);
-      });
-    }
+    sockets
   });
 }
