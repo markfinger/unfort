@@ -64,7 +64,7 @@ export function createUnfort(options={}) {
         const sourceRootLength = state.sourceRoot.length;
 
         // We walk up the directory structure to the source root and
-        // start watching every directory
+        // start watching every directory that we encounter
         let dirname = path.dirname(file);
         while (dirname.length > sourceRootLength) {
           state.watchers.watchDirectory(dirname);
