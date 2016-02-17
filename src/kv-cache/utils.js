@@ -1,9 +1,9 @@
 import {isArray} from 'lodash/lang';
-import murmur from 'imurmurhash';
+import Murmur from 'imurmurhash';
 
 export function generateMurmurHash(key) {
   if (!isArray(key)) {
-    return String(new murmur(key.toString()).result());
+    return String(new Murmur(key.toString()).result());
   }
 
   if (!key.length) {
@@ -11,6 +11,6 @@ export function generateMurmurHash(key) {
   }
 
   return key
-    .map(entry => new murmur(entry.toString()).result())
+    .map(entry => new Murmur(entry.toString()).result())
     .join('_');
 }

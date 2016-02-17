@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import murmur from 'imurmurhash';
+import Murmur from 'imurmurhash';
 import {zip, flatten} from 'lodash/array';
 
 export function join(root, file) {
@@ -76,7 +76,7 @@ export function hashFileSystemDataLists(data) {
     return '';
   }
 
-  const hash = new murmur(data[0][0]);
+  const hash = new Murmur(data[0][0]);
 
   data.forEach((entry, i) => {
     // On the first iteration, skip the first cell as we applied it above

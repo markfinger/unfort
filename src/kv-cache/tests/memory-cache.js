@@ -1,6 +1,6 @@
 import {assert} from '../../utils/assert';
 import {createMemoryCache} from '../memory-cache';
-import murmur from 'imurmurhash';
+import Murmur from 'imurmurhash';
 
 describe('memory-cache', () => {
   describe('#createMemoryCache', () => {
@@ -8,7 +8,7 @@ describe('memory-cache', () => {
       const cache = createMemoryCache();
 
       return cache.set('test', {bar: 'foo'}).then(() => {
-        assert.equal(cache._memoryCache[murmur('test').result()], JSON.stringify({bar: 'foo'}));
+        assert.equal(cache._memoryCache[Murmur('test').result()], JSON.stringify({bar: 'foo'}));
       });
     });
     it('should be able to read from the cache', () => {

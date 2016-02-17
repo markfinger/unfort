@@ -5,7 +5,7 @@ import mkdirp from 'mkdirp';
 import async from 'async';
 import {assert} from '../../utils/assert';
 import {hashFileSystemDataLists, readFileData, readDirectoryData, envHash} from '../env-hash';
-import murmur from 'imurmurhash';
+import Murmur from 'imurmurhash';
 
 describe('env-hash', () => {
   const fileRoot = path.join(__dirname, 'node_env_cache_test_files');
@@ -126,7 +126,7 @@ describe('env-hash', () => {
 
       assert.equal(
         hashFileSystemDataLists(data),
-        new murmur('test1').hash('10').hash('test2').hash('20').result()
+        new Murmur('test1').hash('10').hash('test2').hash('20').result()
       );
     });
     it('should produce an empty string for no data', () => {
