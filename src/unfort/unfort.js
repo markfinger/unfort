@@ -216,7 +216,7 @@ export function createUnfort(options={}) {
             return Promise.reject(errObject);
           });
       })
-      )
+    )
       .then(() => {
         // If the graph is still the same as when we started the code generation,
         // then we start pushing the code towards the user
