@@ -77,13 +77,14 @@ export function createServer({getState, onBuildCompleted}) {
         if (startsWith(record.name, rootNodeModules)) {
           code = `module.exports = ${JSON.stringify(url)}`;
         } else {
-          code = (
-            `exports.default = ${JSON.stringify(url)};
-          exports.__esModule = true;
-          if (module.hot) {
-            module.hot.accept();
-          }`
-          );
+          // We fake a babel ES module so that hot swapping can occur
+          code = [
+            `exports.default = ${JSON.stringify(url)};`,
+            'exports.__esModule = true;',
+            'if (module.hot) {',
+            '  module.hot.accept();',
+            '}'
+          ].join('\n');
         }
 
         shimModules.push(
