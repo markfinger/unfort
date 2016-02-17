@@ -9,10 +9,10 @@ import sourceMapSupport from 'source-map-support';
 import envHash from '../env-hash';
 import {createFileCache} from '../kv-cache';
 import {createGraph} from '../cyclic-dependency-graph';
+import {createRecordStore} from '../record-store';
 import {createServer} from './server';
 import {createJobs} from './jobs';
 import {createWatchers} from './watchers';
-import {createRecordStore} from '../record-store';
 import {createRecordDescription, describeError} from './utils';
 import packageJson from '../../package.json';
 
@@ -23,15 +23,15 @@ export const hotRuntime = require.resolve('../../runtimes/hot');
 /**
  * The `state` object passed around, most commonly via `getState`.
  *
- * An immutable record that contains a mixture of settings, generated
+ * An immutable record that contains a mixture of configuration, generated
  * data, and references to stateful sub-modules
  *
  * @type {Record}
  */
 export const State = imm.Record({
-  // =============
-  // Build context
-  // =============
+  // ===================
+  // Build configuration
+  // ===================
 
   // The dependency graph's entry points
   entryPoints: [],
@@ -41,6 +41,8 @@ export const State = imm.Record({
   rootNodeModules: path.join(cwd, 'node_modules'),
   // The root directory that cached data will be dumped into
   cacheDirectory: path.join(cwd, '.unfort'),
+  // The record store's jobs
+  jobs: null,
 
 
   // ================
@@ -68,13 +70,6 @@ export const State = imm.Record({
   hostname: '127.0.0.1',
   port: 3000,
   fileEndpoint: '/__file__/',
-
-
-  // =======================
-  // The record store's jobs
-  // =======================
-
-  jobs: null,
 
 
   // ====================
@@ -228,12 +223,12 @@ export function createUnfort(options={}) {
   }
 
   let isBuildComplete = false;
-  let buildPendingCallbacks = [];
+  let pendingBuildCompletedCallbacks = [];
   function onBuildCompleted(cb) {
     if (isBuildComplete) {
       cb();
     } else {
-      buildPendingCallbacks.push(cb);
+      pendingBuildCompletedCallbacks.push(cb);
     }
   }
 
@@ -244,10 +239,10 @@ export function createUnfort(options={}) {
   function signalBuildCompleted() {
     isBuildComplete = true;
 
-    const _buildPendingCallbacks = buildPendingCallbacks;
-    buildPendingCallbacks = [];
+    const _pendingBuildCompletedCallbacks = pendingBuildCompletedCallbacks;
+    pendingBuildCompletedCallbacks = [];
 
-    _buildPendingCallbacks.forEach(cb => cb());
+    _pendingBuildCompletedCallbacks.forEach(cb => cb());
   }
 
   /**
