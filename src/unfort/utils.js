@@ -1,6 +1,6 @@
 import fs from 'fs';
+import {Readable} from 'stream';
 import babelCodeFrame from 'babel-code-frame';
-import * as mimeTypes from 'mime-types';
 import chalk from 'chalk';
 import {includes} from 'lodash/collection';
 
@@ -16,7 +16,7 @@ import {includes} from 'lodash/collection';
 // a semi-colon to achieve the desired effect
 export const JS_MODULE_SOURCE_MAP_LINE_OFFSET = ';';
 
-export function createJSModule({name, deps, hash, code}) {
+export function createJSModuleDefinition({name, deps, hash, code}) {
   const lines = [
     `__modules.defineModule({name: ${JSON.stringify(name)}, deps: ${JSON.stringify(deps)}, hash: ${JSON.stringify(hash)}, factory: function(module, exports, require, process, global) {`,
     code,
@@ -37,39 +37,35 @@ export function createRecordDescription(record) {
   };
 }
 
-export function writeRecordToStream(record, stream) {
-  // Add mime-types to http streams
-  if (stream.contentType) {
-    const mimeType = mimeTypes.lookup(record.data.hashedFilename);
-    if (mimeType) {
-      stream.contentType(mimeType);
-    }
-  }
-
+export function createRecordContentStream(record) {
   if (!record.data.isTextFile) {
-    return fs.createReadStream(record.name).pipe(stream);
+    return fs.createReadStream(record.name);
   }
 
-  stream.write(record.data.code);
+  const stream = new Readable();
+  stream.push(record.data.code);
 
-  const sourceMapAnnotation = record.data.sourceMapAnnotation;
-  if (sourceMapAnnotation) {
-    stream.write(sourceMapAnnotation);
+  if (record.data.sourceMapAnnotation) {
+    stream.push(record.data.sourceMapAnnotation);
   }
 
-  return stream.end();
+  stream.push(null);
+
+  return stream;
 }
 
-export function writeSourceMapToStream(record, stream) {
-  const sourceMap = record.data.sourceMap;
-  stream.end(sourceMap);
+export function createRecordSourceMapStream(record) {
+  const stream = new Readable();
+  stream.push(record.data.sourceMap);
+  stream.push(null);
+  return stream;
 }
 
-export function buildErrorMessage(err, file) {
+export function describeError(err, file) {
   const lines = [];
 
   if (file) {
-    lines.push(chalk.red(file), '');
+    lines.push(chalk.red(file) + '\n');
   }
 
   lines.push(err.message);
@@ -86,7 +82,13 @@ export function buildErrorMessage(err, file) {
     }
   }
 
-  if (err.codeFrame && !includes(err.stack, err.codeFrame)) {
+  if (
+    err.codeFrame &&
+    // We should try to avoid duplicating the code frame, if it's
+    // already been added by another tool
+    !includes(err.message, err.codeFrame) &&
+    !includes(err.stack, err.codeFrame)
+  ) {
     lines.push(err.codeFrame);
   }
 
@@ -95,13 +97,13 @@ export function buildErrorMessage(err, file) {
   return lines.join('\n');
 }
 
-export function describeBuildErrors(errors) {
+export function describeErrorList(errors) {
   return errors
     .map(obj => {
       if (obj instanceof Error) {
-        return buildErrorMessage(obj);
+        return describeError(obj);
       } else {
-        return buildErrorMessage(obj.error, obj.node);
+        return describeError(obj.error, obj.node);
       }
     })
     .join('\n');

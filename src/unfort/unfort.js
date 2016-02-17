@@ -13,7 +13,7 @@ import {createServer} from './server';
 import {createJobs} from './jobs';
 import {createWatchers} from './watchers';
 import {createRecordStore} from '../record-store';
-import {createRecordDescription, buildErrorMessage} from './utils';
+import {createRecordDescription, describeError} from './utils';
 import packageJson from '../../package.json';
 
 const cwd = process.cwd();
@@ -230,7 +230,7 @@ export function createUnfort(options={}) {
   }
 
   function emitError(err, file) {
-    const message = buildErrorMessage(err, file);
+    const message = describeError(err, file);
 
     // Output the error on a new line to get around any
     // formatting issues with progress indicators
@@ -344,23 +344,15 @@ export function createUnfort(options={}) {
       });
   }
 
-  function installHelpers() {
-    sourceMapSupport.install();
+  state = state.set('server', createServer({
+    getState,
+    onBuildCompleted
+  }));
 
-    process.on('unhandledRejection', err => {
-      throw err;
-    });
-  }
+  state = state.set('jobs', createJobs({getState}));
 
   function start() {
     console.log(`${chalk.bold('Unfort:')} v${packageJson.version}`);
-
-    state = state.set('server', createServer({
-      getState,
-      onBuildCompleted
-    }));
-
-    state = state.set('jobs', createJobs(getState));
 
     state = state.set('recordStore', createRecordStore(state.jobs));
 
@@ -368,6 +360,9 @@ export function createUnfort(options={}) {
 
     state.server.start();
 
+    // We generate a hash of the environment's state, so that we can
+    // namespace all the cached date. This enables us to ignore any
+    // data that may have been generated with other versions
     envHash(state.envHash)
       .then(hash => {
         state = state.set('environmentHash', hash);
@@ -375,16 +370,20 @@ export function createUnfort(options={}) {
         console.log(chalk.bold('EnvHash: ') + hash);
         console.log(repeat('-', 80));
 
-        const jobCacheDirectory = path.join(state.cacheDirectory, hash);
-        const jobCache = createFileCache(jobCacheDirectory);
-        jobCache.events.on('error', err => emitError(err));
-        state = state.set('jobCache', jobCache);
+        const cacheDir = path.join(state.cacheDirectory, hash);
+        state = state.set('jobCache', createFileCache(cacheDir));
+        state.jobCache.events.on('error', err => emitError(err));
 
+        // Start tracing from each entry point
         [state.bootstrapRuntime, ...state.entryPoints].forEach(file => {
           state.graph.setNodeAsEntry(file);
           state.graph.traceFromNode(file);
         });
       });
+  }
+
+  function setJobs(jobs) {
+    state = state.set('jobs', jobs);
   }
 
   return {
@@ -393,6 +392,15 @@ export function createUnfort(options={}) {
       return options;
     },
     installHelpers,
-    start
+    start,
+    setJobs
   };
+}
+
+export function installHelpers() {
+  sourceMapSupport.install();
+
+  process.on('unhandledRejection', err => {
+    throw err;
+  });
 }

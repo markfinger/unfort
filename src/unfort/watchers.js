@@ -26,10 +26,11 @@ export function createWatchers({getState, restartTraceOfFile}) {
   watcher.on('unlink', onChangeToFile);
   watcher.on('error', error => console.error(`Watcher error: ${error}`));
 
-  // We use another watcher that does a shallow watch on node_modules.
+  // We use another watcher to keep a shallow watch on node_modules.
   // We generally treat node_modules as a fairly static lump of data,
   // but there are plenty of real world situations where we need to
-  // detect changes so that we can rebuild a failed or invalid graph
+  // detect changes so that we can either rebuild a failed graph or
+  // invalidate the current one
   const nodeModulesWatcher = chokidar.watch([getState().rootNodeModules], {
     persistent: true,
     depth: 0

@@ -1,5 +1,7 @@
 const unfort = require('./lib/unfort/unfort');
 
+unfort.installHelpers();
+
 const build = unfort.createUnfort({
   entryPoints: [
     unfort.hotRuntime,
@@ -7,10 +9,18 @@ const build = unfort.createUnfort({
   ],
   envHash: {
     files: [__filename, 'package.json']
-  },
-  hostname: 'localhost',
-  port: 8001
+  }
 });
 
-build.installHelpers();
+const defaultJobs = build.getState().jobs;
+
+const jobs = Object.assign({}, defaultJobs, {
+  hash(ref, store) {
+    //console.log('in hash for ' + ref.name);
+    return defaultJobs.hash(ref, store);
+  }
+});
+
+build.setJobs(jobs);
+
 build.start();

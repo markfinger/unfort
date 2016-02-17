@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Murmur from 'imurmurhash';
+import * as mimeTypes from 'mime-types';
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
 import postcss from 'postcss';
@@ -15,13 +16,13 @@ import {isNull} from 'lodash/lang';
 import babylonAstDependencies from '../babylon-ast-dependencies';
 import postcssAstDependencies from '../postcss-ast-dependencies';
 import babelGenerator from 'babel-generator';
-import {createJSModule, JS_MODULE_SOURCE_MAP_LINE_OFFSET} from './utils';
+import {createJSModuleDefinition, JS_MODULE_SOURCE_MAP_LINE_OFFSET} from './utils';
 
 const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
 const resolve = promisify(browserResolve);
 
-export function createJobs(getState) {
+export function createJobs({getState}) {
   return {
     ready(ref, store) {
       // All the jobs that must be completed before
@@ -35,7 +36,8 @@ export function createJobs(getState) {
         store.sourceMapUrl(ref),
         store.sourceMapAnnotation(ref),
         store.hashedFilename(ref),
-        store.isTextFile(ref)
+        store.isTextFile(ref),
+        store.mimeType(ref)
       ]);
     },
     isTextFile(ref) {
@@ -44,6 +46,10 @@ export function createJobs(getState) {
         ref.ext === '.css' ||
         ref.ext === '.json'
       );
+    },
+    mimeType(ref, store) {
+      return store.hashedFilename(ref)
+        .then(hashedFilename => mimeTypes.lookup(hashedFilename));
     },
     readText(ref) {
       return readFile(ref.name, 'utf8');
@@ -401,7 +407,7 @@ export function createJobs(getState) {
                   store.resolvedDependencies(ref),
                   store.hash(ref)
                 ]).then(([file, deps, hash]) => {
-                  const code = createJSModule({
+                  const code = createJSModuleDefinition({
                     name: ref.name,
                     deps,
                     hash,
@@ -432,7 +438,7 @@ export function createJobs(getState) {
                   `;
                   }
 
-                  const code = createJSModule({
+                  const code = createJSModuleDefinition({
                     name: ref.name,
                     deps: {},
                     hash,

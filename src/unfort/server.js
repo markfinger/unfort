@@ -9,7 +9,8 @@ import stripAnsi from 'strip-ansi';
 import imm from 'immutable';
 import {resolveExecutionOrder} from '../cyclic-dependency-graph/utils';
 import {
-  describeBuildErrors, writeRecordToStream, writeSourceMapToStream, createJSModule
+  describeErrorList, createRecordContentStream, createRecordSourceMapStream,
+  createJSModuleDefinition
 } from './utils';
 
 const Server = imm.Record({
@@ -38,7 +39,7 @@ export function createServer({getState, onBuildCompleted}) {
       const state = getState();
 
       if (state.errors) {
-        let message = describeBuildErrors(state.errors);
+        let message = describeErrorList(state.errors);
         message = stripAnsi(message);
         return res.status(500).end(message);
       }
@@ -77,7 +78,7 @@ export function createServer({getState, onBuildCompleted}) {
         }
 
         shimModules.push(
-          createJSModule({
+          createJSModuleDefinition({
             name: record.name,
             deps: {},
             hash: record.data.hash,
@@ -136,7 +137,7 @@ export function createServer({getState, onBuildCompleted}) {
       const state = getState();
 
       if (state.errors) {
-        let message = describeBuildErrors(state.errors);
+        let message = describeErrorList(state.errors);
         message = stripAnsi(message);
         return res.status(500).end(message);
       }
@@ -145,12 +146,17 @@ export function createServer({getState, onBuildCompleted}) {
 
       const record = state.recordsByUrl.get(url);
       if (record) {
-        return writeRecordToStream(record, res);
+        if (record.data.mimeType) {
+          res.contentType(record.data.mimeType);
+        }
+        return createRecordContentStream(record)
+          .pipe(res);
       }
 
       const sourceMapRecord = state.recordsBySourceMapUrl.get(url);
       if (sourceMapRecord) {
-        return writeSourceMapToStream(sourceMapRecord, res);
+        return createRecordSourceMapStream(sourceMapRecord)
+          .pipe(res);
       }
 
       return res.status(404).send('Not found');
