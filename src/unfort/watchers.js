@@ -3,27 +3,61 @@ import imm from 'immutable';
 import {startsWith} from 'lodash/string';
 import {uniq} from 'lodash/array';
 
+/**
+ * The API returned by `createWatchers`
+ *
+ * @type {Record}
+ * @property {FSWatcher} watcher
+ * @property {FSWatcher} nodeModulesWatcher
+ * @property {Function} watchDirectory
+ */
 const Watchers = imm.Record({
   watcher: null,
   nodeModulesWatcher: null,
   watchDirectory: null
 });
 
+/**
+ * Produces file watchers that detect file-system changes and
+ * either invalidate files or re-start failed builds
+ *
+ * @param {Function} getState
+ * @param {Function} restartTraceOfFile
+ * @returns {Watchers}
+ */
 export function createWatchers({getState, restartTraceOfFile}) {
   const watcher = chokidar.watch([], {
     persistent: true,
     depth: 0
   });
 
+  // When a new directory is added, we allow the file watcher to walk
+  // up the structure. We also use this hook to re-start builds that
+  // failed due to missing directories.
+  // Note: `addDir` is triggered both when chokidar does its initial
+  // scan of a directory and when a directory is added to a watched
+  // directory
   watcher.on('addDir', dirname => {
     watchDirectory(dirname);
 
     restartFailedBuild();
   });
+
+  // When a new file is found, we restart any failed builds.
+  // Note: chokidar will also trigger this when it does its initial scan
   watcher.on('add', restartFailedBuild);
+
+  // When a directory is removed, we restart any failed builds
   watcher.on('unlinkDir', restartFailedBuild);
+
+  // When a file is changed, we need to either invalidate it or restart
+  // a failed build
   watcher.on('change', onChangeToFile);
+
+  // When a file is changed, we need to either remove it from our data
+  // structures or restart a failed build
   watcher.on('unlink', onChangeToFile);
+
   watcher.on('error', error => console.error(`Watcher error: ${error}`));
 
   // We use another watcher to keep a shallow watch on node_modules.
