@@ -1,6 +1,13 @@
 import chokidar from 'chokidar';
+import imm from 'immutable';
 import {startsWith} from 'lodash/string';
 import {uniq} from 'lodash/array';
+
+const Watchers = imm.Record({
+  watcher: null,
+  nodeModulesWatcher: null,
+  watchDirectory: null
+});
 
 export function createWatchers({getState, restartTraceOfFile}) {
   // The directories that our watcher has been instructed to observe.
@@ -117,9 +124,9 @@ export function createWatchers({getState, restartTraceOfFile}) {
     }
   }
 
-  return {
+  return Watchers({
     watcher,
     nodeModulesWatcher,
     watchDirectory
-  };
+  });
 }

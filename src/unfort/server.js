@@ -6,10 +6,19 @@ import chalk from 'chalk';
 import {startsWith} from 'lodash/string';
 import {pull} from 'lodash/array';
 import stripAnsi from 'strip-ansi';
+import imm from 'immutable';
 import {resolveExecutionOrder} from '../cyclic-dependency-graph/utils';
 import {
   describeBuildErrors, writeRecordToStream, writeSourceMapToStream, createJSModule
 } from './utils';
+
+const Server = imm.Record({
+  server: null,
+  sockets: null,
+  app: null,
+  io: null,
+  start: null
+});
 
 export function createServer({getState, onBuildCompleted}) {
   const app = express();
@@ -148,7 +157,7 @@ export function createServer({getState, onBuildCompleted}) {
     });
   });
 
-  return {
+  return Server({
     server,
     io,
     app,
@@ -159,5 +168,5 @@ export function createServer({getState, onBuildCompleted}) {
         console.log(`${chalk.bold('Server:')} http://${hostname}:${port}`);
       });
     }
-  };
+  });
 }
