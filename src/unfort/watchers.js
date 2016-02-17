@@ -10,11 +10,6 @@ const Watchers = imm.Record({
 });
 
 export function createWatchers({getState, restartTraceOfFile}) {
-  // The directories that our watcher has been instructed to observe.
-  // We use an object as a map as it's far more performant than
-  // chokidar's `getWatched` method
-  const watchedDirectories = {};
-
   const watcher = chokidar.watch([], {
     persistent: true,
     depth: 0
@@ -23,10 +18,10 @@ export function createWatchers({getState, restartTraceOfFile}) {
   watcher.on('addDir', dirname => {
     watchDirectory(dirname);
 
-    restartBuildForFailedNodes();
+    restartFailedBuild();
   });
-  watcher.on('add', restartBuildForFailedNodes);
-  watcher.on('unlinkDir', restartBuildForFailedNodes);
+  watcher.on('add', restartFailedBuild);
+  watcher.on('unlinkDir', restartFailedBuild);
   watcher.on('change', onChangeToFile);
   watcher.on('unlink', onChangeToFile);
   watcher.on('error', error => console.error(`Watcher error: ${error}`));
@@ -48,7 +43,7 @@ export function createWatchers({getState, restartTraceOfFile}) {
 
     // If npm has installed a package, it's quite likely that a failed
     // build might complete successfully now
-    nodeModulesWatcher.on('addDir', restartBuildForFailedNodes);
+    nodeModulesWatcher.on('addDir', restartFailedBuild);
 
     // If a directory has been removed, we need to find every node that
     // used to live in it and potentially rebuild the graph
@@ -74,6 +69,11 @@ export function createWatchers({getState, restartTraceOfFile}) {
       uniq(nodesImpactingOthers).forEach(restartTraceOfFile);
     });
   });
+
+  // The directories that our watcher has been instructed to observe.
+  // We use an object as a map as it's far more performant than
+  // chokidar's `getWatched` method
+  const watchedDirectories = {};
 
   /**
    * Ensures that the watcher is observing a particular directory
@@ -103,7 +103,7 @@ export function createWatchers({getState, restartTraceOfFile}) {
     if (getState().graph.getState().has(file)) {
       restartTraceOfFile(file);
     } else {
-      restartBuildForFailedNodes();
+      restartFailedBuild();
     }
   }
 
@@ -111,7 +111,7 @@ export function createWatchers({getState, restartTraceOfFile}) {
    * If a previous build failed, we start a retrace of nodes that
    * were known to have failed
    */
-  function restartBuildForFailedNodes() {
+  function restartFailedBuild() {
     const errors = getState().errors;
     if (errors) {
       const nodesToRetrace = errors
