@@ -1,6 +1,6 @@
 const unfort = require('./lib/unfort/unfort');
 
-unfort.installHelpers();
+unfort.installDebugHelpers();
 
 const build = unfort.createUnfort({
   entryPoints: [

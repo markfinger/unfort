@@ -21,6 +21,18 @@ const cwd = process.cwd();
 export const hotRuntime = require.resolve('../../runtimes/hot');
 
 /**
+ * Binds some helpers to the process which provide more clarity
+ * for debugging
+ */
+export function installDebugHelpers() {
+  sourceMapSupport.install();
+
+  process.on('unhandledRejection', err => {
+    throw err;
+  });
+}
+
+/**
  * The `state` object passed around, most commonly via `getState`.
  *
  * An immutable record that contains a mixture of configuration, generated
@@ -160,15 +172,16 @@ export function createUnfort(options={}) {
     process.stdout.write('\n'); // clear the progress indicator
 
     const elapsed = (new Date()).getTime() - traceStart;
+    console.log(`${chalk.bold('Trace elapsed:')} ${elapsed}ms`);
 
     if (errors.length) {
+      // The `error` handler on the graph has already emitted these errors,
+      // so we just report a total and flush any pending callbacks
       console.log(`${chalk.bold('Errors:')} ${errors.length}`);
       setState(state.set('errors', errors));
       console.log(repeat('-', 80));
       return signalBuildCompleted();
     }
-
-    console.log(`${chalk.bold('Trace elapsed:')} ${elapsed}ms`);
 
     // Traverse the graph and prune all nodes which are disconnected from
     // the entry points. This ensures that the graph never carries along
@@ -181,11 +194,16 @@ export function createUnfort(options={}) {
     console.log(chalk.bold('Code generation...'));
 
     const buildStart = (new Date()).getTime();
-    const errorsDuringReadyJob = [];
+    const errorsDuringCodeGeneration = [];
 
+    // To complete the build, we call the `ready` job on every record so that
+    // we can snapshot the record store with the knowledge that it contains
+    // all the data that we need
     Promise.all(
       graphState.keySeq().toArray().map(name => {
         return state.recordStore.ready(name)
+          // We catch individual failures as this enables us to indicate every error
+          // that occurred. This is helpful if multiple records fail
           .catch(err => {
             emitError(err, name);
 
@@ -193,15 +211,15 @@ export function createUnfort(options={}) {
               error: err,
               node: name
             };
-            errorsDuringReadyJob.push(errObject);
+            errorsDuringCodeGeneration.push(errObject);
 
             return Promise.reject(errObject);
           });
       })
       )
       .then(() => {
-        // If the graph is still the same as when we started the
-        // build, then we start pushing the code towards the user
+        // If the graph is still the same as when we started the code generation,
+        // then we start pushing the code towards the user
         if (state.graph.getState() === graphState) {
           const buildElapsed = (new Date()).getTime() - buildStart;
           console.log(`${chalk.bold('Code generation elapsed:')} ${buildElapsed}ms`);
@@ -210,13 +228,13 @@ export function createUnfort(options={}) {
         }
       })
       .catch(err => {
-        if (!includes(errorsDuringReadyJob, err)) {
+        if (!includes(errorsDuringCodeGeneration, err)) {
           // Handle an error that occurred outside of the `ready` jobs
           emitError(err);
-          errorsDuringReadyJob.push(err);
+          errorsDuringCodeGeneration.push(err);
         }
 
-        setState(state.set('errors', errorsDuringReadyJob));
+        setState(state.set('errors', errorsDuringCodeGeneration));
 
         console.log(repeat('-', 80));
 
@@ -448,17 +466,8 @@ export function createUnfort(options={}) {
 
   return {
     getState,
-    installHelpers,
     start,
     setJobs,
     onBuildCompleted
   };
-}
-
-export function installHelpers() {
-  sourceMapSupport.install();
-
-  process.on('unhandledRejection', err => {
-    throw err;
-  });
 }
