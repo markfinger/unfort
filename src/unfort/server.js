@@ -2,7 +2,6 @@ import http from 'http';
 import path from 'path';
 import express from 'express';
 import socketIo from 'socket.io';
-import chalk from 'chalk';
 import {startsWith} from 'lodash/string';
 import {pull} from 'lodash/array';
 import stripAnsi from 'strip-ansi';
