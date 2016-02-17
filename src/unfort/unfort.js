@@ -54,11 +54,6 @@ export const State = imm.Record({
 export function createUnfort(options={}) {
   let state = State(options);
 
-  state = state.set('server', createServer({
-    getState,
-    onBuildCompleted
-  }));
-
   state = state.set('graph', createGraph({
     getDependencies: (file) => {
       if (!state.recordStore.has(file)) {
@@ -170,12 +165,6 @@ export function createUnfort(options={}) {
         signalBuildCompleted();
       });
   });
-
-  state = state.set('jobs', createJobs(getState));
-
-  state = state.set('recordStore', createRecordStore(state.jobs));
-
-  state = state.set('watchers', createWatchers({getState, restartTraceOfFile}));
 
   function setState(newState) {
     state = newState;
@@ -365,6 +354,17 @@ export function createUnfort(options={}) {
 
   function start() {
     console.log(`${chalk.bold('Unfort:')} v${packageJson.version}`);
+
+    state = state.set('server', createServer({
+      getState,
+      onBuildCompleted
+    }));
+
+    state = state.set('jobs', createJobs(getState));
+
+    state = state.set('recordStore', createRecordStore(state.jobs));
+
+    state = state.set('watchers', createWatchers({getState, restartTraceOfFile}));
 
     state.server.start();
 
