@@ -1,6 +1,5 @@
 import fs from 'fs';
 import chalk from 'chalk';
-import {Writable} from 'stream';
 import MemoryStream from 'memorystream';
 import babelCodeFrame from 'babel-code-frame';
 import {assert} from '../../utils/assert';
@@ -16,11 +15,11 @@ describe('unfort/utils', () => {
         createJSModuleDefinition({
           name: 'test_name',
           hash: 'test_hash',
-          deps: {test_id: 'test_name'},
+          deps: {testId: 'test_name'},
           code: 'test_code'
         }),
         [
-          `__modules.defineModule({name: "test_name", deps: {"test_id":"test_name"}, hash: "test_hash", factory: function(module, exports, require, process, global) {`,
+          '__modules.defineModule({name: "test_name", deps: {"testId":"test_name"}, hash: "test_hash", factory: function(module, exports, require, process, global) {',
           'test_code',
           '}});'
         ].join('\n')
@@ -99,7 +98,7 @@ describe('unfort/utils', () => {
           describeError(errors[0]),
           describeError(errors[1])
         ].join('\n')
-      )
+      );
     });
     it('should handle graph error objects (which contain an error and extra data), such that they can be logged', () => {
       const err1 = new Error('test 1');
