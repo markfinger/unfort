@@ -104,24 +104,33 @@ export function createUnfort(options={}) {
 
   state = state.set('graph', createGraph({
     getDependencies: (file) => {
+      // Ensure that the record store is synchronised with the graph
       if (!state.recordStore.has(file)) {
         state.recordStore.create(file);
       }
 
+      // Start watching any new directories
       if (startsWith(file, state.sourceRoot)) {
         const sourceRootLength = state.sourceRoot.length;
 
-        // We walk up the directory structure to the source root and
-        // start watching every directory that we encounter
         let dirname = path.dirname(file);
-        while (dirname.length > sourceRootLength) {
+        if (dirname === sourceRootLength) {
           state.watchers.watchDirectory(dirname);
-          dirname = path.dirname(dirname);
+        } else {
+          // We walk up the directory structure to the source root and
+          // start watching every directory that we encounter
+          while (dirname.length > sourceRootLength) {
+            state.watchers.watchDirectory(dirname);
+            dirname = path.dirname(dirname);
+          }
         }
       }
 
+      // Start the `resolvedDependencies` job
       return state.recordStore.resolvedDependencies(file)
         .then(resolved => {
+          // We assume that `resolvedDependencies` returns a map of identifiers to
+          // resolved paths, for example: `{jquery: '/path/to/jquery.js'}`
           return values(resolved);
         });
     }
@@ -161,9 +170,10 @@ export function createUnfort(options={}) {
 
     console.log(`${chalk.bold('Trace elapsed:')} ${elapsed}ms`);
 
-    // Traverse the graph and prune all nodes which are disconnected
-    // from the entry points. This ensures that the graph never
-    // carries along any unwanted dependencies
+    // Traverse the graph and prune all nodes which are disconnected from
+    // the entry points. This ensures that the graph never carries along
+    // any unwanted dependencies. Note: We'll clean the record store up
+    // during the emit phase
     state.graph.pruneDisconnectedNodes();
 
     const graphState = state.graph.getState();
@@ -438,9 +448,6 @@ export function createUnfort(options={}) {
 
   return {
     getState,
-    getOptions() {
-      return options;
-    },
     installHelpers,
     start,
     setJobs,
