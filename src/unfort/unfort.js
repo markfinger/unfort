@@ -33,6 +33,8 @@ export const State = imm.Record({
   hotRuntime: hotRuntime,
   entryPoints: [],
 
+  port: 3000,
+  hostname: '127.0.0.1',
   fileEndpoint: '/__cwd__/',
   server: null,
 

@@ -7,7 +7,9 @@ const build = unfort.createUnfort({
   ],
   envHash: {
     files: [__filename, 'package.json']
-  }
+  },
+  hostname: 'localhost',
+  port: 8001
 });
 
 build.installHelpers();

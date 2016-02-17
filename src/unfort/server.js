@@ -154,8 +154,9 @@ export function createServer({getState, onBuildCompleted}) {
     app,
     sockets,
     start() {
-      server.listen(3000, '127.0.0.1', () => {
-        console.log(`${chalk.bold('Server:')} http://127.0.0.1:3000`);
+      const {port, hostname} = getState();
+      server.listen(port, hostname, () => {
+        console.log(`${chalk.bold('Server:')} http://${hostname}:${port}`);
       });
     }
   };
