@@ -395,7 +395,8 @@ export function createUnfort(options={}) {
     },
     installHelpers,
     start,
-    setJobs
+    setJobs,
+    onBuildCompleted
   };
 }
 

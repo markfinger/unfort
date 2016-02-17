@@ -24,3 +24,7 @@ const jobs = Object.assign({}, defaultJobs, {
 build.setJobs(jobs);
 
 build.start();
+
+build.onBuildCompleted(() => {
+  console.log('done')
+});
