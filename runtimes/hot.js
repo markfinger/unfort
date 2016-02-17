@@ -176,6 +176,11 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
     });
 
     _.forOwn(__modules.modules, mod => {
+      // Handle modules which have been removed
+      if (mod === undefined) {
+        return;
+      }
+
       if (!modulesSwapped[mod.name] && mod.hot.onChanges) {
         mod.hot.onChanges();
       }
