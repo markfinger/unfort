@@ -154,7 +154,8 @@ export function createUnfort(options={}) {
 
     traceStart = (new Date()).getTime();
 
-    state.server.sockets.forEach(socket => socket.emit('build:started'));
+    state.server.getSockets()
+      .forEach(socket => socket.emit('unfort:build-started'));
   });
 
   state.graph.events.on('error', ({node, error}) => {
@@ -313,7 +314,8 @@ export function createUnfort(options={}) {
     console.error('\n' + message);
 
     const cleanedMessage = stripAnsi(message);
-    state.server.sockets.forEach(socket => socket.emit('build:error', cleanedMessage));
+    state.server.getSockets()
+      .forEach(socket => socket.emit('unfort:build-error', cleanedMessage));
   }
 
   function emitBuild() {
@@ -362,7 +364,7 @@ export function createUnfort(options={}) {
       })
     );
 
-    // The payload that we send with the `build:complete` signal.
+    // The payload that we send with the `unfort:build-complete` signal.
     // The hot runtime uses this to reconcile the front-end by
     // adding, updating or removing assets. We don't send the assets
     // down the wire, we only tell the runtime what has changed and
@@ -387,7 +389,8 @@ export function createUnfort(options={}) {
     });
 
     // Send the payload over the wire to any connected browser
-    state.server.sockets.forEach(socket => socket.emit('build:complete', payload));
+    state.server.getSockets()
+      .forEach(socket => socket.emit('unfort:build-complete', payload));
 
     // We write all the computationally expensive data to disk, so that
     // we can reduce the startup cost of repeated builds

@@ -216,15 +216,15 @@ io.on('connect', () => {
   log('[hot] Connected');
 });
 
-io.on('build:started', () => {
+io.on('unfort:build-started', () => {
   log('[hot] Build started');
 });
 
-io.on('build:error', err => {
+io.on('unfort:build-error', err => {
   console.error(`[hot] Build error: ${err}`);
 });
 
-io.on('build:complete', ({records, removed}) => {
+io.on('unfort:build-complete', ({records, removed}) => {
   // With the complete signal, we can start updating our assets
   // and begin the process of hot swapping code.
 
