@@ -19,14 +19,15 @@ import {
  * @property httpServer - a `http` server instance
  * @property app - an `express` application bound to `httpServer`
  * @property io - a `socket.io` instance bound to `httpServer`
- * @property {Array} sockets - an array of socket instances connected to `io`
+ * @property {Function} getSockets - returns an array of socket instances connected to `io`
+ * @property {Function} serveFileFromState - feeds file content from the record state to a response
  */
 const Server = imm.Record({
   httpServer: null,
   app: null,
   io: null,
-  // TODO: change to `getSockets`, so that we don't need to expose a mutable object
-  sockets: null
+  getSockets: null,
+  serveFileFromState: null
 });
 
 export function createServer({getState, onBuildCompleted}) {
@@ -34,15 +35,31 @@ export function createServer({getState, onBuildCompleted}) {
   const httpServer = http.createServer(app);
   const io = socketIo(httpServer);
 
-  const sockets = [];
+  let sockets = imm.Set();
+  function getSockets() {
+    return sockets;
+  }
+
   io.on('connection', socket => {
-    sockets.push(socket);
+    sockets = sockets.add(socket);
     socket.on('disconnect', () => {
-      pull(sockets, socket);
+      sockets = sockets.remove(socket);
     });
   });
 
+  // TODO: remove
   app.get('/', (req, res) => {
+    injectFilesFromState(res);
+  });
+
+  app.get(getState().fileEndpoint + '*', (req, res) => {
+    const url = req.path;
+
+    return serveFileFromState(url, res);
+  });
+
+  // TODO: convert to producing a lump of JS that can inject everything needed
+  function injectFilesFromState(res) {
     onBuildCompleted(() => {
       const state = getState();
 
@@ -139,9 +156,15 @@ export function createServer({getState, onBuildCompleted}) {
         </html>
       `);
     });
-  });
+  }
 
-  app.get(getState().fileEndpoint + '*', (req, res) => {
+  /**
+   * Serves a file from the record state to an express-compatible server response
+   *
+   * @param {String} url - the file's complete url, mapped against the state's lookup maps
+   * @param res - a server's response object
+   */
+  function serveFileFromState(url, res) {
     onBuildCompleted(() => {
       const state = getState();
 
@@ -150,8 +173,6 @@ export function createServer({getState, onBuildCompleted}) {
         message = stripAnsi(message);
         return res.status(500).end(message);
       }
-
-      const url = req.path;
 
       const record = state.recordsByUrl.get(url);
       if (record) {
@@ -170,12 +191,13 @@ export function createServer({getState, onBuildCompleted}) {
 
       return res.status(404).send('Not found');
     });
-  });
+  }
 
   return Server({
     httpServer,
     io,
     app,
-    sockets
+    getSockets,
+    serveFileFromState
   });
 }
