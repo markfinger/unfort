@@ -3,7 +3,6 @@ import path from 'path';
 import express from 'express';
 import socketIo from 'socket.io';
 import {startsWith} from 'lodash/string';
-import {pull} from 'lodash/array';
 import stripAnsi from 'strip-ansi';
 import imm from 'immutable';
 import {resolveExecutionOrder} from '../cyclic-dependency-graph/utils';
@@ -55,7 +54,7 @@ export function createServer({getState, onBuildCompleted}) {
   app.get(getState().fileEndpoint + '*', (req, res) => {
     const url = req.path;
 
-    return serveFileFromState(url, res);
+    return serveRecordFromState(url, res);
   });
 
   // TODO: convert to producing a lump of JS that can inject everything needed
@@ -159,12 +158,12 @@ export function createServer({getState, onBuildCompleted}) {
   }
 
   /**
-   * Serves a file from the record state to an express-compatible server response
+   * Feeds a record from state to an (express-compatible) server response
    *
-   * @param {String} url - the file's complete url, mapped against the state's lookup maps
+   * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
    * @param res - a server's response object
    */
-  function serveFileFromState(url, res) {
+  function serveRecordFromState(recordUrl, res) {
     onBuildCompleted(() => {
       const state = getState();
 
@@ -174,7 +173,7 @@ export function createServer({getState, onBuildCompleted}) {
         return res.status(500).end(message);
       }
 
-      const record = state.recordsByUrl.get(url);
+      const record = state.recordsByUrl.get(recordUrl);
       if (record) {
         if (record.data.mimeType) {
           res.contentType(record.data.mimeType);
@@ -183,7 +182,7 @@ export function createServer({getState, onBuildCompleted}) {
           .pipe(res);
       }
 
-      const sourceMapRecord = state.recordsBySourceMapUrl.get(url);
+      const sourceMapRecord = state.recordsBySourceMapUrl.get(recordUrl);
       if (sourceMapRecord) {
         return createRecordSourceMapStream(sourceMapRecord)
           .pipe(res);
@@ -198,6 +197,6 @@ export function createServer({getState, onBuildCompleted}) {
     io,
     app,
     getSockets,
-    serveFileFromState
+    serveRecordFromState
   });
 }
