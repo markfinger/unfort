@@ -19,14 +19,16 @@ import {
  * @property app - an `express` application bound to `httpServer`
  * @property io - a `socket.io` instance bound to `httpServer`
  * @property {Function} getSockets - returns an array of socket instances connected to `io`
- * @property {Function} serveFileFromState - feeds file content from the record state to a response
+ * @property {Function} serveRecordFromState - feeds record content to a server response
  */
 const Server = imm.Record({
   httpServer: null,
   app: null,
   io: null,
   getSockets: null,
-  serveFileFromState: null
+  serveRecordFromState: null,
+  // TODO doc
+  injectRecords: null
 });
 
 export function createServer({getState, onBuildCompleted}) {
@@ -46,9 +48,23 @@ export function createServer({getState, onBuildCompleted}) {
     });
   });
 
+  const injectRecords = createInjectRecordsView({getState, onBuildCompleted});
+  const serveRecordFromState = createServerRecordFromStateView({getState, onBuildCompleted});
+
   // TODO: remove
   app.get('/', (req, res) => {
-    injectFilesFromState(res);
+    res.end(`
+      <html>
+      <head></head>
+      <body>
+        <script src="/inject.js"></script>
+      </body>
+      </html>
+    `);
+  });
+
+  app.get('/inject.js', (req, res) => {
+    injectRecords(res);
   });
 
   app.get(getState().fileEndpoint + '*', (req, res) => {
@@ -57,8 +73,55 @@ export function createServer({getState, onBuildCompleted}) {
     return serveRecordFromState(url, res);
   });
 
+  return Server({
+    httpServer,
+    io,
+    app,
+    getSockets,
+    serveRecordFromState,
+    injectRecords
+  });
+}
+
+
+export function createServerRecordFromStateView({getState, onBuildCompleted}) {
+  /**
+   * Feeds a record from state to an (express-compatible) server response
+   *
+   * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
+   * @param res - a server's response object
+   */
+  return function serveRecordFromState(recordUrl, res) {
+    onBuildCompleted(() => {
+      const state = getState();
+
+      if (state.errors) {
+        let message = describeErrorList(state.errors);
+        message = stripAnsi(message);
+        return res.status(500).end(message);
+      }
+
+      const record = state.recordsByUrl.get(recordUrl);
+      if (record) {
+        if (record.data.mimeType) {
+          res.contentType(record.data.mimeType);
+        }
+        return createRecordContentStream(record).pipe(res);
+      }
+
+      const sourceMapRecord = state.recordsBySourceMapUrl.get(recordUrl);
+      if (sourceMapRecord) {
+        return createRecordSourceMapStream(sourceMapRecord).pipe(res);
+      }
+
+      return res.status(404).send('Not found');
+    });
+  }
+}
+
+export function createInjectRecordsView({getState, onBuildCompleted}) {
   // TODO: convert to producing a lump of JS that can inject everything needed
-  function injectFilesFromState(res) {
+  return function injectRecordsView(res) {
     onBuildCompleted(() => {
       const state = getState();
 
@@ -73,11 +136,10 @@ export function createServer({getState, onBuildCompleted}) {
         rootNodeModules
       } = state;
 
-      const scripts = [];
+      const bootstrap = records.get(bootstrapRuntime).data.code;
       const styles = [];
-      const shimModules = [];
-
-      const runtimeUrl = records.get(bootstrapRuntime).data.url;
+      const scripts = [];
+      const inlineScripts = [];
 
       const executionOrder = resolveExecutionOrder(nodes, entryPoints);
 
@@ -102,7 +164,7 @@ export function createServer({getState, onBuildCompleted}) {
           ].join('\n');
         }
 
-        shimModules.push(
+        inlineScripts.push(
           createJSModuleDefinition({
             name: record.name,
             deps: {},
@@ -113,21 +175,28 @@ export function createServer({getState, onBuildCompleted}) {
       }
 
       executionOrder.forEach(name => {
+        if (name === bootstrapRuntime) {
+          return;
+        }
+
         const record = records.get(name);
         const hashedFilename = record.data.hashedFilename;
         const url = record.data.url;
         const ext = path.extname(hashedFilename);
 
         if (ext === '.css') {
-          styles.push(`<link rel="stylesheet" href="${url}" data-unfort-name="${record.name}">`);
+          styles.push({
+            url,
+            name: record.name
+          });
           addShimModule(record);
         }
 
-        if (
-          (ext === '.js' && record.name !== bootstrapRuntime) ||
-          ext === '.json'
-        ) {
-          scripts.push(`<script src="${url}" data-unfort-name="${record.name}"></script>`);
+        if (ext === '.js' || ext === '.json') {
+          scripts.push({
+            url,
+            name: record.name
+          });
         }
 
         if (!record.data.isTextFile) {
@@ -135,68 +204,48 @@ export function createServer({getState, onBuildCompleted}) {
         }
       });
 
-      const entryPointsInit = entryPoints.map(file => {
-        return `__modules.executeModule(${JSON.stringify(file)});`;
+      entryPoints.forEach(file => {
+        inlineScripts.push(
+          `__modules.executeModule(${JSON.stringify(file)});`
+        );
       });
 
       res.end(`
-        <html>
-        <head>
-          ${styles.join('\n')}
-        </head>
-        <body>
-          <script src="${runtimeUrl}"></script>
-          ${scripts.join('\n')}
-          <script>
-            ${shimModules.join('\n')}
-            ${entryPointsInit.join('\n')}
-          </script>
-        </body>
-        </html>
+        (function() {
+          var bootstrap = ${JSON.stringify(bootstrap)};
+          var styles = ${JSON.stringify(styles)};
+          var scripts = ${JSON.stringify(scripts)};
+          var inlineScripts = ${JSON.stringify(inlineScripts)};
+
+          addInlineScript(bootstrap, '__bootstrap_runtime__');
+
+          styles.forEach(function(obj) {
+            addStylesheet(obj.url, obj.name);
+          });
+
+          scripts.forEach(function(obj) {
+            addScript(obj.url, obj.name);
+          });
+
+          inlineScripts.forEach(addInlineScript);
+
+          function addScript(url, name) {
+            document.write('<script src="' + url + '" data-unfort-name="' + name + '"></script>');
+          }
+
+          function addStylesheet(url, name) {
+            var element = document.createElement('link');
+            element.rel = 'stylesheet';
+            element.href = url;
+            element.setAttribute('data-unfort-name', name);
+            document.head.appendChild(element);
+          }
+
+          function addInlineScript(text) {
+            document.write('<script>' + text + '</script>');
+          }
+        })();
       `);
     });
   }
-
-  /**
-   * Feeds a record from state to an (express-compatible) server response
-   *
-   * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
-   * @param res - a server's response object
-   */
-  function serveRecordFromState(recordUrl, res) {
-    onBuildCompleted(() => {
-      const state = getState();
-
-      if (state.errors) {
-        let message = describeErrorList(state.errors);
-        message = stripAnsi(message);
-        return res.status(500).end(message);
-      }
-
-      const record = state.recordsByUrl.get(recordUrl);
-      if (record) {
-        if (record.data.mimeType) {
-          res.contentType(record.data.mimeType);
-        }
-        return createRecordContentStream(record)
-          .pipe(res);
-      }
-
-      const sourceMapRecord = state.recordsBySourceMapUrl.get(recordUrl);
-      if (sourceMapRecord) {
-        return createRecordSourceMapStream(sourceMapRecord)
-          .pipe(res);
-      }
-
-      return res.status(404).send('Not found');
-    });
-  }
-
-  return Server({
-    httpServer,
-    io,
-    app,
-    getSockets,
-    serveRecordFromState
-  });
 }
