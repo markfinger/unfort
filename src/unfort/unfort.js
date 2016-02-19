@@ -111,7 +111,7 @@ export const State = imm.Record({
   recordsBySourceMapUrl: null
 });
 
-export function createUnfort(options={}) {
+export function createBuild(options={}) {
   let state = State(options);
 
   state = state.set('graph', createGraph({

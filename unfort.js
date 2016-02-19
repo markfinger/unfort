@@ -2,7 +2,7 @@ const unfort = require('./lib/unfort/unfort');
 
 unfort.installDebugHelpers();
 
-const build = unfort.createUnfort({
+const build = unfort.createBuild({
   entryPoints: [
     unfort.hotRuntime,
     require.resolve('./test-src/entry')
