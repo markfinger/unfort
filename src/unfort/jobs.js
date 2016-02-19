@@ -144,6 +144,11 @@ export function createJobs({getState}) {
           });
         });
     },
+    sourceUrl(ref) {
+      const state = getState();
+      const relPath = path.relative(state.sourceRoot, ref.name);
+      return state.fileEndpoint + relPath;
+    },
     sourceMapUrl(ref, store) {
       return store.url(ref)
         .then(url => url + '.map');
@@ -210,18 +215,25 @@ export function createJobs({getState}) {
         return postcss(postcssPlugins).process(text, processOptions);
       });
     },
-    babelTransformOptions(ref) {
-      return {
-        filename: ref.name,
-        sourceRoot: getState().sourceRoot,
-        sourceType: 'module',
-        sourceMaps: true,
-        babelrc: false,
-        presets: [
-          'es2015',
-          'react'
-        ]
-      };
+    babelTransformOptions(ref, store) {
+      return Promise.all([
+        store.url(ref),
+        store.sourceUrl(ref)
+      ])
+        .then(([url, sourceUrl]) => {
+          return {
+            filename: ref.name,
+            sourceType: 'module',
+            sourceMaps: true,
+            sourceMapTarget: url,
+            sourceFileName: sourceUrl,
+            babelrc: false,
+            presets: [
+              'es2015',
+              'react'
+            ]
+          };
+        });
     },
     babelTransform(ref, store) {
       return Promise.all([
@@ -232,12 +244,15 @@ export function createJobs({getState}) {
       });
     },
     babelGeneratorOptions(ref, store) {
-      return store.url(ref)
-        .then(url => {
+      return Promise.all([
+        store.url(ref),
+        store.sourceUrl(ref)
+      ])
+        .then(([url, sourceUrl]) => {
           return {
             sourceMaps: true,
-            sourceMapTarget: path.basename(url),
-            sourceFileName: path.basename(ref.name)
+            sourceMapTarget: url,
+            sourceFileName: sourceUrl
           };
         });
     },
