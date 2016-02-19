@@ -261,7 +261,7 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
 
     // Trigger any callbacks passed to `module.hot.accept`
     toSwap.forEach(([_, prevMod]) => {
-      if (prevMod.hot.acceptedCallback) {
+      if (prevMod && prevMod.hot.acceptedCallback) {
         prevMod.hot.acceptedCallback();
       }
     });
