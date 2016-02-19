@@ -12,7 +12,7 @@
   } else {
     // Browser globals
     if (root.__modules !== undefined) {
-      throw new Error('`__modules` has already been bound on the root', root.__modules);
+      throw new Error('`__modules` has already been bound');
     }
     factory((root.__modules = {}), root);
   }
