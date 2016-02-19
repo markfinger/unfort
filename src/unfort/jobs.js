@@ -138,9 +138,9 @@ export function createJobs({getState}) {
             return createRelativeUrl(ref.name);
           }
 
-          return store.hashedFilename(ref).then(filename => {
+          return store.hashedFilename(ref).then(hashedFilename => {
             const dirname = path.dirname(ref.name);
-            return createRelativeUrl(path.join(dirname, filename));
+            return createRelativeUrl(path.join(dirname, hashedFilename));
           });
         });
     },
