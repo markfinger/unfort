@@ -3,7 +3,12 @@ import _ from './vendor/lodash';
 // We reduce page load times by using pre-built and compressed
 // libraries. This shaves around 500kb from the payload
 
+// Newer browsers support explicit prototype manipulation,
+// but slightly older ones need a shim that uses the
+// `__proto__` binding
 let getPrototypeOf;
+let setPrototypeOf;
+
 if (_.isFunction(Object.getPrototypeOf)) {
   getPrototypeOf = Object.getPrototypeOf;
 } else {
@@ -12,7 +17,6 @@ if (_.isFunction(Object.getPrototypeOf)) {
   }
 }
 
-let setPrototypeOf;
 if (_.isFunction(Object.setPrototypeOf)) {
   setPrototypeOf = Object.setPrototypeOf;
 } else {
@@ -21,10 +25,10 @@ if (_.isFunction(Object.setPrototypeOf)) {
   }
 }
 
-// Detect if hot-swapping can occur. Older browsers tend to support varying
-// degrees of prototype introspection and manipulation. As the hot runtime
-// depends on being able to perform both, we run through a quick test case
-// so that we can warn when things are likely to break
+// Older browsers tend to support varying degrees of prototype
+// introspection and manipulation. As the hot runtime depends
+// on being able to perform both, we run through a quick
+// test-case so that we can warn when things are likely to break
 (() => {
   const proto1 = {};
   const obj = _.create(proto1);
