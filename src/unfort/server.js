@@ -146,10 +146,8 @@ export function createInjectRecordsView({getState, onBuildCompleted}) {
       });
       res.write('}\n\n');
 
-      res.write('(function() {\n\n');
-
       res.write('// The code for each JS module\n');
-      res.write('var scripts = [');
+      res.write('[');
 
       const styleSheets = [];
 
@@ -177,7 +175,7 @@ export function createInjectRecordsView({getState, onBuildCompleted}) {
 
         if (!isTextFile || isCssFile) {
           if (isCssFile) {
-            styleSheets.push(record);
+            styleSheets.push([url, record.name]);
           }
 
           // For non-js assets, we inject shims that expose the asset's
@@ -222,8 +220,8 @@ export function createInjectRecordsView({getState, onBuildCompleted}) {
 
       const entryPointCount = entryPoints.length;
       if (entryPointCount) {
-        res.write(',\n\n\n');
-        res.write('  // ... and finally, we tell the bootstrap runtime to start executing the entry points\n');
+        res.write(',\n\n');
+        res.write('  // Start the bootstrap runtime by executing each entry point\n');
       }
       entryPoints.forEach((file, i) => {
         if (i > 0) {
@@ -248,19 +246,21 @@ export function createInjectRecordsView({getState, onBuildCompleted}) {
         }
       });
 
-      res.write('\n];\n');
 
-      if (styleSheets.length) {
+      res.write('\n].forEach(');
+      res.write(injectScript.toString());
+      res.write(');\n');
+
+      if (!styleSheets.length) {
+        res.end('');
+      } else {
         res.write('\n');
         res.write('// Add style sheets\n');
         res.write('[\n');
         const styleSheetCount = styleSheets.length;
-        styleSheets.forEach((record, i) => {
-          res.write('  [');
-          res.write(JSON.stringify(record.name));
-          res.write(', ');
-          res.write(JSON.stringify(record.data.url));
-          res.write(']');
+        styleSheets.forEach((data, i) => {
+          res.write('  ');
+          res.write(JSON.stringify(data));
           if (i + 1 < styleSheetCount) {
             res.write(',\n');
           } else {
@@ -269,26 +269,23 @@ export function createInjectRecordsView({getState, onBuildCompleted}) {
         });
         res.write('].forEach(');
         res.write(injectStyleSheet.toString());
-        res.write(');\n');
+        res.end(');\n');
       }
-
-      res.write('\nscripts.forEach(');
-      res.write(injectScript.toString());
-      res.write(');\n');
-
-      res.end('})();');
     });
   }
-}
-
-function injectStyleSheet(data) {
-  // Inject a new stylesheet referencing the url
-  var link = '<link rel="stylesheet" data-unfort-name="' + data[0] + '" href="' + data[1] + '">';
-  document.write(link);
 }
 
 function injectScript(data) {
   var script = '<script data-unfort-name="' + data[0] + '">' + data[1] + '</script>';
   // Inject each module into a new script element
   document.write(script);
+}
+
+function injectStyleSheet(data) {
+  // Inject a new stylesheet referencing the url
+  var element = document.createElement("link");
+  element.rel = "stylesheet";
+  element.href = data[0];
+  element.setAttribute("data-unfort-name", data[1]);
+  document.head.appendChild(element);
 }
