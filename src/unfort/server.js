@@ -2,7 +2,7 @@ import http from 'http';
 import path from 'path';
 import express from 'express';
 import socketIo from 'socket.io';
-import {startsWith} from 'lodash/string';
+import {startsWith, endsWith} from 'lodash/string';
 import stripAnsi from 'strip-ansi';
 import imm from 'immutable';
 import {resolveExecutionOrder} from '../cyclic-dependency-graph/utils';
@@ -120,7 +120,6 @@ export function createServerRecordFromStateView({getState, onBuildCompleted}) {
 }
 
 export function createInjectRecordsView({getState, onBuildCompleted}) {
-  // TODO: convert to producing a lump of JS that can inject everything needed
   return function injectRecordsView(res) {
     onBuildCompleted(() => {
       const state = getState();
@@ -137,115 +136,156 @@ export function createInjectRecordsView({getState, onBuildCompleted}) {
       } = state;
 
       const bootstrap = records.get(bootstrapRuntime).data.code;
-      const styles = [];
-      const scripts = [];
-      const inlineScripts = [];
+
+      res.write('// Define the bootstrap runtime\n');
+      res.write('if (!window.__modules) {\n');
+      bootstrap.split('\n').forEach(line => {
+        res.write('  ');
+        res.write(line);
+        res.write('\n');
+      });
+      res.write('}\n\n');
+
+      res.write('// The code for each JS module\n');
+      res.write('[');
+
+      const styleSheets = [];
 
       const executionOrder = resolveExecutionOrder(nodes, entryPoints);
+      const moduleCount = executionOrder.length;
 
-      // For non-js assets, we inject shims that expose the asset's
-      // url, enabling JS assets to consume them. These module shims
-      // also play an important role in enabling the hot runtime to
-      // reconcile state changes between builds
-      function addShimModule(record) {
-        const url = record.data.url;
-
-        let code;
-        if (startsWith(record.name, rootNodeModules)) {
-          code = `module.exports = ${JSON.stringify(url)}`;
-        } else {
-          // We fake a babel ES module so that hot swapping can occur
-          code = [
-            `exports.default = ${JSON.stringify(url)};`,
-            'exports.__esModule = true;',
-            'if (module.hot) {',
-            '  module.hot.accept();',
-            '}'
-          ].join('\n');
-        }
-
-        inlineScripts.push(
-          createJSModuleDefinition({
-            name: record.name,
-            deps: {},
-            hash: record.data.hash,
-            code
-          })
-        );
-      }
-
-      executionOrder.forEach(name => {
+      // To preserve the CSS cascade, we iterate over the
+      // nodes in order of execution
+      executionOrder.forEach((name, i) => {
         if (name === bootstrapRuntime) {
           return;
         }
 
         const record = records.get(name);
-        const hashedFilename = record.data.hashedFilename;
         const url = record.data.url;
-        const ext = path.extname(hashedFilename);
 
-        if (ext === '.css') {
-          styles.push({
-            url,
-            name: record.name
+        const isTextFile = record.data.isTextFile;
+        const isCssFile = endsWith(url, '.css');
+        const isJsFile = endsWith(url, '.js') || endsWith(url, '.json');
+
+        res.write('\n\n');
+        res.write('  [');
+        res.write(JSON.stringify(record.name));
+        res.write(', ');
+
+        if (!isTextFile || isCssFile) {
+          if (isCssFile) {
+            styleSheets.push([url, record.name]);
+          }
+
+          // For non-js assets, we inject shims that expose the asset's
+          // url, enabling JS assets to consume them. These module shims
+          // also play an important role in enabling the hot runtime to
+          // reconcile state changes between builds
+          let code;
+          if (startsWith(record.name, rootNodeModules)) {
+            code = `module.exports = ${JSON.stringify(url)}`;
+          } else {
+            // We fake a babel ES module so that hot swapping can occur
+            code = [
+              `exports.default = ${JSON.stringify(url)};`,
+              'exports.__esModule = true;',
+              'if (module.hot) {',
+              '  module.hot.accept();',
+              '}'
+            ].join('\n');
+          }
+
+          const moduleDefinition = createJSModuleDefinition({
+            name: record.name,
+            deps: {},
+            hash: record.data.hash,
+            code
           });
-          addShimModule(record);
+
+          res.write(JSON.stringify(moduleDefinition));
+        } else if (isJsFile) {
+          res.write(JSON.stringify(record.data.code));
+          if (record.data.sourceMapAnnotation) {
+            res.write(`+ "\\n" + ${JSON.stringify(record.data.sourceMapAnnotation)}`);
+          }
         }
 
-        if (ext === '.js' || ext === '.json') {
-          scripts.push({
-            url,
-            name: record.name
-          });
-        }
+        res.write(']');
 
-        if (!record.data.isTextFile) {
-          addShimModule(record);
+        if (i + 1 < moduleCount) {
+          res.write(',\n')
         }
       });
 
-      entryPoints.forEach(file => {
-        inlineScripts.push(
-          `__modules.executeModule(${JSON.stringify(file)});`
+      const entryPointCount = entryPoints.length;
+      if (entryPointCount) {
+        res.write(',\n\n');
+        res.write('  // Start the bootstrap runtime by executing each entry point\n');
+      }
+      entryPoints.forEach((file, i) => {
+        if (i > 0) {
+          res.write('\n');
+        }
+
+        res.write('  [');
+        res.write('"__bootstrap__: ');
+        res.write(file);
+        res.write('", ');
+
+        res.write(
+          JSON.stringify(`__modules.executeModule(${JSON.stringify(file)});`)
         );
+
+        res.write(']');
+
+        if (i + 1 < entryPointCount) {
+          res.write(',');
+        } else {
+          res.write('\n');
+        }
       });
 
-      res.end(`
-        (function() {
-          var bootstrap = ${JSON.stringify(bootstrap)};
-          var styles = ${JSON.stringify(styles)};
-          var scripts = ${JSON.stringify(scripts)};
-          var inlineScripts = ${JSON.stringify(inlineScripts)};
 
-          addInlineScript(bootstrap, '__bootstrap_runtime__');
+      res.write('\n].forEach(');
+      res.write(injectScript.toString());
+      res.write(');\n');
 
-          styles.forEach(function(obj) {
-            addStylesheet(obj.url, obj.name);
-          });
-
-          scripts.forEach(function(obj) {
-            addScript(obj.url, obj.name);
-          });
-
-          inlineScripts.forEach(addInlineScript);
-
-          function addScript(url, name) {
-            document.write('<script src="' + url + '" data-unfort-name="' + name + '"></script>');
+      if (!styleSheets.length) {
+        res.end('');
+      } else {
+        res.write('\n');
+        res.write('// Add style sheets\n');
+        res.write('[\n');
+        const styleSheetCount = styleSheets.length;
+        styleSheets.forEach((data, i) => {
+          res.write('  ');
+          res.write(JSON.stringify(data));
+          if (i + 1 < styleSheetCount) {
+            res.write(',\n');
+          } else {
+            res.write('\n');
           }
-
-          function addStylesheet(url, name) {
-            var element = document.createElement('link');
-            element.rel = 'stylesheet';
-            element.href = url;
-            element.setAttribute('data-unfort-name', name);
-            document.head.appendChild(element);
-          }
-
-          function addInlineScript(text) {
-            document.write('<script>' + text + '</script>');
-          }
-        })();
-      `);
+        });
+        res.write('].forEach(');
+        res.write(injectStyleSheet.toString());
+        res.end(');\n');
+      }
     });
   }
+}
+
+function injectScript(data) {
+  var script = '<script data-unfort-name="' + data[0] + '">' + data[1] + '</script>';
+  // Inject each module into a new script element
+  document.write(script);
+}
+
+function injectStyleSheet(data) {
+  // Inject a new stylesheet referencing the url
+  var element = document.createElement("link");
+  element.rel = "stylesheet";
+  element.href = data[0];
+  element.setAttribute("data-unfort-name", data[1]);
+  document.head.appendChild(element);
 }
