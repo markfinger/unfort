@@ -1,0 +1,7 @@
+src/*
+scripts/*
+.babelrc
+.eslintrc
+.gitignore
+.hound.yml
+.travis.yml
