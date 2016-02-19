@@ -158,10 +158,12 @@ export function createBuild(options={}) {
       .forEach(socket => socket.emit('unfort:build-started'));
   });
 
+  // Handle any errors that occur during dependency resolution
   state.graph.events.on('error', ({node, error}) => {
     emitError(error, node);
   });
 
+  // Provide progress indicators while we build the graph
   state.graph.events.on('traced', () => {
     const known = state.graph.getState().size;
     const done = known - state.graph.pendingJobs.length;
@@ -170,7 +172,8 @@ export function createBuild(options={}) {
   });
 
   state.graph.events.on('completed', ({errors}) => {
-    process.stdout.write('\n'); // clear the progress indicator
+    // Clear the progress indicator
+    process.stdout.write('\n');
 
     const elapsed = (new Date()).getTime() - traceStart;
     console.log(`${chalk.bold('Trace elapsed:')} ${elapsed}ms`);
@@ -237,8 +240,10 @@ export function createBuild(options={}) {
 
         setState(state.set('errors', errorsDuringCodeGeneration));
 
+        // Visually indicate that the build completed
         console.log(repeat('-', 80));
 
+        // Flush errors to any pending callbacks
         signalBuildCompleted();
       });
   });
@@ -352,6 +357,8 @@ export function createBuild(options={}) {
       prevState.merge({
         records: recordsState,
         nodes: nodeState,
+        // Clear out any errors from previous builds
+        errors: null,
         // Maps of records so that the file endpoint can perform record look ups
         // trivially. This saves us from having to iterate over every record
         recordsByUrl: recordsState
@@ -359,8 +366,7 @@ export function createBuild(options={}) {
           .mapKeys((_, record) => record.data.url),
         recordsBySourceMapUrl: recordsState
           .filter(record => Boolean(record.data.sourceMapAnnotation))
-          .mapKeys((_, record) => record.data.sourceMapUrl),
-        errors: null
+          .mapKeys((_, record) => record.data.sourceMapUrl)
       })
     );
 

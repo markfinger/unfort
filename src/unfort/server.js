@@ -15,9 +15,9 @@ import {
  * The API returned by `createServer`
  *
  * @type {Record}
- * @property httpServer - a `http` server instance
- * @property app - an `express` application bound to `httpServer`
- * @property io - a `socket.io` instance bound to `httpServer`
+ * @property {Object} httpServer - a `http` server instance
+ * @property {Object} app - an `express` application bound to `httpServer`
+ * @property {Object} io - a `socket.io` instance bound to `httpServer`
  * @property {Function} getSockets - returns an array of socket instances connected to `io`
  */
 const Server = imm.Record({
