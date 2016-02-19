@@ -20,6 +20,7 @@ import {
  * @property io - a `socket.io` instance bound to `httpServer`
  * @property {Function} getSockets - returns an array of socket instances connected to `io`
  * @property {Function} serveRecordFromState - feeds record content to a server response
+ * @property {Function} injectAllRecordsToResponse - feeds a bootstrap of every record to the provided response
  */
 const Server = imm.Record({
   httpServer: null,
@@ -27,8 +28,7 @@ const Server = imm.Record({
   io: null,
   getSockets: null,
   serveRecordFromState: null,
-  // TODO doc
-  injectRecords: null
+  injectAllRecordsToResponse: null
 });
 
 export function createServer({getState, onBuildCompleted}) {
@@ -48,24 +48,7 @@ export function createServer({getState, onBuildCompleted}) {
     });
   });
 
-  const injectRecords = createInjectRecordsView({getState, onBuildCompleted});
   const serveRecordFromState = createServerRecordFromStateView({getState, onBuildCompleted});
-
-  // TODO: remove
-  app.get('/', (req, res) => {
-    res.end(`
-      <html>
-      <head></head>
-      <body>
-        <script src="/inject.js"></script>
-      </body>
-      </html>
-    `);
-  });
-
-  app.get('/inject.js', (req, res) => {
-    injectRecords(res);
-  });
 
   app.get(getState().fileEndpoint + '*', (req, res) => {
     const url = req.path;
@@ -79,7 +62,10 @@ export function createServer({getState, onBuildCompleted}) {
     app,
     getSockets,
     serveRecordFromState,
-    injectRecords
+    injectAllRecordsToResponse: createInjectAllRecordsToResponse({
+      getState,
+      onBuildCompleted
+    })
   });
 }
 
@@ -119,9 +105,8 @@ export function createServerRecordFromStateView({getState, onBuildCompleted}) {
   }
 }
 
-export function createInjectRecordsView({getState, onBuildCompleted}) {
-  // TODO: convert to producing a lump of JS that can inject everything needed
-  return function injectRecordsView(res) {
+export function createInjectAllRecordsToResponse({getState, onBuildCompleted}) {
+  return function injectAllRecordsToResponse(res) {
     onBuildCompleted(() => {
       const state = getState();
 

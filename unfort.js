@@ -12,19 +12,21 @@ const build = unfort.createUnfort({
   }
 });
 
-const defaultJobs = build.getState().jobs;
-
-const jobs = Object.assign({}, defaultJobs, {
-  hash(ref, store) {
-    //console.log('in hash for ' + ref.name);
-    return defaultJobs.hash(ref, store);
-  }
-});
-
-build.setJobs(jobs);
-
 build.start();
 
-build.onBuildCompleted(() => {
-  console.log('done')
+const server = build.getState().server;
+
+server.app.get('/', (req, res) => {
+  res.end(`
+    <html>
+    <head></head>
+    <body>
+      <script src="/inject.js"></script>
+    </body>
+    </html>
+  `);
+});
+
+server.app.get('/inject.js', (req, res) => {
+  server.injectAllRecordsToResponse(res);
 });
