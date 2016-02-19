@@ -1,18 +1,50 @@
 import socketIoClient from './vendor/socket.io-client';
 import _ from './vendor/lodash';
+// We reduce page load times by using pre-built and compressed
+// libraries. This shaves around 500kb from the payload
 
-if (!_.isFunction(Object.setPrototypeOf)) {
-  throw new Error('Object.setPrototypeOf has not been defined, hot swap cannot occur');
+let getPrototypeOf;
+if (_.isFunction(Object.getPrototypeOf)) {
+  getPrototypeOf = Object.getPrototypeOf;
+} else {
+  getPrototypeOf = function fallbackGetPrototypeOf(obj) {
+    return obj.__proto__;
+  }
 }
 
-if (!_.isFunction(Object.getPrototypeOf)) {
-  throw new Error('Object.getPrototypeOf has not been defined, hot swap cannot occur');
+let setPrototypeOf;
+if (_.isFunction(Object.setPrototypeOf)) {
+  setPrototypeOf = Object.setPrototypeOf;
+} else {
+  setPrototypeOf = function fallbackSetPrototypeOf(obj, proto) {
+    obj.__proto__ = proto;
+  }
 }
+
+// Detect if hot-swapping can occur. Older browsers tend to support varying
+// degrees of prototype introspection and manipulation. As the hot runtime
+// depends on being able to perform both, we run through a quick test case
+// so that we can warn when things are likely to break
+(() => {
+  const proto1 = {};
+  const obj = _.create(proto1);
+
+  if (getPrototypeOf(obj) !== proto1) {
+    console.warn('[hot] Prototype introspection is not supported. The hot runtime should be removed');
+    return;
+  }
+
+  const proto2 = {};
+  setPrototypeOf(obj, proto2);
+  if (getPrototypeOf(obj) !== proto2) {
+    console.warn('[hot] Prototype manipulation is not supported. The hot runtime should be removed');
+  }
+})();
 
 __modules.hotSwapExportReferences = Object.create(null);
 
 function log() {
-  if (global.SILENT_HOT_RUNTIME !== true) {
+  if (global.__QUIET_UNFORT__ !== true) {
     console.log.apply(console, arguments);
   }
 }
@@ -39,9 +71,21 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
     };
   }
 
-  // The `module.hot` API
   if (mod.commonjs.hot === undefined) {
+    // The `module.hot` API
     mod.commonjs.hot = {
+      /**
+       * `module.hot.accept`
+       *
+       * Indicate that a module will accept hot swaps. Accepts on optional
+       * callback that will be triggered when a module has been removed.
+       *
+       * Note: this has some cross-over with the functionality of
+       * `module.hot.exit`. This is provided mostly for compatibility with
+       * webpack's HMR API.
+       *
+       * @param {Function} [cb]
+       */
       accept(cb) {
         mod.hot.accepted = true;
 
@@ -49,6 +93,17 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
           mod.hot.acceptedCallback = cb;
         }
       },
+      /**
+       * `module.hot.enter`
+       *
+       * If a module was swapped and the new version is being executed, a
+       * callback passed to `module.hot.enter` will be called immediately
+       * with one argument, the value returned from the previous version's
+       * `module.hot.exit` callback.
+       *
+       * @param {Function} cb
+       * @returns {*} the value returned from the previous version's `exit` callback
+       */
       enter(cb) {
         if (!_.isFunction(cb)) {
           throw new Error(`module.hot.enter must be provided with a function. Received: ${cb}`);
@@ -59,18 +114,43 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
           return cb(prevMod.hot.exitData);
         }
       },
+      /**
+       * `module.hot.exit`
+       *
+       * Indicates that a module will accept hot swaps and allows you to pass
+       * data from one module version to another.
+       *
+       * Before a module is swapped, a callback passed to `module.hot.exit`
+       * will be called and its return value will be stored for the next
+       * version of the module.
+       *
+       * @param {Function} cb
+       */
       exit(cb) {
         mod.hot.accepted = true;
 
         if (!_.isFunction(cb)) {
           throw new Error(`module.hot.exit must be provided with a function. Received: ${cb}`);
         }
+
         mod.hot.onExit = cb;
       },
+      /**
+       * `module.hot.changes`
+       *
+       * Allows you to execute a callback that will occur after all buffered
+       * modules have been hot swapped.
+       *
+       * Note: if the module that specified the callback is one of the swapped
+       * modules, the callback will *not* be called
+       *
+       * @param {Function} cb
+       */
       changes(cb) {
         if (!_.isFunction(cb)) {
           throw new Error(`module.hot.changes must be provided with a function. Received: ${cb}`);
         }
+
         mod.hot.onChanges = cb;
       }
     };
@@ -137,17 +217,14 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
       }
 
       if (prevMod) {
-        // Trigger any callbacks associated with removing a module
-        if (prevMod.hot.acceptedCallback) {
-          prevMod.hot.acceptedCallback();
-        }
+        // Trigger any callbacks passed to `module.hot.exit` and
+        // store its return value for the next version
         if (prevMod.hot.onExit) {
           prevMod.hot.exitData = prevMod.hot.onExit();
-          log('exitData', prevMod.hot.exitData);
         }
 
-        // Prevent memory leaks by clearing the reference to
-        // the previous module
+        // Prevent memory leaks by removing any references to past
+        // versions of the module that is about to be swapped
         if (prevMod.hot.previous) {
           prevMod.hot.previous = null;
         }
@@ -169,9 +246,19 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
       // If we're applying multiple modules, it's possible that new
       // modules may execute other new modules, so we need to iterate
       // through and selectively execute modules that have not been
-      // called yet
+      // called yet.
       if (!mod.executed) {
+        // Note: if a module throws an error during execution, the entire
+        // hot swap will fail with it. This is by design, as it prevents
+        // unexpected behaviour
         __modules.executeModule(mod.name);
+      }
+    });
+
+    // Trigger any callbacks passed to `module.hot.accept`
+    toSwap.forEach(([_, prevMod]) => {
+      if (prevMod.hot.acceptedCallback) {
+        prevMod.hot.acceptedCallback();
       }
     });
 
@@ -181,6 +268,8 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
         return;
       }
 
+      // If a module was not swapped and it has specified a callback to
+      // `module.hot.changes`, then we call it
       if (!modulesSwapped[mod.name] && mod.hot.onChanges) {
         mod.hot.onChanges();
       }
@@ -201,8 +290,8 @@ __modules.executeModule = function executeModuleHotWrapper(name) {
   ) {
     const exportsProxy = mod.hot.exportsProxy;
 
-    if (Object.getPrototypeOf(exportsProxy) !== exports) {
-      Object.setPrototypeOf(exportsProxy, exports);
+    if (getPrototypeOf(exportsProxy) !== exports) {
+      setPrototypeOf(exportsProxy, exports);
       mod.commonjs.exports = exportsProxy;
     }
   }
