@@ -92,7 +92,7 @@ export function createServeRecordFromState({getState, onBuildCompleted}) {
 
       return res.status(404).send('Not found');
     });
-  }
+  };
 }
 
 export function createRecordInjector({getState, onBuildCompleted}, entryPoints) {
@@ -227,5 +227,5 @@ export function createRecordInjector({getState, onBuildCompleted}, entryPoints) 
         })();
       `);
     });
-  }
+  };
 }
