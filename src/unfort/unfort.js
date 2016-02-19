@@ -18,7 +18,8 @@ import packageJson from '../../package.json';
 
 const cwd = process.cwd();
 
-export const hotRuntime = require.resolve('../../runtimes/hot');
+export const hotRuntime = require.resolve('./runtimes/hot');
+export const bootstrapRuntime = require.resolve('./runtimes/bootstrap');
 
 /**
  * Binds some helpers to the process which provide more clarity
@@ -71,7 +72,7 @@ export const State = imm.Record({
   // The module system's runtime files
   // =================================
 
-  bootstrapRuntime: require.resolve('../../runtimes/bootstrap'),
+  bootstrapRuntime: bootstrapRuntime,
   hotRuntime: hotRuntime,
 
 

@@ -215,6 +215,9 @@ export function createJobs({getState}) {
         return postcss(postcssPlugins).process(text, processOptions);
       });
     },
+    shouldBabelTransfrom(ref) {
+      return !startsWith(ref.name, getState().rootNodeModules);
+    },
     babelTransformOptions(ref, store) {
       return Promise.all([
         store.url(ref),
@@ -227,11 +230,7 @@ export function createJobs({getState}) {
             sourceMaps: true,
             sourceMapTarget: url,
             sourceFileName: sourceUrl,
-            babelrc: false,
-            presets: [
-              'es2015',
-              'react'
-            ]
+            babelrc: false
           };
         });
     },
@@ -264,14 +263,6 @@ export function createJobs({getState}) {
       ]).then(([text, ast, options]) => {
         return babelGenerator(ast, options, text);
       });
-    },
-    shouldBabelTransfrom(ref) {
-      return (
-        startsWith(ref.name, getState().rootNodeModules) ||
-        // The hot runtime is the one exception that we make
-        // to the above rule
-        ref.name === getState().hotRuntime
-      );
     },
     babelFile(ref, store) {
       return store.shouldBabelTransfrom(ref)
@@ -455,13 +446,13 @@ export function createJobs({getState}) {
                   } else {
                     // We fake babel's commonjs shim so that hot swapping can occur
                     jsModuleCode = `
-                    var json = ${text};
-                    exports.default = json;
-                    exports.__esModule = true;
-                    if (module.hot) {
-                      module.hot.accept();
-                    }
-                  `;
+                      var json = ${text};
+                      exports.default = json;
+                      exports.__esModule = true;
+                      if (module.hot) {
+                        module.hot.accept();
+                      }
+                    `;
                   }
 
                   const code = createJSModuleDefinition({
