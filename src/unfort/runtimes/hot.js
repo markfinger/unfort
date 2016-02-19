@@ -1,5 +1,5 @@
-import socketIoClient from './vendor/socket.io-client';
-import _ from './vendor/lodash';
+import socketIoClient from '../../../vendor/socket.io-client';
+import _ from '../../../vendor/lodash';
 // We reduce page load times by using pre-built and compressed
 // libraries. This shaves around 500kb from the payload
 
@@ -14,7 +14,7 @@ if (_.isFunction(Object.getPrototypeOf)) {
 } else {
   getPrototypeOf = function fallbackGetPrototypeOf(obj) {
     return obj.__proto__;
-  }
+  };
 }
 
 if (_.isFunction(Object.setPrototypeOf)) {
@@ -22,7 +22,7 @@ if (_.isFunction(Object.setPrototypeOf)) {
 } else {
   setPrototypeOf = function fallbackSetPrototypeOf(obj, proto) {
     obj.__proto__ = proto;
-  }
+  };
 }
 
 // Older browsers tend to support varying degrees of prototype
