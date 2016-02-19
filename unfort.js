@@ -1,3 +1,4 @@
+const fs = require('fs');
 const unfort = require('./lib/unfort/unfort');
 
 unfort.installDebugHelpers();
@@ -27,6 +28,5 @@ server.app.get('/', (req, res) => {
   `);
 });
 
-server.app.get('/inject.js', (req, res) => {
-  server.injectAllRecordsToResponse(res);
-});
+const recordInjector = server.createRecordInjector(build);
+server.app.get('/inject.js', (req, res) => recordInjector(res));

@@ -19,16 +19,13 @@ import {
  * @property app - an `express` application bound to `httpServer`
  * @property io - a `socket.io` instance bound to `httpServer`
  * @property {Function} getSockets - returns an array of socket instances connected to `io`
- * @property {Function} serveRecordFromState - feeds record content to a server response
- * @property {Function} injectAllRecordsToResponse - feeds a bootstrap of every record to the provided response
  */
 const Server = imm.Record({
   httpServer: null,
   app: null,
   io: null,
   getSockets: null,
-  serveRecordFromState: null,
-  injectAllRecordsToResponse: null
+  createRecordInjector
 });
 
 export function createServer({getState, onBuildCompleted}) {
@@ -48,8 +45,7 @@ export function createServer({getState, onBuildCompleted}) {
     });
   });
 
-  const serveRecordFromState = createServerRecordFromStateView({getState, onBuildCompleted});
-
+  const serveRecordFromState = createServeRecordFromState({getState, onBuildCompleted});
   app.get(getState().fileEndpoint + '*', (req, res) => {
     const url = req.path;
 
@@ -60,17 +56,11 @@ export function createServer({getState, onBuildCompleted}) {
     httpServer,
     io,
     app,
-    getSockets,
-    serveRecordFromState,
-    injectAllRecordsToResponse: createInjectAllRecordsToResponse({
-      getState,
-      onBuildCompleted
-    })
+    getSockets
   });
 }
 
-
-export function createServerRecordFromStateView({getState, onBuildCompleted}) {
+export function createServeRecordFromState({getState, onBuildCompleted}) {
   /**
    * Feeds a record from state to an (express-compatible) server response
    *
@@ -105,8 +95,8 @@ export function createServerRecordFromStateView({getState, onBuildCompleted}) {
   }
 }
 
-export function createInjectAllRecordsToResponse({getState, onBuildCompleted}) {
-  return function injectAllRecordsToResponse(res) {
+export function createRecordInjector({getState, onBuildCompleted}, entryPoints) {
+  return function recordInjector(res) {
     onBuildCompleted(() => {
       const state = getState();
 
@@ -116,10 +106,15 @@ export function createInjectAllRecordsToResponse({getState, onBuildCompleted}) {
         return res.status(500).end(message);
       }
 
+      res.contentType('application/javascript');
+
       const {
-        records, nodes, entryPoints, bootstrapRuntime,
-        rootNodeModules
+        records, nodes, bootstrapRuntime, rootNodeModules
       } = state;
+
+      if (!entryPoints) {
+        entryPoints = getState().entryPoints;
+      }
 
       const bootstrap = records.get(bootstrapRuntime).data.code;
       const styles = [];
@@ -196,13 +191,13 @@ export function createInjectAllRecordsToResponse({getState, onBuildCompleted}) {
       });
 
       res.end(`
+        if (!window.__modules) {
+          ${bootstrap}
+        }
         (function() {
-          var bootstrap = ${JSON.stringify(bootstrap)};
           var styles = ${JSON.stringify(styles)};
           var scripts = ${JSON.stringify(scripts)};
           var inlineScripts = ${JSON.stringify(inlineScripts)};
-
-          addInlineScript(bootstrap, '__bootstrap_runtime__');
 
           styles.forEach(function(obj) {
             addStylesheet(obj.url, obj.name);
