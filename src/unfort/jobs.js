@@ -265,12 +265,23 @@ export function createJobs({getState}) {
         return babelGenerator(ast, options, text);
       });
     },
+    shouldBabelTransfrom(ref) {
+      return (
+        startsWith(ref.name, getState().rootNodeModules) ||
+        // The hot runtime is the one exception that we make
+        // to the above rule
+        ref.name === getState().hotRuntime
+      );
+    },
     babelFile(ref, store) {
-      if (startsWith(ref.name, getState().rootNodeModules)) {
-        return store.babelGenerator(ref);
-      }
-
-      return store.babelTransform(ref);
+      return store.shouldBabelTransfrom(ref)
+        .then(shouldBabelTransfrom => {
+          if (shouldBabelTransfrom) {
+            return store.babelTransform(ref);
+          } else {
+            return store.babelGenerator(ref);
+          }
+        });
     },
     babelAst(ref, store) {
       return store.babelTransform(ref)
