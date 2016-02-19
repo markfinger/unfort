@@ -435,8 +435,6 @@ export function createBuild(options={}) {
     onBuildCompleted
   }));
 
-  state = state.set('jobs', createJobs({getState}));
-
   function start() {
     console.log(`${chalk.bold('Unfort:')} v${packageJson.version}`);
 
@@ -470,14 +468,43 @@ export function createBuild(options={}) {
       });
   }
 
-  function setJobs(jobs) {
-    state = state.set('jobs', jobs);
+  state = state.set('jobs', createJobs({getState}));
+
+  /**
+   * Allow jobs to be overridden - this is pretty essential for all manner
+   * of project-specific quirks.
+   *
+   * Calls the provided function with the currently bound jobs and merges
+   * the returned object into the defaults.
+   *
+   * @param {Function} fn
+   * @example An example override of a `foo` job
+   * extendJobs(jobs => {
+   *   return {
+   *     foo(ref, store) {
+   *       if (bar) {
+   *         return woz;
+   *       } else {
+   *         return jobs.foo(ref, store);
+   *       }
+   *     }
+   *   };
+   * });
+   * ```
+   */
+  function extendJobs(fn) {
+    const jobs = state.jobs;
+
+    const overrides = fn(jobs);
+    const newJobs = Object.assign({}, jobs, overrides);
+
+    state = state.set('jobs', newJobs);
   }
 
   return {
     getState,
     start,
-    setJobs,
+    extendJobs,
     onBuildCompleted
   };
 }

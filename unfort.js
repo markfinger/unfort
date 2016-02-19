@@ -13,6 +13,21 @@ const build = unfort.createBuild({
   }
 });
 
+build.extendJobs(jobs => {
+  return {
+    babelTransformOptions(ref, store) {
+      return jobs.babelTransformOptions(ref, store)
+        .then(options => {
+          options.presets = [
+            'es2015',
+            'react'
+          ];
+          return options;
+        });
+    }
+  };
+});
+
 build.start();
 
 const server = build.getState().server;
