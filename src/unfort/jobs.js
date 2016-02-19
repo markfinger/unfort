@@ -216,7 +216,12 @@ export function createJobs({getState}) {
       });
     },
     shouldBabelTransfrom(ref) {
-      return !startsWith(ref.name, getState().rootNodeModules);
+      const {rootNodeModules, vendorRoot} = getState();
+
+      return (
+        !startsWith(ref.name, rootNodeModules) &&
+        !startsWith(ref.name, vendorRoot)
+      );
     },
     babelTransformOptions(ref, store) {
       return Promise.all([
@@ -248,10 +253,13 @@ export function createJobs({getState}) {
         store.sourceUrl(ref)
       ])
         .then(([url, sourceUrl]) => {
+          const shouldMinify = startsWith(ref.name, getState().vendorRoot);
+
           return {
             sourceMaps: true,
             sourceMapTarget: url,
-            sourceFileName: sourceUrl
+            sourceFileName: sourceUrl,
+            minified: shouldMinify
           };
         });
     },

@@ -20,6 +20,7 @@ const cwd = process.cwd();
 
 export const hotRuntime = require.resolve('./runtimes/hot');
 export const bootstrapRuntime = require.resolve('./runtimes/bootstrap');
+export const vendorRoot = path.dirname(require.resolve('../../vendor/lodash.js'));
 
 /**
  * Binds some helpers to the process which provide more clarity
@@ -72,8 +73,9 @@ export const State = imm.Record({
   // The module system's runtime files
   // =================================
 
-  bootstrapRuntime: bootstrapRuntime,
-  hotRuntime: hotRuntime,
+  bootstrapRuntime,
+  hotRuntime,
+  vendorRoot,
 
 
   // ====================

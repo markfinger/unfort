@@ -1,7 +1,6 @@
 {
   "ignore": [
-    "src/unfort/runtimes/hot.js",
-    "src/unfort/runtimes/vendor/*"
+    "src/unfort/runtimes/hot.js"
   ],
   "plugins": [
     "check-es2015-constants",
