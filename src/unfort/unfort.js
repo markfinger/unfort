@@ -444,6 +444,8 @@ export function createBuild(options={}) {
 
     state = state.set('watchers', createWatchers({getState, restartTraceOfFile}));
 
+    state.server.bindFileEndpoint();
+
     state.server.httpServer.listen(state.port, state.hostname, () => {
       console.log(`${chalk.bold('Server:')} http://${state.hostname}:${state.port}`);
     });

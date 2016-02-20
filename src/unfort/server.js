@@ -25,7 +25,8 @@ const Server = imm.Record({
   app: null,
   io: null,
   getSockets: null,
-  createRecordInjector
+  createRecordInjector,
+  bindFileEndpoint: null
 });
 
 export function createServer({getState, onBuildCompleted}) {
@@ -45,18 +46,27 @@ export function createServer({getState, onBuildCompleted}) {
     });
   });
 
-  const serveRecordFromState = createServeRecordFromState({getState, onBuildCompleted});
-  app.get(getState().fileEndpoint + '*', (req, res) => {
-    const url = req.path;
+  let hasBoundFileEndpoint = false;
+  function bindFileEndpoint() {
+    if (hasBoundFileEndpoint) {
+      return;
+    }
+    hasBoundFileEndpoint = true;
 
-    return serveRecordFromState(url, res);
-  });
+    const serveRecordFromState = createServeRecordFromState({getState, onBuildCompleted});
+    app.get(getState().fileEndpoint + '*', (req, res) => {
+      const url = req.path;
+
+      return serveRecordFromState(url, res);
+    });
+  }
 
   return Server({
     httpServer,
     io,
     app,
-    getSockets
+    getSockets,
+    bindFileEndpoint
   });
 }
 
