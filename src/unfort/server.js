@@ -123,7 +123,7 @@ export function createRecordInjector({getState, onBuildCompleted}, entryPoints) 
       } = state;
 
       if (!entryPoints) {
-        entryPoints = getState().entryPoints;
+        entryPoints = state.entryPoints;
       }
 
       const bootstrap = records.get(bootstrapRuntime).data.code;

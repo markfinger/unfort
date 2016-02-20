@@ -106,7 +106,7 @@ __modules.extendModule = function extendModuleHotWrapper(mod) {
        * `module.hot.exit` callback.
        *
        * @param {Function} cb
-       * @returns {*} the value returned from the previous version's `exit` callback
+       * @returns {*} returns the return value from `cb`
        */
       enter(cb) {
         if (!_.isFunction(cb)) {
