@@ -5,3 +5,6 @@ scripts/*
 .gitignore
 .hound.yml
 .travis.yml
+
+# Editor cruft
+.idea
