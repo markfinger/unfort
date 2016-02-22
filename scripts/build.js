@@ -47,7 +47,7 @@ SOURCE_DIRS.forEach(dirs => {
   const outputDir = dirs[1];
 
   const params = [
-    sourceDir, '--out-dir', outputDir, '--source-maps', 'inline', '--copy-files'
+    sourceDir, '--out-dir', outputDir, '--source-maps', '--copy-files'
   ];
 
   if (!once) {
