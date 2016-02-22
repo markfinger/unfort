@@ -5,7 +5,7 @@ import socketIo from 'socket.io';
 import {startsWith} from 'lodash/string';
 import stripAnsi from 'strip-ansi';
 import imm from 'immutable';
-import {resolveExecutionOrder} from '../cyclic-dependency-graph/utils';
+import {resolveExecutionOrder} from 'cyclic-dependency-graph';
 import {
   describeErrorList, createRecordContentStream, createRecordSourceMapStream,
   createJSModuleDefinition

@@ -6,7 +6,7 @@ import {includes} from 'lodash/collection';
 import {startsWith, repeat} from 'lodash/string';
 import {values} from 'lodash/object';
 import sourceMapSupport from 'source-map-support';
-import envHash from '../env-hash';
+import envHash from 'env-hash';
 import {createFileCache} from '../kv-cache';
 import {createGraph} from 'cyclic-dependency-graph';
 import {createRecordStore} from '../record-store';
