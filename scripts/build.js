@@ -2,7 +2,6 @@
 
 const child_process = require('child_process');
 const path = require('path');
-const _ = require('lodash');
 
 const argv = require('yargs')
     .alias('o', 'once').default('once', false)
@@ -18,20 +17,22 @@ const SOURCE_DIRS = [
 
 // Remove the previously built versions
 console.log('\nRemoving directories...');
-_.map(SOURCE_DIRS, 1).forEach(function(outputDir) {
-  console.log(`Removing ${outputDir}`);
-  const rm = child_process.spawnSync('rm', ['-rf', outputDir]);
+SOURCE_DIRS
+  .map(dirs => dirs[1])
+  .forEach(function(outputDir) {
+    console.log(`Removing ${outputDir}`);
+    const rm = child_process.spawnSync('rm', ['-rf', outputDir]);
 
-  const stderr = rm.stderr.toString();
-  if (stderr) {
-    throw new Error(stderr);
-  }
+    const stderr = rm.stderr.toString();
+    if (stderr) {
+      throw new Error(stderr);
+    }
 
-  const stdout = rm.stdout.toString();
-  if (stdout) {
-    console.log(stdout);
-  }
-});
+    const stdout = rm.stdout.toString();
+    if (stdout) {
+      console.log(stdout);
+    }
+  });
 
 const once = argv.once;
 
@@ -41,7 +42,7 @@ if (once) {
   console.log('\nRebuilding and watching directories...');
 }
 
-_.forEach(SOURCE_DIRS, (dirs) => {
+SOURCE_DIRS.forEach(dirs => {
   const sourceDir = dirs[0];
   const outputDir = dirs[1];
 
