@@ -38,6 +38,7 @@
     "express": "^4.13.3",
     "immutable": "^3.7.6",
     "imurmurhash": "^0.1.4",
+    "kv-cache": "^1.0.0",
     "lodash": "^4.2.1",
     "mime-types": "^2.1.9",
     "mkdirp": "^0.5.1",
