@@ -8,7 +8,7 @@ import {values} from 'lodash/object';
 import sourceMapSupport from 'source-map-support';
 import envHash from '../env-hash';
 import {createFileCache} from '../kv-cache';
-import {createGraph} from '../cyclic-dependency-graph';
+import {createGraph} from 'cyclic-dependency-graph';
 import {createRecordStore} from '../record-store';
 import {createServer} from './server';
 import {createJobs} from './jobs';
