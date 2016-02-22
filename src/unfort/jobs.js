@@ -13,8 +13,8 @@ import {startsWith, endsWith} from 'lodash/string';
 import {zipObject} from 'lodash/array';
 import {assign} from 'lodash/object';
 import {isNull} from 'lodash/lang';
-import babylonAstDependencies from '../babylon-ast-dependencies';
-import postcssAstDependencies from '../postcss-ast-dependencies';
+import babylonAstDependencies from 'babylon-ast-dependencies';
+import postcssAstDependencies from 'postcss-ast-dependencies';
 import babelGenerator from 'babel-generator';
 import {createJSModuleDefinition, JS_MODULE_SOURCE_MAP_LINE_OFFSET} from './utils';
 

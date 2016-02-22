@@ -2,7 +2,7 @@ import EventEmitter from 'events';
 import {Map} from 'immutable';
 import {isArray} from 'lodash/lang';
 import {pull} from 'lodash/array';
-import callOnceAfterTick from '../call-once-after-tick/call-once-after-tick';
+import callOnceAfterTick from 'call-once-after-tick';
 import {
   addNode, addEdge, removeEdge, removeNode, defineEntryNode,
   findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
