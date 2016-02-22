@@ -1,7 +1,7 @@
-import socketIoClient from '../../../vendor/socket.io-client';
-import _ from '../../../vendor/lodash';
 // We reduce page load times by using pre-built and compressed
 // libraries. This shaves around 500kb from the payload
+import socketIoClient from '../vendor/socket.io-client';
+import _ from '../vendor/lodash';
 
 // Newer browsers support explicit prototype manipulation,
 // but slightly older ones need a shim that uses the

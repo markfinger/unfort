@@ -14,13 +14,13 @@ import {createServer} from './server';
 import {createJobs} from './jobs';
 import {createWatchers} from './watchers';
 import {createRecordDescription, describeError} from './utils';
-import packageJson from '../../package.json';
+import packageJson from '../package.json';
 
 const cwd = process.cwd();
 
-export const hotRuntime = require.resolve('./runtimes/hot');
-export const bootstrapRuntime = require.resolve('./runtimes/bootstrap');
-export const vendorRoot = path.dirname(require.resolve('../../vendor/lodash.js'));
+export const hotRuntime = require.resolve('./hot-runtime');
+export const bootstrapRuntime = require.resolve('../bootstrap');
+export const vendorRoot = path.normalize(path.join(__dirname, '..', 'vendor'));
 
 /**
  * Binds some helpers to the process which provide more clarity

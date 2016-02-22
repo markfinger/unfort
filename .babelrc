@@ -1,7 +1,4 @@
 {
-  "ignore": [
-    "src/unfort/runtimes/hot.js"
-  ],
   "plugins": [
     "check-es2015-constants",
     "transform-es2015-modules-commonjs",

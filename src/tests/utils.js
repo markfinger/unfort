@@ -2,7 +2,7 @@ import fs from 'fs';
 import chalk from 'chalk';
 import MemoryStream from 'memorystream';
 import babelCodeFrame from 'babel-code-frame';
-import {assert} from '../../utils/assert';
+import {assert} from './assert';
 import {
   createJSModuleDefinition, createRecordDescription, describeError, describeErrorList,
   createRecordContentStream, createRecordSourceMapStream
