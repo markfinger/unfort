@@ -16,9 +16,9 @@
   "author": "Mark Finger",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/unfort/unfort/issues"
+    "url": "https://github.com/markfinger/unfort/issues"
   },
-  "homepage": "https://github.com/unfort/unfort",
+  "homepage": "https://github.com/markfinger/unfort",
   "dependencies": {
     "autoprefixer": "^6.3.3",
     "babel-code-frame": "^6.5.0",
