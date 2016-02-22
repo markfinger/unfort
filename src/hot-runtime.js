@@ -45,8 +45,6 @@ if (_.isFunction(Object.setPrototypeOf)) {
   }
 })();
 
-__modules.hotSwapExportReferences = Object.create(null);
-
 function log() {
   if (global.__QUIET_UNFORT__ !== true) {
     console.log.apply(console, arguments);
