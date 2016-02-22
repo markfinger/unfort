@@ -16,10 +16,10 @@ import {createWatchers} from './watchers';
 import {createRecordDescription, describeError} from './utils';
 import packageJson from '../package.json';
 
-const cwd = process.cwd();
-
 export const hotRuntime = require.resolve('./hot-runtime');
-export const bootstrapRuntime = require.resolve('../bootstrap');
+
+export const bootstrapRuntime = require.resolve('../bootstrap/bootstrap');
+
 export const vendorRoot = path.normalize(path.join(__dirname, '..', 'vendor'));
 
 /**
@@ -50,11 +50,11 @@ export const State = imm.Record({
   // The dependency graph's entry points
   entryPoints: [],
   // The root of your project
-  sourceRoot: cwd,
+  sourceRoot: null,
   // The root `node_modules` directory that your modules are pulled from
-  rootNodeModules: path.join(cwd, 'node_modules'),
+  rootNodeModules: null,
   // The root directory that cached data will be dumped into
-  cacheDirectory: path.join(cwd, '.unfort'),
+  cacheDirectory: null,
   // The record store's jobs
   jobs: null,
 
@@ -69,9 +69,9 @@ export const State = imm.Record({
   environmentHash: null,
 
 
-  // =================================
-  // The module system's runtime files
-  // =================================
+  // ===========================
+  // The module system's runtime
+  // ===========================
 
   bootstrapRuntime,
   hotRuntime,
@@ -117,8 +117,20 @@ export const State = imm.Record({
 export function createBuild(options={}) {
   let state = State(options);
 
+  if (!state.sourceRoot) {
+    state = state.set('sourceRoot', process.cwd());
+  }
+
+  if (!state.rootNodeModules) {
+    state = state.set('rootNodeModules', path.join(state.sourceRoot, 'node_modules'));
+  }
+
+  if (!state.cacheDirectory) {
+    state = state.set('cacheDirectory', path.join(state.sourceRoot, '.unfort'));
+  }
+
   state = state.set('graph', createGraph({
-    getDependencies: (file) => {
+    getDependencies: file => {
       // Ensure that the record store is synchronised with the graph
       if (!state.recordStore.has(file)) {
         state.recordStore.create(file);
