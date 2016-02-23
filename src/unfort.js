@@ -1,5 +1,4 @@
 import path from 'path';
-import imm from 'immutable';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import {includes} from 'lodash/collection';

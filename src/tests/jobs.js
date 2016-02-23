@@ -1,5 +1,4 @@
 import {assert} from './assert';
-import {createState} from '../state';
 import {createJobs} from '../jobs';
 
 describe('unfort/jobs', () => {
