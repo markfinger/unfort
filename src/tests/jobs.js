@@ -99,7 +99,7 @@ describe('unfort/jobs', () => {
         stat() {
           return {
             mtime: new Date('December 17, 1995 03:24:00')
-          }
+          };
         }
       });
       store.create('test');
