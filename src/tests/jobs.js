@@ -95,15 +95,16 @@ describe('unfort/jobs', () => {
   });
   describe('##mtime', () => {
     it('should convert the mtime of `stat` to a number', () => {
+      const date = new Date();
       const store = createTestStore({
         stat() {
           return {
-            mtime: new Date(2000, 0, 0, 0, 0, 0, 0)
+            mtime: date
           };
         }
       });
       store.create('test');
-      return assert.becomes(store.mtime('test'), 946558800000);
+      return assert.becomes(store.mtime('test'), date.getTime());
     });
   });
   describe('##hashText', () => {
