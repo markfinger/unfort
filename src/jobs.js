@@ -22,7 +22,7 @@ const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
 const resolve = promisify(browserResolve);
 
-export function createJobs({getState}) {
+export function createJobs({getState}={}) {
   return {
     ready(ref, store) {
       // All the jobs that must be completed before
@@ -40,16 +40,24 @@ export function createJobs({getState}) {
         store.mimeType(ref)
       ]);
     },
-    isTextFile(ref) {
-      return (
-        ref.ext === '.js' ||
-        ref.ext === '.css' ||
-        ref.ext === '.json'
-      );
+    basename(ref) {
+      return path.basename(ref.name, path.extname(ref.name));
+    },
+    ext(ref) {
+      return path.extname(ref.name);
+    },
+    isTextFile(ref, store) {
+      return store.ext(ref).then(ext => {
+        return (
+          ext === '.js' ||
+          ext === '.css' ||
+          ext === '.json'
+        );
+      });
     },
     mimeType(ref, store) {
-      return store.hashedFilename(ref)
-        .then(hashedFilename => mimeTypes.lookup(hashedFilename));
+      return store.ext(ref)
+        .then(ext => mimeTypes.lookup(ext));
     },
     readText(ref) {
       return readFile(ref.name, 'utf8');
@@ -73,22 +81,48 @@ export function createJobs({getState}) {
     hash(ref, store) {
       return store.isTextFile(ref)
         .then(isTextFile => {
-          if (!isTextFile) {
+          if (isTextFile) {
+            return store.hashText(ref);
+          } else {
             return store.mtime(ref);
           }
-          return store.hashText(ref);
         })
+        // We coerce everything to a string for consistency
         .then(hash => hash.toString());
+    },
+    hashedFilename(ref, store) {
+      return Promise.all([
+        store.basename(ref),
+        store.hash(ref),
+        store.ext(ref)
+      ])
+        .then(([basename, hash, ext]) => {
+          return `${basename}-${hash}${ext}`;
+        });
+    },
+    hashedName(ref, store) {
+      return store.hashedFilename(ref)
+        .then(hashedFilename => {
+          return path.join(path.dirname(ref.name), hashedFilename);
+        });
     },
     cache() {
       return getState().jobCache;
     },
     cacheKey(ref, store) {
-      return Promise.all([
-        ref.name,
-        store.readText(ref),
-        store.mtime(ref)
-      ]);
+      return store.isTextFile(ref)
+        .then(isTextFile => {
+          const key = [
+            ref.name,
+            store.mtime(ref)
+          ];
+
+          if (isTextFile) {
+            key.push(store.hash(ref));
+          }
+
+          return Promise.all(key);
+        });
     },
     readCache(ref, store) {
       return Promise.all([
@@ -109,45 +143,33 @@ export function createJobs({getState}) {
         store.cacheKey(ref),
         store.readCache(ref)
       ])
-        .then(([cache, key, cacheData]) => cache.set(key, cacheData));
-    },
-    hashedFilename(ref, store) {
-      return store.hash(ref)
-        .then(hash => {
-          const basename = path.basename(ref.name, ref.ext);
-          return `${basename}-${hash}${ref.ext}`;
-        });
-    },
-    hashedPath(ref, store) {
-      return store.hashedFilename(ref)
-        .then(hashedFilename => {
-          return path.join(path.basename(ref.name), hashedFilename);
+        .then(([cache, key, cacheData]) => {
+          return cache.set(key, cacheData);
         });
     },
     url(ref, store) {
-      const state = getState();
-
-      function createRelativeUrl(absPath) {
-        const relPath = path.relative(state.sourceRoot, absPath);
-        return state.fileEndpoint + relPath;
-      }
-
       return store.isTextFile(ref)
         .then(isTextFile => {
-          if (!isTextFile) {
-            return createRelativeUrl(ref.name);
+          if (isTextFile) {
+            return store.hashedName(ref);
+          } else {
+            return ref.name;
           }
+        })
+        .then(name => {
+          const {sourceRoot, fileEndpoint} = getState();
 
-          return store.hashedFilename(ref).then(hashedFilename => {
-            const dirname = path.dirname(ref.name);
-            return createRelativeUrl(path.join(dirname, hashedFilename));
-          });
+          const relUrl = path.relative(sourceRoot, name).split(path.ext).join('/');
+          return fileEndpoint + relUrl;
         });
     },
+    // Note: `url` and `sourceUrl` are mostly duplicates. This is intentional,
+    // so that they can be overridden individually
     sourceUrl(ref) {
-      const state = getState();
-      const relPath = path.relative(state.sourceRoot, ref.name);
-      return state.fileEndpoint + relPath;
+      const {sourceRoot, fileEndpoint} = getState();
+
+      const relUrl = path.relative(sourceRoot, ref.name).split(path.ext).join('/');
+      return fileEndpoint + relUrl;
     },
     sourceMapUrl(ref, store) {
       return store.url(ref)
@@ -192,12 +214,12 @@ export function createJobs({getState}) {
       return [autoprefixer, analyzeDependencies, removeImports];
     },
     postcssProcessOptions(ref, store) {
-      return store.hashedPath(ref)
-        .then(hashedPath => {
+      return store.hashedName(ref)
+        .then(hashedName => {
           const state = getState();
           return {
             from: path.relative(state.sourceRoot, ref.name),
-            to: path.relative(state.sourceRoot, hashedPath),
+            to: path.relative(state.sourceRoot, hashedName),
             // Generate a source map, but keep it separate from the code
             map: {
               inline: false,
