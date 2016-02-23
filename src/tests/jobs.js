@@ -98,12 +98,12 @@ describe('unfort/jobs', () => {
       const store = createTestStore({
         stat() {
           return {
-            mtime: new Date('December 17, 1995 03:24:00')
+            mtime: new Date(2000, 0, 0, 0, 0, 0, 0)
           };
         }
       });
       store.create('test');
-      return assert.becomes(store.mtime('test'), 819131040000);
+      return assert.becomes(store.mtime('test'), 946558800000);
     });
   });
   describe('##hashText', () => {
