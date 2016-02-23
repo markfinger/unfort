@@ -5,7 +5,6 @@ import * as mimeTypes from 'mime-types';
 import * as babel from 'babel-core';
 import * as babylon from 'babylon';
 import postcss from 'postcss';
-import autoprefixer from 'autoprefixer';
 import browserifyBuiltins from 'browserify/lib/builtins';
 import browserResolve from 'browser-resolve';
 import promisify from 'promisify-node';
@@ -195,23 +194,7 @@ export function createJobs({getState}={}) {
       });
     },
     postcssPlugins() {
-      // Finds any `@import ...` and `url(...)` identifiers and
-      // annotates the result object
-      const analyzeDependencies = postcss.plugin('unfort-analyze-dependencies', () => {
-        return (root, result) => {
-          result.unfortDependencies = postcssAstDependencies(root);
-        };
-      });
-
-      // As we serve the files with different names, we need to remove
-      // the `@import ...` rules
-      const removeImports = postcss.plugin('unfort-remove-imports', () => {
-        return root => {
-          root.walkAtRules('import', rule => rule.remove());
-        };
-      });
-
-      return [autoprefixer, analyzeDependencies, removeImports];
+      return [];
     },
     postcssProcessOptions(ref, store) {
       return store.hashedName(ref)
@@ -234,7 +217,26 @@ export function createJobs({getState}={}) {
         store.postcssPlugins(ref),
         store.postcssProcessOptions(ref)
       ]).then(([text, postcssPlugins, processOptions]) => {
-        return postcss(postcssPlugins).process(text, processOptions);
+
+        // Finds any `@import ...` and `url(...)` identifiers and
+        // annotates the result object
+        const analyzeDependencies = postcss.plugin('unfort-analyze-dependencies', () => {
+          return (root, result) => {
+            result.unfortDependencies = postcssAstDependencies(root);
+          };
+        });
+
+        // As we serve the files with different names, we need to remove
+        // the `@import ...` rules
+        const removeImports = postcss.plugin('unfort-remove-imports', () => {
+          return root => {
+            root.walkAtRules('import', rule => rule.remove());
+          };
+        });
+
+        const plugins = postcssPlugins.concat([analyzeDependencies, removeImports]);
+
+        return postcss(plugins).process(text, processOptions);
       });
     },
     shouldBabelTransfrom(ref) {

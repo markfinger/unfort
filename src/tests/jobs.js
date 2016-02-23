@@ -354,13 +354,34 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##postcssPlugins', () => {
-    it('should ', () => {
-      
+    it('should return an empty array', () => {
+      const store = createTestStore();
+      store.create('test.css');
+      return assert.becomes(
+        store.postcssPlugins('test.css'),
+        []
+      );
     });
   });
   describe('##postcssProcessOptions', () => {
-    it('should ', () => {
-      
+    it('should return the processing options that are passed to postcss', () => {
+      const store = createTestStore({
+        hashedName: () => '/foo/bar/test-123.css'
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/bar/test.css');
+      return assert.becomes(
+        store.postcssProcessOptions('/foo/bar/test.css'),
+        {
+          from: 'bar/test.css',
+          to: 'bar/test-123.css',
+          map: {
+            inline: false,
+            annotation: false
+          }
+        }
+      );
     });
   });
   describe('##postcssTransform', () => {
