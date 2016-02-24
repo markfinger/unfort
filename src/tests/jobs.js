@@ -1,6 +1,7 @@
 import fs from 'fs';
 import {assign} from 'lodash/object';
 import {createRecordStore} from 'record-store';
+import postcss from 'postcss';
 import {createJobs} from '../jobs';
 import {assert} from './assert';
 
@@ -398,9 +399,60 @@ describe('unfort/jobs', () => {
           assert.isObject(result.map);
         });
     });
-    // TODO: test deps are discovered
-    // TODO: test imports are removed
-    // TODO: test plugins
+    it('should indicate dependencies via a `unfortDependencies` properties', () => {
+      const store = createTestStore({
+        readText: () => `
+          @import url('./foo/bar.css');
+          body {
+            background-image: url('./foo/bar.png');
+          }
+        `
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.css');
+      return store.postcssTransform('/foo/test.css')
+        .then(result => {
+          assert.deepEqual(
+            result.unfortDependencies,
+            [
+              {source: './foo/bar.css'},
+              {source: './foo/bar.png'}
+            ]
+          );
+        });
+    });
+    it('should remove @import rules from the code', () => {
+      const store = createTestStore({
+        readText: () => '@import url("./foo/bar.css"); body { color: blue; }'
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.css');
+      return store.postcssTransform('/foo/test.css')
+        .then(result => {
+          assert.equal(result.css, 'body { color: blue; }');
+        });
+    });
+    it('should apply plugins provided by `postcssPlugins`', () => {
+      const store = createTestStore({
+        readText: () => '',
+        postcssPlugins: () => [
+          postcss.plugin('test-plugin', () => {
+            return (root, result) => {
+              result.unfortTestPlugin = 'test';
+            };
+          })
+        ]
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.css');
+      return store.postcssTransform('/foo/test.css')
+        .then(result => {
+          assert.equal(result.unfortTestPlugin, 'test');
+        });
+    });
   });
   describe('##shouldBabelTransfrom', () => {
     it('should ', () => {
