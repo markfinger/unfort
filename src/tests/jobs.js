@@ -363,7 +363,7 @@ describe('unfort/jobs', () => {
       );
     });
   });
-  describe('##postcssProcessOptions', () => {
+  describe('##postcssTransformOptions', () => {
     it('should return the processing options that are passed to postcss', () => {
       const store = createTestStore({
         hashedName: () => '/foo/bar/test-123.css'
@@ -372,7 +372,7 @@ describe('unfort/jobs', () => {
       });
       store.create('/foo/bar/test.css');
       return assert.becomes(
-        store.postcssProcessOptions('/foo/bar/test.css'),
+        store.postcssTransformOptions('/foo/bar/test.css'),
         {
           from: 'bar/test.css',
           to: 'bar/test-123.css',
@@ -385,9 +385,22 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##postcssTransform', () => {
-    it('should ', () => {
-      
+    it('should produce a postcss result from a css file', () => {
+      const store = createTestStore({
+        readText: () => 'color: blue;'
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.css');
+      return store.postcssTransform('/foo/test.css')
+        .then(result => {
+          assert.equal(result.css, 'color: blue;');
+          assert.isObject(result.map);
+        });
     });
+    // TODO: test deps are discovered
+    // TODO: test imports are removed
+    // TODO: test plugins
   });
   describe('##shouldBabelTransfrom', () => {
     it('should ', () => {

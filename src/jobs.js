@@ -196,7 +196,7 @@ export function createJobs({getState}={}) {
     postcssPlugins() {
       return [];
     },
-    postcssProcessOptions(ref, store) {
+    postcssTransformOptions(ref, store) {
       return store.hashedName(ref)
         .then(hashedName => {
           const state = getState();
@@ -215,8 +215,8 @@ export function createJobs({getState}={}) {
       return Promise.all([
         store.readText(ref),
         store.postcssPlugins(ref),
-        store.postcssProcessOptions(ref)
-      ]).then(([text, postcssPlugins, processOptions]) => {
+        store.postcssTransformOptions(ref)
+      ]).then(([text, plugins, options]) => {
 
         // Finds any `@import ...` and `url(...)` identifiers and
         // annotates the result object
@@ -234,9 +234,12 @@ export function createJobs({getState}={}) {
           };
         });
 
-        const plugins = postcssPlugins.concat([analyzeDependencies, removeImports]);
+        plugins = plugins.concat([
+          analyzeDependencies,
+          removeImports
+        ]);
 
-        return postcss(plugins).process(text, processOptions);
+        return postcss(plugins).process(text, options);
       });
     },
     shouldBabelTransfrom(ref) {
