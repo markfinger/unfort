@@ -454,29 +454,105 @@ describe('unfort/jobs', () => {
         });
     });
   });
-  describe('##shouldBabelTransfrom', () => {
-    it('should ', () => {
-      
-    });
-  });
   describe('##babelTransformOptions', () => {
-    it('should ', () => {
-      
+    it('should generate appropriate options for babel transformation', () => {
+      const store = createTestStore({
+        url: () => 'test url',
+        sourceUrl: () => 'test source url'
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.babelTransformOptions('test.js'),
+        {
+          filename: 'test.js',
+          sourceType: 'module',
+          sourceMaps: true,
+          sourceMapTarget: 'test url',
+          sourceFileName: 'test source url',
+          babelrc: false
+        }
+      );
     });
   });
   describe('##babelTransform', () => {
-    it('should ', () => {
-      
+    it('should generate a babel file object', () => {
+      const store = createTestStore({
+        readText: () => 'const test = "test";',
+        babelTransformOptions: () => ({
+          ast: false
+        })
+      });
+      store.create('test.js');
+      return store.babelTransform('test.js')
+        .then(file => {
+          assert.isObject(file);
+          assert.equal(file.code, 'const test = "test";');
+          // Assert that it respects the `babelTransformOptions` above
+          assert.isNull(file.ast);
+        });
+    });
+    it('should respect `babelTransformOptions`', () => {
+      const store = createTestStore({
+        readText: () => 'const test = "test";',
+        babelTransformOptions: () => ({
+          ast: true
+        })
+      });
+      store.create('test.js');
+      return store.babelTransform('test.js')
+        .then(file => {
+          assert.isObject(file);
+          assert.equal(file.code, 'const test = "test";');
+          assert.isObject(file.ast);
+        });
     });
   });
   describe('##babelGeneratorOptions', () => {
-    it('should ', () => {
-      
+    it('should generate appropriate options', () => {
+      const store = createTestStore({
+        url: () => 'test url',
+        sourceUrl: () => 'test source url'
+      }, {
+        vendorRoot: '/vendor_root'
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.babelGeneratorOptions('test.js'),
+        {
+          sourceMaps: true,
+          sourceMapTarget: 'test url',
+          sourceFileName: 'test source url',
+          minified: false
+        }
+      );
+    });
+    it('should set `minified` to true, if the file lives in `vendorRoot`', () => {
+      const store = createTestStore({
+        url: () => 'test url',
+        sourceUrl: () => 'test source url'
+      }, {
+        vendorRoot: '/vendor_root'
+      });
+      store.create('/vendor_root/test.js');
+      return assert.becomes(
+        store.babelGeneratorOptions('/vendor_root/test.js'),
+        {
+          sourceMaps: true,
+          sourceMapTarget: 'test url',
+          sourceFileName: 'test source url',
+          minified: true
+        }
+      );
     });
   });
   describe('##babelGenerator', () => {
     it('should ', () => {
       
+    });
+  });
+  describe('##shouldBabelTransfrom', () => {
+    it('should indicate if a file', () => {
+
     });
   });
   describe('##babelFile', () => {

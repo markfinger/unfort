@@ -242,14 +242,6 @@ export function createJobs({getState}={}) {
         return postcss(plugins).process(text, options);
       });
     },
-    shouldBabelTransfrom(ref) {
-      const {rootNodeModules, vendorRoot} = getState();
-
-      return (
-        !startsWith(ref.name, rootNodeModules) &&
-        !startsWith(ref.name, vendorRoot)
-      );
-    },
     babelTransformOptions(ref, store) {
       return Promise.all([
         store.url(ref),
@@ -298,6 +290,14 @@ export function createJobs({getState}={}) {
       ]).then(([text, ast, options]) => {
         return babelGenerator(ast, options, text);
       });
+    },
+    shouldBabelTransfrom(ref) {
+      const {rootNodeModules, vendorRoot} = getState();
+
+      return (
+        !startsWith(ref.name, rootNodeModules) &&
+        !startsWith(ref.name, vendorRoot)
+      );
     },
     babelFile(ref, store) {
       return store.shouldBabelTransfrom(ref)
