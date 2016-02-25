@@ -6,7 +6,7 @@ import * as babel from 'babel-core';
 import * as babylon from 'babylon';
 import postcss from 'postcss';
 import browserifyBuiltins from 'browserify/lib/builtins';
-import browserResolve from 'browser-resolve';
+import _browserResolve from 'browser-resolve';
 import promisify from 'promisify-node';
 import {startsWith, endsWith} from 'lodash/string';
 import {zipObject} from 'lodash/array';
@@ -19,7 +19,7 @@ import {createJSModuleDefinition, JS_MODULE_SOURCE_MAP_LINE_OFFSET} from './util
 
 const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
-const resolve = promisify(browserResolve);
+const browserResolve = promisify(_browserResolve);
 
 export function createJobs({getState}={}) {
   return {
@@ -323,14 +323,25 @@ export function createJobs({getState}={}) {
         });
     },
     ast(ref, store) {
-      if (ref.ext === '.js') {
-        if (startsWith(ref.name, getState().rootNodeModules)) {
-          return store.babylonAst(ref);
-        }
-        return store.babelAst(ref);
-      }
+      return store.ext(ref)
+        .then(ext => {
+          if (ext === '.js') {
+            return store.shouldBabelTransform(ref)
+              .then(shouldBabelTransform => {
+                if (shouldBabelTransform) {
+                  return store.babelAst(ref);
+                } else {
+                  return store.babylonAst(ref);
+                }
+              });
+          }
 
-      throw new Error(`Unknown extension "${ref.ext}", cannot parse "${ref.name}"`);
+          // Note: we reject the `ast` job for .css files as we handle
+          // it during the initial traversal and transformation in the
+          // `postcssTransform` job
+
+          throw new Error(`Unknown extension "${ext}", cannot parse "${ref.name}"`);
+        });
     },
     analyzeDependencies(ref, store) {
       if (ref.ext === '.css') {
@@ -362,6 +373,10 @@ export function createJobs({getState}={}) {
             });
         });
     },
+    pathDependencyIdentifiers(ref, store) {
+      return store.dependencyIdentifiers(ref)
+        .then(ids => ids.filter(id => id[0] === '.' || path.isAbsolute(id)));
+    },
     packageDependencyIdentifiers(ref, store) {
       return store.dependencyIdentifiers(ref)
         .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)));
@@ -369,19 +384,24 @@ export function createJobs({getState}={}) {
     resolver(ref, store) {
       return store.resolverOptions(ref)
         .then(options => {
-          return id => resolve(id, options);
+          return id => browserResolve(id, options);
         });
     },
     resolverOptions(ref) {
       return {
+        // The directory that the resolver starts in when looking
+        // for a file to may the identifier to
         basedir: path.dirname(ref.name),
+        // The extensions that the resolver looks for considering
+        // identifiers without an extension
         extensions: ['.js', '.json'],
+        // The node core modules that should be shimmed for
+        // browser environments
         modules: browserifyBuiltins
       };
     },
     resolvePathDependencies(ref, store) {
-      return store.dependencyIdentifiers(ref)
-        .then(ids => ids.filter(id => id[0] === '.' || path.isAbsolute(id)))
+      return store.pathDependencyIdentifiers(ref)
         .then(ids => store.resolver(ref)
           .then(resolver => Promise.all(ids.map(id => resolver(id))))
           .then(resolved => zipObject(ids, resolved))
@@ -389,7 +409,6 @@ export function createJobs({getState}={}) {
     },
     resolvePackageDependencies(ref, store) {
       return store.packageDependencyIdentifiers(ref)
-        .then(ids => ids.filter(id => id[0] !== '.' && !path.isAbsolute(id)))
         .then(ids => store.resolver(ref)
           .then(resolver => Promise.all(ids.map(id => resolver(id))))
           .then(resolved => zipObject(ids, resolved))

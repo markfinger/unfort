@@ -2,6 +2,8 @@ import fs from 'fs';
 import {assign} from 'lodash/object';
 import {createRecordStore} from 'record-store';
 import postcss from 'postcss';
+import {createMockCache} from 'kv-cache';
+import * as babylon from 'babylon';
 import {createJobs} from '../jobs';
 import {assert} from './assert';
 
@@ -637,28 +639,138 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##babelAst', () => {
-    it('should ', () => {
-      
+    it('should return the `ast` property of `babelTransform`', () => {
+      const store = createTestStore({
+        babelTransform: () => {
+          return {
+            ast: 'test ast'
+          }
+        }
+      });
+      store.create('test.js');
+      return assert.becomes(store.babelAst('test.js'), 'test ast');
     });
   });
   describe('##babylonAst', () => {
-    it('should ', () => {
-      
+    it('should generate a babylon AST from the record\'s text', () => {
+      const store = createTestStore({
+        readText: () => 'const foo = "foo";'
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.babylonAst('test.js'),
+        babylon.parse('const foo = "foo";', {
+          sourceType: 'script'
+        })
+      );
     });
   });
   describe('##ast', () => {
-    it('should ', () => {
-      
+    it('should return the babel file\'s AST for JS files that are transformed', () => {
+      const store = createTestStore({
+        shouldBabelTransform: () => true,
+        babelAst: () => 'test babel ast'
+      });
+      store.create('test.js');
+      return assert.becomes(store.ast('test.js'), 'test babel ast');
+    });
+    it('should return a babylon AST for JS files that are not babel transformed', () => {
+      const store = createTestStore({
+        shouldBabelTransform: () => false,
+        babylonAst: () => 'test babylon ast'
+      });
+      store.create('test.js');
+      return assert.becomes(store.ast('test.js'), 'test babylon ast');
+    });
+    it('should reject for non-JS files', () => {
+      const store = createTestStore();
+      store.create('test.css');
+      return assert.isRejected(
+        store.ast('test.css'),
+        /Unknown extension ".css", cannot parse "test.css"/
+      );
     });
   });
   describe('##analyzeDependencies', () => {
-    it('should ', () => {
-      
+    it('should return a css file\'s `unfortDependencies` property generated during the `postcssTransform` job', () => {
+      const store = createTestStore({
+        postcssTransform: () => {
+          return {
+            unfortDependencies: 'test analyze dependencies'
+          }
+        }
+      });
+      store.create('test.css');
+      return assert.becomes(store.analyzeDependencies('test.css'), 'test analyze dependencies');
+    });
+    it('should traverse a js file\'s ast and find the identifiers', () => {
+      const store = createTestStore({
+        ast: () => {
+          return babylon.parse(
+            'import "./foo"; require("bar"); export * from "woz.js"',
+            {sourceType: 'module'}
+          )
+        }
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.analyzeDependencies('test.js'),
+        [
+          {source: './foo'},
+          {source: 'bar'},
+          {source: 'woz.js'}
+        ]
+      );
+    });
+    it('should return an empty array for json files', () => {
+      const store = createTestStore();
+      store.create('test.json');
+      return assert.becomes(store.analyzeDependencies('test.json'), []);
+    });
+    it('should return an empty array for non-text files', () => {
+      const store = createTestStore();
+      store.create('test.png');
+      return assert.becomes(store.analyzeDependencies('test.png'), []);
     });
   });
   describe('##dependencyIdentifiers', () => {
+    it('should pluck the `source` prop from analyzed dependencies', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        analyzeDependencies: () => [{source: 'foo'}, {source: 'bar'}]
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.dependencyIdentifiers('test.js'),
+        ['foo', 'bar']
+      );
+    });
+    it('should return the `dependencyIdentifiers` prop of the cached data', () => {
+      const store = createTestStore({
+        readCache: () => ({dependencyIdentifiers: 'test read cache'})
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.dependencyIdentifiers('test.js'),
+        'test read cache'
+      );
+    });
+    it('should set the `dependencyIdentifiers` value of the cached data', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        analyzeDependencies: () => [{source: 'foo'}, {source: 'bar'}]
+      });
+      store.create('test.js');
+      return store.dependencyIdentifiers('test.js')
+        .then(() => assert.becomes(
+          store.readCache('test.js'),
+          {dependencyIdentifiers: ['foo', 'bar']}
+        ));
+    });
+  });
+  describe('##pathDependencyIdentifiers', () => {
     it('should ', () => {
-      
+
     });
   });
   describe('##packageDependencyIdentifiers', () => {
