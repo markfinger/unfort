@@ -56,7 +56,7 @@ export function createJobs({getState}={}) {
     },
     mimeType(ref, store) {
       return store.ext(ref)
-        .then(ext => mimeTypes.lookup(ext) || null)
+        .then(ext => mimeTypes.lookup(ext) || null);
     },
     readText(ref) {
       return readFile(ref.name, 'utf8');
