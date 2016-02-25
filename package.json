@@ -6,7 +6,7 @@
   "scripts": {
     "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
     "_test": "mocha --reporter spec 'lib/**/tests/*.js'",
-    "lint": "eslint runtime/*.js src/**",
+    "lint": "eslint bootstrap/*.js scripts/**.js src/**.js",
     "build": "./scripts/build.js"
   },
   "repository": {

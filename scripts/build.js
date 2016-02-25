@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const child_process = require('child_process');
+const childProcess = require('child_process');
 const path = require('path');
 
 const argv = require('yargs')
@@ -21,7 +21,7 @@ SOURCE_DIRS
   .map(dirs => dirs[1])
   .forEach(function(outputDir) {
     console.log(`Removing ${outputDir}`);
-    const rm = child_process.spawnSync('rm', ['-rf', outputDir]);
+    const rm = childProcess.spawnSync('rm', ['-rf', outputDir]);
 
     const stderr = rm.stderr.toString();
     if (stderr) {
@@ -54,7 +54,7 @@ SOURCE_DIRS.forEach(dirs => {
     params.push('--watch');
   }
 
-  const babel = child_process.spawn(
+  const babel = childProcess.spawn(
     path.join(PROJECT_ROOT, 'node_modules', '.bin', 'babel'),
     params
   );
