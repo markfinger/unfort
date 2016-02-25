@@ -2,8 +2,8 @@ language: node_js
 node_js:
   - "node"
 install:
-  - "nvm install 5.6"
-  - "nvm use 5.6"
   - "npm install"
   - "npm run build -- --once"
+script:
+  - "npm test"
   - "npm run lint"
