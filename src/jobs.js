@@ -56,7 +56,7 @@ export function createJobs({getState}={}) {
     },
     mimeType(ref, store) {
       return store.ext(ref)
-        .then(ext => mimeTypes.lookup(ext));
+        .then(ext => mimeTypes.lookup(ext) || null)
     },
     readText(ref) {
       return readFile(ref.name, 'utf8');
@@ -272,6 +272,7 @@ export function createJobs({getState}={}) {
         store.sourceUrl(ref)
       ])
         .then(([url, sourceUrl]) => {
+          // We want to preserve the compression applied to vendor assets
           const shouldMinify = startsWith(ref.name, getState().vendorRoot);
 
           return {

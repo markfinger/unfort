@@ -26,7 +26,7 @@ describe('unfort/jobs', () => {
 
   describe('##ready', () => {
     it('should ', () => {
-      // TODO
+      // TODO check the codebase and see what is actually needed
     });
   });
   describe('##basename', () => {
@@ -46,7 +46,7 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##isTextFile', () => {
-    it('should indicate if the file is JS, CSS or JSON in type', () => {
+    it('should indicate true if the file is JS, CSS or JSON in type', () => {
       const store = createTestStore();
       store.create('test.js');
       store.create('test.json');
@@ -55,6 +55,16 @@ describe('unfort/jobs', () => {
         .then(() => assert.becomes(store.isTextFile('test.js'), true))
         .then(() => assert.becomes(store.isTextFile('test.json'), true))
         .then(() => assert.becomes(store.isTextFile('test.css'), true));
+    });
+    it('should indicate false for other file types', () => {
+      const store = createTestStore();
+      store.create('test');
+      store.create('test.png');
+      store.create('test.yaml');
+      return Promise.resolve()
+        .then(() => assert.becomes(store.isTextFile('test'), false))
+        .then(() => assert.becomes(store.isTextFile('test.png'), false))
+        .then(() => assert.becomes(store.isTextFile('test.yaml'), false));
     });
   });
   describe('##mimeType', () => {
@@ -69,6 +79,11 @@ describe('unfort/jobs', () => {
         .then(() => assert.becomes(store.mimeType('test.json'), 'application/json'))
         .then(() => assert.becomes(store.mimeType('test.css'), 'text/css'))
         .then(() => assert.becomes(store.mimeType('test.png'), 'image/png'));
+    });
+    it('should fallback to null', () => {
+      const store = createTestStore();
+      store.create('test');
+      return assert.becomes(store.mimeType('test'), null);
     });
   });
   describe('##readText', () => {
@@ -546,8 +561,36 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##babelGenerator', () => {
-    it('should ', () => {
-      
+    it('should return a babel file', () => {
+      const store = createTestStore({
+        readText: () => 'const foo = "foo";'
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.js');
+      return store.babelGenerator('/foo/test.js')
+        .then(file => {
+          assert.isObject(file);
+          assert.equal(file.code, 'const foo = "foo";');
+          assert.isObject(file.map);
+        });
+    });
+    it('should respect babelGeneratorOptions', () => {
+      const store = createTestStore({
+        readText: () => 'const foo = "foo";',
+        babelGeneratorOptions: () => {
+          return {sourceMaps: false};
+        }
+      }, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.js');
+      return store.babelGenerator('/foo/test.js')
+        .then(file => {
+          assert.isObject(file);
+          assert.equal(file.code, 'const foo = "foo";');
+          assert.isNull(file.map);
+        });
     });
   });
   describe('##shouldBabelTransfrom', () => {
