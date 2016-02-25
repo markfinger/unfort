@@ -593,14 +593,47 @@ describe('unfort/jobs', () => {
         });
     });
   });
-  describe('##shouldBabelTransfrom', () => {
-    it('should indicate if a file', () => {
-
+  describe('##shouldBabelTransform', () => {
+    it('should indicate true if a file lives in source root', () => {
+      const store = createTestStore({}, {
+        sourceRoot: '/foo'
+      });
+      store.create('/foo/test.js');
+      return assert.becomes(store.shouldBabelTransform('/foo/test.js'), true);
+    });
+    it('should indicate false if a file lives in root node_modules', () => {
+      const store = createTestStore({}, {
+        rootNodeModules: '/foo'
+      });
+      store.create('/foo/test.js');
+      return assert.becomes(store.shouldBabelTransform('/foo/test.js'), false);
+    });
+    it('should indicate false if a file lives in the vendor root', () => {
+      const store = createTestStore({}, {
+        vendorRoot: '/foo'
+      });
+      store.create('/foo/test.js');
+      return assert.becomes(store.shouldBabelTransform('/foo/test.js'), false);
     });
   });
   describe('##babelFile', () => {
-    it('should ', () => {
-      
+    it('should call `babelTransform` if `shouldBabelTransform` returns true', () => {
+      const store = createTestStore({
+        shouldBabelTransform: () => true,
+        babelTransform: () => 'test babel transform',
+        babelGenerator: () => 'test babel generator'
+      });
+      store.create('test.js');
+      return assert.becomes(store.babelFile('test.js'), 'test babel transform');
+    });
+    it('should call `babelGenerator` if `shouldBabelTransform` returns false', () => {
+      const store = createTestStore({
+        shouldBabelTransform: () => false,
+        babelTransform: () => 'test babel transform',
+        babelGenerator: () => 'test babel generator'
+      });
+      store.create('test.js');
+      return assert.becomes(store.babelFile('test.js'), 'test babel generator');
     });
   });
   describe('##babelAst', () => {

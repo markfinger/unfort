@@ -292,7 +292,7 @@ export function createJobs({getState}={}) {
         return babelGenerator(ast, options, text);
       });
     },
-    shouldBabelTransfrom(ref) {
+    shouldBabelTransform(ref) {
       const {rootNodeModules, vendorRoot} = getState();
 
       return (
@@ -301,9 +301,9 @@ export function createJobs({getState}={}) {
       );
     },
     babelFile(ref, store) {
-      return store.shouldBabelTransfrom(ref)
-        .then(shouldBabelTransfrom => {
-          if (shouldBabelTransfrom) {
+      return store.shouldBabelTransform(ref)
+        .then(shouldBabelTransform => {
+          if (shouldBabelTransform) {
             return store.babelTransform(ref);
           } else {
             return store.babelGenerator(ref);
