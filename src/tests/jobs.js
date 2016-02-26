@@ -4,6 +4,7 @@ import {createRecordStore} from 'record-store';
 import postcss from 'postcss';
 import {createMockCache} from 'kv-cache';
 import * as babylon from 'babylon';
+import browserifyBuiltins from 'browserify/lib/builtins';
 import {createJobs} from '../jobs';
 import {assert} from './assert';
 
@@ -769,38 +770,147 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##pathDependencyIdentifiers', () => {
-    it('should ', () => {
-
+    it('should return the dependency identifiers that indicate relative or absolute paths', () => {
+      const store = createTestStore({
+        dependencyIdentifiers: () => ['foo', './bar', '/woo.js']
+      });
+      store.create('test.js');
+      return store.dependencyIdentifiers('test.js')
+        .then(() => assert.becomes(
+          store.pathDependencyIdentifiers('test.js'),
+          ['./bar', '/woo.js']
+        ));
     });
   });
   describe('##packageDependencyIdentifiers', () => {
-    it('should ', () => {
-      
+    it('should return the dependency identifiers that packages', () => {
+      const store = createTestStore({
+        dependencyIdentifiers: () => ['foo', './bar', '/woo.js']
+      });
+      store.create('test.js');
+      return store.dependencyIdentifiers('test.js')
+        .then(() => assert.becomes(
+          store.packageDependencyIdentifiers('test.js'),
+          ['foo']
+        ));
     });
   });
   describe('##resolver', () => {
-    it('should ', () => {
-      
+    it('should return a function that accepts an id and maps it to a file', () => {
+      const store = createTestStore();
+      store.create(__filename);
+      return store.resolver(__filename)
+        .then(resolver => {
+          assert.isFunction(resolver);
+          return assert.becomes(
+            resolver('lodash'),
+            require.resolve('lodash')
+          );
+        });
     });
   });
   describe('##resolverOptions', () => {
-    it('should ', () => {
-      
+    it('should generate the resolvers options for a particular record', () => {
+      const store = createTestStore();
+      store.create('/foo/bar.js');
+      assert.becomes(
+        store.resolverOptions('/foo/bar.js'),
+        {
+          basedir: '/foo',
+          extensions: ['.js', '.json'],
+          modules: require('browserify/lib/builtins')
+        }
+      );
     });
   });
   describe('##resolvePathDependencies', () => {
-    it('should ', () => {
-      
+    it('should pass all path dependencies through the resolver', () => {
+      const idsPassed = [];
+      const store = createTestStore({
+        resolver: () => id => idsPassed.push(id),
+        pathDependencyIdentifiers: () => ['./foo', '/bar.js']
+      });
+      store.create('/foo/bar.js');
+      return store.resolvePathDependencies('/foo/bar.js')
+        .then(() => {
+          assert.deepEqual(idsPassed, ['./foo', '/bar.js']);
+        });
+    });
+    it('should return an object mapping identifiers to resolved files', () => {
+      const store = createTestStore({
+        resolver: () => id => id + ' test',
+        pathDependencyIdentifiers: () => ['./foo', '/bar.js']
+      });
+      store.create('/foo/bar.js');
+      return assert.becomes(
+        store.resolvePathDependencies('/foo/bar.js'),
+        {
+          './foo': './foo test',
+          '/bar.js': '/bar.js test'
+        }
+      );
     });
   });
   describe('##resolvePackageDependencies', () => {
-    it('should ', () => {
-      
+    it('should pass all package dependencies through the resolver', () => {
+      const idsPassed = [];
+      const store = createTestStore({
+        resolver: () => id => idsPassed.push(id),
+        packageDependencyIdentifiers: () => ['foo', 'bar']
+      });
+      store.create('/foo/bar.js');
+      return store.resolvePackageDependencies('/foo/bar.js')
+        .then(() => {
+          assert.deepEqual(idsPassed, ['foo', 'bar']);
+        });
+    });
+    it('should return an object mapping identifiers to resolved files', () => {
+      const store = createTestStore({
+        resolver: () => id => id + ' test',
+        packageDependencyIdentifiers: () => ['foo', 'bar']
+      });
+      store.create('/foo/bar.js');
+      return assert.becomes(
+        store.resolvePackageDependencies('/foo/bar.js'),
+        {
+          'foo': 'foo test',
+          'bar': 'bar test'
+        }
+      );
+    });
+  });
+  describe('##shouldCacheResolvedPathDependencies', () => {
+    it('should return true if the file lives in rootNodeModules', () => {
+      const store = createTestStore({}, {
+        rootNodeModules: '/foo'
+      });
+      store.create('/foo/bar.js');
+      return assert.becomes(store.shouldCacheResolvedPathDependencies('/foo/bar.js'), true);
+    });
+    it('should return false if the file lives in rootNodeModules', () => {
+      const store = createTestStore({}, {
+        rootNodeModules: '/foo'
+      });
+      store.create('/bar/woz.js');
+      return assert.becomes(store.shouldCacheResolvedPathDependencies('/bar/woz.js'), false);
     });
   });
   describe('##resolvedDependencies', () => {
-    it('should ', () => {
-      
+    it('should return merge the returns of `resolvePathDependencies` and `resolvePackageDependencies`', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        shouldCacheResolvedPathDependencies: () => true,
+        resolvePathDependencies: () => ({'./foo': '/foo/foo.js'}),
+        resolvePackageDependencies: () => ({bar: '/foo/node_modules/bar/index.js'})
+      });
+      store.create('/foo/bar.js');
+      return assert.becomes(
+        store.resolvedDependencies('/foo/bar.js'),
+        {
+          './foo': '/foo/foo.js',
+          bar: '/foo/node_modules/bar/index.js'
+        }
+      );
     });
   });
   describe('##code', () => {

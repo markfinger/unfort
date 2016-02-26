@@ -21,6 +21,9 @@ const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
 const browserResolve = promisify(_browserResolve);
 
+// TODO reverse the job order so that the larger more high-level ones are at the top
+// TODO the jobs use mixed present and past tense names, should clean up
+
 export function createJobs({getState}={}) {
   return {
     ready(ref, store) {
@@ -344,19 +347,22 @@ export function createJobs({getState}={}) {
         });
     },
     analyzeDependencies(ref, store) {
-      if (ref.ext === '.css') {
-        return store.postcssTransform(ref)
-          .then(result => {
-            return result.unfortDependencies;
-          });
-      }
+      return store.ext(ref)
+        .then(ext => {
+          if (ext === '.css') {
+            return store.postcssTransform(ref)
+              .then(result => {
+                return result.unfortDependencies;
+              });
+          }
 
-      if (ref.ext === '.js') {
-        return store.ast(ref)
-          .then(ast => babylonAstDependencies(ast));
-      }
+          if (ext === '.js') {
+            return store.ast(ref)
+              .then(ast => babylonAstDependencies(ast));
+          }
 
-      return [];
+          return [];
+        });
     },
     dependencyIdentifiers(ref, store) {
       return store.readCache(ref)
@@ -384,19 +390,22 @@ export function createJobs({getState}={}) {
     resolver(ref, store) {
       return store.resolverOptions(ref)
         .then(options => {
+          // We use `browser-resolve` to resolve ids as it picks up browser-specific
+          // entry points for packages
           return id => browserResolve(id, options);
         });
     },
     resolverOptions(ref) {
       return {
-        // The directory that the resolver starts in when looking
-        // for a file to may the identifier to
+        // The directory that the resolver starts in when looking for a file
+        // to matches an identifier
         basedir: path.dirname(ref.name),
-        // The extensions that the resolver looks for considering
-        // identifiers without an extension
+        // The extensions that the resolver looks for considering identifiers
+        // without an extension
         extensions: ['.js', '.json'],
-        // The node core modules that should be shimmed for
-        // browser environments
+        // The node core modules that should be shimmed for browser environments.
+        // We use browserify's as they tend to upgrade them more often. Webpack's
+        // `node-libs-browser` is another alternative
         modules: browserifyBuiltins
       };
     },
@@ -414,11 +423,19 @@ export function createJobs({getState}={}) {
           .then(resolved => zipObject(ids, resolved))
         );
     },
+    shouldCacheResolvedPathDependencies(ref) {
+      // TODO: there was a lengthy writeup about the reasons and tradeoffs of the various
+      // caching strategies. It used to live in `src/dependencies/cached-dependencies.js`, should
+      // dig through history and copy/paste it in
+      return startsWith(ref.name, getState().rootNodeModules);
+    },
     resolvedDependencies(ref, store) {
-      return store.readCache(ref)
-        .then(cachedData => {
-          // Aggressively cache resolved paths for files that live in node_modules
-          if (startsWith(ref.name, getState().rootNodeModules)) {
+      return Promise.all([
+        store.shouldCacheResolvedPathDependencies(ref),
+        store.readCache(ref)
+      ])
+        .then(([cachePathDeps, cachedData]) => {
+          if (cachePathDeps) {
             if (cachedData.resolvedDependencies) {
               return cachedData.resolvedDependencies;
             }
@@ -431,21 +448,20 @@ export function createJobs({getState}={}) {
               cachedData.resolvedDependencies = deps;
               return deps;
             });
-          }
+          } else {
+            let packageDeps = cachedData.resolvedDependencies;
+            if (!packageDeps) {
+              packageDeps = store.resolvePackageDependencies(ref);
+            }
 
-          // To avoid any edge-cases caused by caching path-based dependencies,
-          // we only cache the resolved paths which relate to packages
-          let packageDeps = cachedData.resolvedDependencies;
-          if (!packageDeps) {
-            packageDeps = store.resolvePackageDependencies(ref);
+            return Promise.all([
+              store.resolvePathDependencies(ref),
+              packageDeps
+            ]).then(([pathDeps, packageDeps]) => {
+              cachedData.resolvedDependencies = packageDeps;
+              return assign({}, pathDeps, packageDeps);
+            });
           }
-          return Promise.all([
-            store.resolvePathDependencies(ref),
-            packageDeps
-          ]).then(([pathDeps, packageDeps]) => {
-            cachedData.resolvedDependencies = packageDeps;
-            return assign({}, pathDeps, packageDeps);
-          });
         });
     },
     code(ref, store) {
@@ -455,13 +471,16 @@ export function createJobs({getState}={}) {
             return null;
           }
 
-          return store.readCache(ref)
-            .then(cachedData => {
+          return Promise.all([
+            store.ext(ref),
+            store.readCache(ref)
+          ])
+            .then(([ext, cachedData]) => {
               if (cachedData.code) {
                 return cachedData.code;
               }
 
-              if (ref.ext === '.css') {
+              if (ext === '.css') {
                 return store.postcssTransform(ref)
                   .then(result => {
                     cachedData.code = result.css;
@@ -469,7 +488,7 @@ export function createJobs({getState}={}) {
                   });
               }
 
-              if (ref.ext === '.js') {
+              if (ext === '.js') {
                 if (ref.name === getState().bootstrapRuntime) {
                   return store.readText(ref);
                 }
@@ -490,7 +509,7 @@ export function createJobs({getState}={}) {
                 });
               }
 
-              if (ref.ext === '.json') {
+              if (ext === '.json') {
                 return Promise.all([
                   store.readText(ref),
                   store.hash(ref)
@@ -524,7 +543,7 @@ export function createJobs({getState}={}) {
               }
 
               return Promise.reject(
-                `Unknown text file extension: ${ref.ext}. Cannot generate code for file: ${ref.name}`
+                `Unknown text file extension: ${ext}. Cannot generate code for file: ${ref.name}`
               );
             });
         });
@@ -536,13 +555,16 @@ export function createJobs({getState}={}) {
             return null;
           }
 
-          return store.readCache(ref)
-            .then(cachedData => {
+          return Promise.all([
+            store.ext(ref),
+            store.readCache(ref)
+          ])
+            .then(([ext, cachedData]) => {
               if (cachedData.sourceMap) {
                 return cachedData.sourceMap;
               }
 
-              if (ref.ext === '.css') {
+              if (ext === '.css') {
                 return store.postcssTransform(ref).then(result => {
                   const sourceMap = result.map.toString();
                   cachedData.sourceMap = sourceMap;
@@ -550,7 +572,7 @@ export function createJobs({getState}={}) {
                 });
               }
 
-              if (ref.ext === '.js') {
+              if (ext === '.js') {
                 return store.babelFile(ref).then(file => {
                   // Offset each line in the source map to reflect the call to
                   // the module runtime
@@ -562,12 +584,12 @@ export function createJobs({getState}={}) {
                 });
               }
 
-              if (ref.ext === '.json') {
+              if (ext === '.json') {
                 return null;
               }
 
               return Promise.reject(
-                `Unknown text file extension: ${ref.ext}. Cannot generate source map for file: ${ref.name}`
+                `Unknown text file extension: ${ext}. Cannot generate source map for file: ${ref.name}`
               );
             });
         });
