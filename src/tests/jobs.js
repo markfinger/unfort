@@ -912,6 +912,69 @@ describe('unfort/jobs', () => {
         }
       );
     });
+    it('should cause path dependencies to be cached if shouldCacheResolvedPathDependencies returns false', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        shouldCacheResolvedPathDependencies: () => true,
+        resolvePathDependencies: () => ({'./foo': '/foo/foo.js'}),
+        resolvePackageDependencies: () => ({bar: '/foo/node_modules/bar/index.js'})
+      });
+      store.create('/foo/bar.js');
+      return store.resolvedDependencies('/foo/bar.js')
+        .then(() => store.readCache('/foo/bar.js')
+          .then(cachedData => {
+            assert.deepEqual(
+              cachedData.resolvedDependencies,
+              {
+                './foo': '/foo/foo.js',
+                bar: '/foo/node_modules/bar/index.js'
+              }
+            );
+          }));
+    });
+    it('should not cause path dependencies to be cached if shouldCacheResolvedPathDependencies returns false', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        shouldCacheResolvedPathDependencies: () => false,
+        resolvePathDependencies: () => ({'./foo': '/foo/foo.js'}),
+        resolvePackageDependencies: () => ({bar: '/foo/node_modules/bar/index.js'})
+      });
+      store.create('/foo/bar.js');
+      return store.resolvedDependencies('/foo/bar.js')
+        .then(() => store.readCache('/foo/bar.js')
+          .then(cachedData => {
+            assert.deepEqual(
+              cachedData.resolvedDependencies,
+              {bar: '/foo/node_modules/bar/index.js'}
+            );
+          }));
+    });
+    it('should return cached data if available and shouldCacheResolvedPathDependencies returns true', () => {
+      const store = createTestStore({
+        readCache: () => ({resolvedDependencies: 'test cache'}),
+        shouldCacheResolvedPathDependencies: () => true
+      });
+      store.create('/foo/bar.js');
+      return assert.becomes(
+        store.resolvedDependencies('/foo/bar.js'),
+        'test cache'
+      );
+    });
+    it('should return cached data for package dependencies if available and shouldCacheResolvedPathDependencies returns false', () => {
+      const store = createTestStore({
+        readCache: () => ({resolvedDependencies: {bar: 'test'}}),
+        shouldCacheResolvedPathDependencies: () => false,
+        resolvePathDependencies: () => ({'./foo': '/foo/foo.js'})
+      });
+      store.create('/foo/bar.js');
+      return assert.becomes(
+        store.resolvedDependencies('/foo/bar.js'),
+        {
+          './foo': '/foo/foo.js',
+          bar: 'test'
+        }
+      );
+    });
   });
   describe('##code', () => {
     it('should ', () => {
