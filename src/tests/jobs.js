@@ -977,8 +977,36 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##code', () => {
-    it('should ', () => {
-      
+    it('should return null for non-text files', () => {
+      const store = createTestStore({
+        isTextFile: () => false
+      });
+      store.create('test.png');
+      return assert.becomes(store.code('test.png'), null);
+    });
+    it('should return cached data if available', () => {
+      const store = createTestStore({
+        readCache: () => ({code: 'test cache'})
+      });
+      store.create('test.js');
+      return assert.becomes(store.code('test.js'), 'test cache');
+    });
+    it('should return the `css` property of `postcssTransform` for .css files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        postcssTransform: () => ({css: 'test css'})
+      });
+      store.create('test.css');
+      return assert.becomes(store.code('test.css'), 'test css');
+    });
+    it('should update the cached for .css files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        postcssTransform: () => ({css: 'test css'})
+      });
+      store.create('test.css');
+      return store.code('test.css')
+        .then(() => assert.becomes(store.readCache('test.css'), {code: 'test css'}));
     });
   });
   describe('##sourceMap', () => {
