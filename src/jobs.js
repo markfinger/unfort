@@ -519,14 +519,14 @@ export function createJobs({getState}={}) {
                     jsModuleCode = `module.exports = ${text};`;
                   } else {
                     // We fake babel's commonjs shim so that hot swapping can occur
-                    jsModuleCode = `
-                      var json = ${text};
-                      exports.default = json;
-                      exports.__esModule = true;
-                      if (module.hot) {
-                        module.hot.accept();
-                      }
-                    `;
+                    jsModuleCode = [
+                      'var json = ' + text,
+                      'exports.default = json;',
+                      'exports.__esModule = true;',
+                      'if (module.hot) {',
+                      '  module.hot.accept();',
+                      '}'
+                    ].join('\n');
                   }
 
                   const code = createJSModuleDefinition({

@@ -4,8 +4,10 @@ import {createRecordStore} from 'record-store';
 import postcss from 'postcss';
 import {createMockCache} from 'kv-cache';
 import * as babylon from 'babylon';
+import * as babel from 'babel-core';
 import browserifyBuiltins from 'browserify/lib/builtins';
 import {createJobs} from '../jobs';
+import {createJSModuleDefinition} from '../utils';
 import {assert} from './assert';
 
 describe('unfort/jobs', () => {
@@ -17,7 +19,7 @@ describe('unfort/jobs', () => {
     });
   });
 
-  function createTestStore(overrides={}, state) {
+  function createTestStore(overrides={}, state={}) {
     let jobs = createJobs({
       getState() {
         return state;
@@ -1007,6 +1009,103 @@ describe('unfort/jobs', () => {
       store.create('test.css');
       return store.code('test.css')
         .then(() => assert.becomes(store.readCache('test.css'), {code: 'test css'}));
+    });
+    it('should return the raw text of the bootstrapRuntime file', () => {
+      const store = createTestStore({
+        readText: () => 'text test',
+        readCache: () => ({})
+      }, {
+        bootstrapRuntime: 'bootstrap.js'
+      });
+      store.create('bootstrap.js');
+      return assert.becomes(store.code('bootstrap.js'), 'text test');
+    });
+    it('should generate a module definition from the `babelFile` code generated for js files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        babelFile: () => babel.transform('const foo = "test";'),
+        resolvedDependencies: () => ({foo: './foo.js'}),
+        hash: () => 'test hash'
+      });
+      store.create('test.js');
+
+      return assert.becomes(
+        store.code('test.js'),
+        createJSModuleDefinition({
+          name: 'test.js',
+          deps: {foo: './foo.js'},
+          hash: 'test hash',
+          code: 'const foo = "test";'
+        })
+      );
+    });
+    it('should annotate the cached data object with the generated code for js files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        babelFile: () => babel.transform('const foo = "test";'),
+        resolvedDependencies: () => ({foo: './foo.js'}),
+        hash: () => 'test hash'
+      });
+      store.create('test.js');
+
+      return store.code('test.js')
+        .then(code => store.readCache('test.js')
+          .then(data => {
+            assert.equal(data.code, code);
+          })
+        );
+    });
+    it('should generate a module definition for json files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        readText: () => 'test text',
+        hash: () => 'test hash'
+      });
+      store.create('test.json');
+
+      return assert.becomes(
+        store.code('test.json'),
+        createJSModuleDefinition({
+          name: 'test.json',
+          deps: {},
+          hash: 'test hash',
+          code: [
+            'var json = test text',
+            'exports.default = json;',
+            'exports.__esModule = true;',
+            'if (module.hot) {',
+            '  module.hot.accept();',
+            '}'
+          ].join('\n')
+        })
+      );
+    });
+    it('should annotate the cached data object with the generated code for json files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        readText: () => 'test text',
+        hash: () => 'test hash'
+      });
+      store.create('test.json');
+
+      return store.code('test.json')
+        .then(code => store.readCache('test.json')
+          .then(data => {
+            assert.equal(data.code, code);
+          })
+        );
+    });
+    it('should reject job for unknown text file extensions', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        isTextFile: () => true
+      });
+      store.create('test.png');
+
+      return assert.isRejected(
+        store.code('test.png'),
+        /Unknown text file extension: \.png\. Cannot generate code for file: test\.png/
+      );
     });
   });
   describe('##sourceMap', () => {
