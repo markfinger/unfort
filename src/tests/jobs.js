@@ -30,8 +30,40 @@ describe('unfort/jobs', () => {
   }
 
   describe('##ready', () => {
-    it('should ', () => {
-      // TODO check the codebase and see what is actually needed
+    it('should trigger evaluation of the data set required for the record', () => {
+      // TODO check the codebase and see if these are still needed
+      const store = createTestStore({
+        hash: () => 'test hash',
+        code: () => 'test code',
+        url: () => 'test url',
+        sourceMap: () => 'test source map',
+        sourceMapUrl: () => 'test source url',
+        sourceMapAnnotation: () => 'test source annotation',
+        hashedFilename: () => 'test hashed filename',
+        isTextFile: () => 'test is text file',
+        mimeType: () => 'test mime type'
+      });
+      store.create('test.js');
+      return store.ready('test.js')
+        .then(() => {
+          const record = store.get('test.js');
+          const expected = {
+            hash: 'test hash',
+            code: 'test code',
+            url: 'test url',
+            sourceMap: 'test source map',
+            sourceMapUrl: 'test source url',
+            sourceMapAnnotation: 'test source annotation',
+            hashedFilename: 'test hashed filename',
+            isTextFile: 'test is text file',
+            mimeType: 'test mime type'
+          };
+          for (let key in expected) {
+            if (expected.hasOwnProperty(key)) {
+              assert.equal(record.data[key], expected[key]);
+            }
+          }
+        });
     });
   });
   describe('##basename', () => {
@@ -1109,8 +1141,78 @@ describe('unfort/jobs', () => {
     });
   });
   describe('##sourceMap', () => {
-    it('should ', () => {
-
+    it('should return null for non-text files', () => {
+      const store = createTestStore({
+        isTextFile: () => false
+      });
+      store.create('test.png');
+      return assert.becomes(store.sourceMap('test.png'), null);
+    });
+    it('should return cached data if available', () => {
+      const store = createTestStore({
+        readCache: () => ({sourceMap: 'test cache'})
+      });
+      store.create('test.js');
+      return assert.becomes(store.sourceMap('test.js'), 'test cache');
+    });
+    it('should return the stringified `map` property of `postcssTransform` for .css files', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        postcssTransform: () => ({map: {toString: () => 'test map'}})
+      });
+      store.create('test.css');
+      return assert.becomes(store.sourceMap('test.css'), 'test map');
+    });
+    it('should apply a .css file\'s source map to the cache object', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        postcssTransform: () => ({map: {toString: () => 'test map'}})
+      });
+      store.create('test.css');
+      return store.sourceMap('test.css')
+        .then(sourceMap => store.readCache('test.css')
+          .then(data => assert.equal(data.sourceMap, sourceMap))
+        );
+    });
+    it('should return a js file\'s source map from `babelFile` with the map\'s line numbers offset by one and the result stringified', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        babelFile: () => ({map: {mappings: 'test mappings'}})
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.sourceMap('test.js'),
+        JSON.stringify({mappings: ';test mappings'})
+      );
+    });
+    it('should apply a .js file\'s source map to the cache object', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        babelFile: () => ({map: {mappings: 'test mappings'}})
+      });
+      store.create('test.js');
+      return store.sourceMap('test.js')
+        .then(sourceMap => store.readCache('test.js')
+          .then(data => assert.equal(data.sourceMap, sourceMap))
+        );
+    });
+    it('should return null for a .json file', () => {
+      const store = createTestStore({
+        readCache: () => ({})
+      });
+      store.create('test.json');
+      return assert.becomes(store.sourceMap('test.json'), null);
+    });
+    it('should reject for unknown text files', () => {
+      const store = createTestStore({
+        isTextFile: () => true,
+        readCache: () => ({})
+      });
+      store.create('test.png');
+      return assert.isRejected(
+        store.sourceMap('test.png'),
+        /Unknown text file extension: \.png\. Cannot generate source map for file: test\.png/
+      );
     });
   });
 });
