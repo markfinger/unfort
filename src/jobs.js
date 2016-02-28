@@ -440,9 +440,9 @@ export function createJobs({getState}={}) {
               .then(resolver => Promise.all(ids.map(id => resolver(id))))
               .then(resolved => zipObject(ids, resolved))
             )
-            .then(pathDeps => {
-              cachedData.resolvePathDependencies = pathDeps;
-              return pathDeps;
+            .then(deps => {
+              cachedData.resolvePathDependencies = deps;
+              return deps;
             });
         });
     },
@@ -461,9 +461,9 @@ export function createJobs({getState}={}) {
             .then(resolver => Promise.all(ids.map(id => resolver(id))))
             .then(resolved => zipObject(ids, resolved))
           )
-          .then(pathDeps => {
-            cachedData.resolvePackageDependencies = pathDeps;
-            return pathDeps;
+          .then(deps => {
+            cachedData.resolvePackageDependencies = deps;
+            return deps;
           });
       });
     },
