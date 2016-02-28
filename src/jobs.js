@@ -409,59 +409,71 @@ export function createJobs({getState}={}) {
         modules: browserifyBuiltins
       };
     },
+    shouldCacheResolvedPathDependencies(ref) {
+      // If a dependency identifier is relative (./ ../) or absolute (/), there are
+      // edge-cases where caching the resolved path may produce the wrong result.
+      // For example: an identifier "./foo" may resolve to either a "./foo.js" or
+      // or "./foo/index.js". Detecting these cases is problematic, so we avoid the
+      // problem by ensuring that the resolver always inspects the file system for
+      // path-based identifiers originating from files that we expect to change
+      // frequently
+      return startsWith(ref.name, getState().rootNodeModules);
+    },
+    shouldCacheResolvedPackageDependencies() {
+      // If a dependency identifier refers to a package (eg: is not a path-based
+      // identifier), we can cache the resolved path and leave higher levels to
+      // perform cache invalidation
+      return true;
+    },
     resolvePathDependencies(ref, store) {
-      return store.pathDependencyIdentifiers(ref)
-        .then(ids => store.resolver(ref)
-          .then(resolver => Promise.all(ids.map(id => resolver(id))))
-          .then(resolved => zipObject(ids, resolved))
-        );
+      return Promise.all([
+        store.readCache(ref),
+        store.shouldCacheResolvedPathDependencies(ref)
+      ])
+        .then(([cachedData, shouldCache]) => {
+          if (shouldCache && cachedData.resolvePathDependencies) {
+            return cachedData.resolvePathDependencies;
+          }
+
+          return store.pathDependencyIdentifiers(ref)
+            .then(ids => store.resolver(ref)
+              .then(resolver => Promise.all(ids.map(id => resolver(id))))
+              .then(resolved => zipObject(ids, resolved))
+            )
+            .then(pathDeps => {
+              cachedData.resolvePathDependencies = pathDeps;
+              return pathDeps;
+            });
+        });
     },
     resolvePackageDependencies(ref, store) {
-      return store.packageDependencyIdentifiers(ref)
-        .then(ids => store.resolver(ref)
-          .then(resolver => Promise.all(ids.map(id => resolver(id))))
-          .then(resolved => zipObject(ids, resolved))
-        );
-    },
-    shouldCacheResolvedPathDependencies(ref) {
-      // TODO: there was a lengthy writeup about the reasons and tradeoffs of the various
-      // caching strategies. It used to live in `src/dependencies/cached-dependencies.js`, should
-      // dig through history and copy/paste it in
-      return startsWith(ref.name, getState().rootNodeModules);
+      return Promise.all([
+        store.readCache(ref),
+        store.shouldCacheResolvedPackageDependencies(ref)
+      ])
+      .then(([cachedData, shouldCache]) => {
+        if (shouldCache && cachedData.resolvePackageDependencies) {
+          return cachedData.resolvePackageDependencies;
+        }
+
+        return store.packageDependencyIdentifiers(ref)
+          .then(ids => store.resolver(ref)
+            .then(resolver => Promise.all(ids.map(id => resolver(id))))
+            .then(resolved => zipObject(ids, resolved))
+          )
+          .then(pathDeps => {
+            cachedData.resolvePackageDependencies = pathDeps;
+            return pathDeps;
+          });
+      });
     },
     resolvedDependencies(ref, store) {
       return Promise.all([
-        store.shouldCacheResolvedPathDependencies(ref),
-        store.readCache(ref)
+        store.resolvePackageDependencies(ref),
+        store.resolvePathDependencies(ref)
       ])
-        .then(([cachePathDeps, cachedData]) => {
-          if (cachePathDeps) {
-            if (cachedData.resolvedDependencies) {
-              return cachedData.resolvedDependencies;
-            }
-
-            return Promise.all([
-              store.resolvePathDependencies(ref),
-              store.resolvePackageDependencies(ref)
-            ]).then(([pathDeps, packageDeps]) => {
-              const deps = assign({}, pathDeps, packageDeps);
-              cachedData.resolvedDependencies = deps;
-              return deps;
-            });
-          } else {
-            let packageDeps = cachedData.resolvedDependencies;
-            if (!packageDeps) {
-              packageDeps = store.resolvePackageDependencies(ref);
-            }
-
-            return Promise.all([
-              store.resolvePathDependencies(ref),
-              packageDeps
-            ]).then(([pathDeps, packageDeps]) => {
-              cachedData.resolvedDependencies = packageDeps;
-              return assign({}, pathDeps, packageDeps);
-            });
-          }
+        .then(([pathDeps, packageDeps]) => {
+          return assign({}, pathDeps, packageDeps);
         });
     },
     code(ref, store) {
