@@ -21,14 +21,12 @@ const readFile = promisify(fs.readFile);
 const stat = promisify(fs.stat);
 const browserResolve = promisify(_browserResolve);
 
-// TODO reverse the job order so that the larger more high-level ones are at the top
-// TODO the jobs use mixed present and past tense names, should clean up
-
 export function createJobs({getState}={}) {
   return {
     ready(ref, store) {
       // All the jobs that must be completed before
       // the record is emitted
+      // TODO: add module definitions
       return Promise.all([
         ref.name,
         store.hash(ref),
@@ -373,10 +371,7 @@ export function createJobs({getState}={}) {
 
           return store.analyzeDependencies(ref)
             .then(deps => deps.map(dep => dep.source))
-            .then(ids => {
-              cachedData.dependencyIdentifiers = ids;
-              return ids;
-            });
+            .then(ids => cachedData.dependencyIdentifiers = ids);
         });
     },
     pathDependencyIdentifiers(ref, store) {
@@ -440,10 +435,7 @@ export function createJobs({getState}={}) {
               .then(resolver => Promise.all(ids.map(id => resolver(id))))
               .then(resolved => zipObject(ids, resolved))
             )
-            .then(deps => {
-              cachedData.resolvePathDependencies = deps;
-              return deps;
-            });
+            .then(deps => cachedData.resolvePathDependencies = deps);
         });
     },
     resolvePackageDependencies(ref, store) {
@@ -461,10 +453,7 @@ export function createJobs({getState}={}) {
             .then(resolver => Promise.all(ids.map(id => resolver(id))))
             .then(resolved => zipObject(ids, resolved))
           )
-          .then(deps => {
-            cachedData.resolvePackageDependencies = deps;
-            return deps;
-          });
+          .then(deps => cachedData.resolvePackageDependencies = deps);
       });
     },
     resolvedDependencies(ref, store) {
@@ -494,10 +483,7 @@ export function createJobs({getState}={}) {
 
               if (ext === '.css') {
                 return store.postcssTransform(ref)
-                  .then(result => {
-                    cachedData.code = result.css;
-                    return result.css;
-                  });
+                  .then(result => cachedData.code = result.css);
               }
 
               if (ext === '.js') {
@@ -505,53 +491,12 @@ export function createJobs({getState}={}) {
                   return store.readText(ref);
                 }
 
-                return Promise.all([
-                  store.babelFile(ref),
-                  store.resolvedDependencies(ref),
-                  store.hash(ref)
-                ]).then(([file, deps, hash]) => {
-                  const code = createJSModuleDefinition({
-                    name: ref.name,
-                    deps,
-                    hash,
-                    code: file.code
-                  });
-                  cachedData.code = code;
-                  return code;
-                });
+                return store.babelFile(ref)
+                  .then(file => cachedData.code = file.code);
               }
 
               if (ext === '.json') {
-                return Promise.all([
-                  store.readText(ref),
-                  store.hash(ref)
-                ]).then(([text, hash]) => {
-                  let jsModuleCode;
-                  if (startsWith(ref.name, getState().rootNodeModules)) {
-                    jsModuleCode = `module.exports = ${text};`;
-                  } else {
-                    // We fake babel's commonjs shim so that hot swapping can occur
-                    jsModuleCode = [
-                      'var json = ' + text,
-                      'exports.default = json;',
-                      'exports.__esModule = true;',
-                      'if (module.hot) {',
-                      '  module.hot.accept();',
-                      '}'
-                    ].join('\n');
-                  }
-
-                  const code = createJSModuleDefinition({
-                    name: ref.name,
-                    deps: {},
-                    hash,
-                    code: jsModuleCode
-                  });
-
-                  cachedData.code = code;
-
-                  return code;
-                });
+                return store.readText(ref);
               }
 
               return Promise.reject(
@@ -560,6 +505,94 @@ export function createJobs({getState}={}) {
             });
         });
     },
+    /**
+     * For JS and JSON records, we can inject the record's code. For all other
+     * types, we inject a url to their location
+     */
+    moduleContents(ref, store) {
+      return store.ext(ref)
+        .then(ext => {
+          if (ext === '.js' || ext === '.json') {
+            return store.code(ref);
+          } else {
+            return store.url(ref)
+              .then(url => JSON.stringify(url));
+          }
+        });
+    },
+    /**
+     * Indicates if the record requires a shim module to be defined. These shim
+     * modules are used so that the runtime can interact with a representation
+     * of non-JS records
+     */
+    shouldShimModuleDefinition(ref, store) {
+      return store.ext(ref)
+        .then(ext => ext !== '.js');
+    },
+    /**
+     * Generates the module code for a record. This is primarily of use to
+     * create shim modules for non-js records
+     */
+    moduleCode(ref, store) {
+      return Promise.all([
+        store.shouldShimModuleDefinition(ref),
+        store.moduleContents(ref)
+      ])
+        .then(([shouldShimModuleDefinition, moduleContents]) => {
+          if (!shouldShimModuleDefinition) {
+            return moduleContents;
+          }
+
+          // We fake babel's ES => commonjs shim so that the hot runtime knows
+          // that `module.exports` will never be a function and hence a proxy
+          // object can be used
+          return [
+            'Object.defineProperty(exports, "__esModule", {',
+            '  value: true',
+            '});',
+            `exports["default"] = ${moduleContents};`,
+            'if (module.hot) {',
+            '  module.hot.accept();',
+            '}'
+          ].join('\n');
+        });
+    },
+    /**
+     * We use this as a hook so that we can push the bootstrap runtime
+     * down to the client without any shims or wrapper code
+     */
+    shouldDefineModule(ref) {
+      return ref.name !== getState().bootstrapRuntime;
+    },
+    /**
+     * Create the module definition that we use to inject a record into
+     * the runtime
+     */
+    moduleDefinition(ref, store) {
+      return store.shouldDefineModule(ref)
+        .then(shouldDefineModule => {
+          if (!shouldDefineModule) {
+            return null;
+          }
+
+          return Promise.all([
+            store.resolvedDependencies(ref),
+            store.hash(ref),
+            store.moduleCode(ref)
+          ])
+            .then(([resolvedDependencies, hash, moduleCode]) => {
+              return createJSModuleDefinition({
+                name: ref.name,
+                deps: resolvedDependencies,
+                hash,
+                code: moduleCode
+              });
+            });
+        });
+    },
+    /**
+     * Generates a textual representation of a record's source map
+     */
     sourceMap(ref, store) {
       return store.isTextFile(ref)
         .then(isTextFile => {
@@ -567,42 +600,37 @@ export function createJobs({getState}={}) {
             return null;
           }
 
-          return Promise.all([
-            store.ext(ref),
-            store.readCache(ref)
-          ])
-            .then(([ext, cachedData]) => {
+          return store.readCache(ref)
+            .then(cachedData => {
               if (cachedData.sourceMap) {
                 return cachedData.sourceMap;
               }
 
-              if (ext === '.css') {
-                return store.postcssTransform(ref).then(result => {
-                  const sourceMap = result.map.toString();
-                  cachedData.sourceMap = sourceMap;
-                  return sourceMap;
+              return store.ext(ref)
+                .then(ext => {
+                  if (ext === '.css') {
+                    return store.postcssTransform(ref)
+                      .then(result => cachedData.sourceMap = result.map.toString());
+                  }
+
+                  if (ext === '.js') {
+                    return store.babelFile(ref).then(file => {
+                      // Offset each line in the source map to reflect the call to
+                      // the module runtime
+                      file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
+
+                      return cachedData.sourceMap = JSON.stringify(file.map);
+                    });
+                  }
+
+                  if (ext === '.json') {
+                    return null;
+                  }
+
+                  return Promise.reject(
+                    `Unknown text file extension: ${ext}. Cannot generate source map for file: ${ref.name}`
+                  );
                 });
-              }
-
-              if (ext === '.js') {
-                return store.babelFile(ref).then(file => {
-                  // Offset each line in the source map to reflect the call to
-                  // the module runtime
-                  file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
-
-                  const sourceMap = JSON.stringify(file.map);
-                  cachedData.sourceMap = sourceMap;
-                  return sourceMap;
-                });
-              }
-
-              if (ext === '.json') {
-                return null;
-              }
-
-              return Promise.reject(
-                `Unknown text file extension: ${ext}. Cannot generate source map for file: ${ref.name}`
-              );
             });
         });
     }

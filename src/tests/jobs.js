@@ -1072,24 +1072,14 @@ describe('unfort/jobs', () => {
       store.create('bootstrap.js');
       return assert.becomes(store.code('bootstrap.js'), 'text test');
     });
-    it('should generate a module definition from the `babelFile` code generated for js files', () => {
+    it('should return the `babelFile` code for js files', () => {
       const store = createTestStore({
         readCache: () => ({}),
-        babelFile: () => babel.transform('const foo = "test";'),
-        resolvedDependencies: () => ({foo: './foo.js'}),
-        hash: () => 'test hash'
+        babelFile: () => babel.transform('const foo = "test";')
       });
       store.create('test.js');
 
-      return assert.becomes(
-        store.code('test.js'),
-        createJSModuleDefinition({
-          name: 'test.js',
-          deps: {foo: './foo.js'},
-          hash: 'test hash',
-          code: 'const foo = "test";'
-        })
-      );
+      return assert.becomes(store.code('test.js'), 'const foo = "test";');
     });
     it('should annotate the cached data object with the generated code for js files', () => {
       const store = createTestStore({
@@ -1103,51 +1093,20 @@ describe('unfort/jobs', () => {
       return store.code('test.js')
         .then(code => store.readCache('test.js')
           .then(data => {
-            assert.equal(data.code, code);
+            assert.equal(data.code, 'const foo = "test";');
           })
         );
     });
     it('should generate a module definition for json files', () => {
       const store = createTestStore({
         readCache: () => ({}),
-        readText: () => 'test text',
-        hash: () => 'test hash'
+        readText: () => 'test text'
       });
       store.create('test.json');
 
-      return assert.becomes(
-        store.code('test.json'),
-        createJSModuleDefinition({
-          name: 'test.json',
-          deps: {},
-          hash: 'test hash',
-          code: [
-            'var json = test text',
-            'exports.default = json;',
-            'exports.__esModule = true;',
-            'if (module.hot) {',
-            '  module.hot.accept();',
-            '}'
-          ].join('\n')
-        })
-      );
+      return assert.becomes(store.code('test.json'), 'test text');
     });
-    it('should annotate the cached data object with the generated code for json files', () => {
-      const store = createTestStore({
-        readCache: () => ({}),
-        readText: () => 'test text',
-        hash: () => 'test hash'
-      });
-      store.create('test.json');
-
-      return store.code('test.json')
-        .then(code => store.readCache('test.json')
-          .then(data => {
-            assert.equal(data.code, code);
-          })
-        );
-    });
-    it('should reject job for unknown text file extensions', () => {
+    it('should reject the job for unknown text file extensions', () => {
       const store = createTestStore({
         readCache: () => ({}),
         isTextFile: () => true
@@ -1157,6 +1116,181 @@ describe('unfort/jobs', () => {
       return assert.isRejected(
         store.code('test.png'),
         /Unknown text file extension: \.png\. Cannot generate code for file: test\.png/
+      );
+    });
+  });
+  describe('##moduleContents', () => {
+    it('should return `code` for js files', () => {
+      const store = createTestStore({
+        code: () => 'test code'
+      });
+      store.create('test.js');
+      return assert.becomes(store.moduleContents('test.js'), 'test code');
+    });
+    it('should return `code` for json files', () => {
+      const store = createTestStore({
+        code: () => 'test code'
+      });
+      store.create('test.json');
+      return assert.becomes(store.moduleContents('test.json'), 'test code');
+    });
+    it('should return `url` stringified for files other than js or json', () => {
+      const store = createTestStore({
+        url: () => 'test url'
+      });
+      store.create('test.css');
+      return assert.becomes(store.moduleContents('test.css'), '"test url"');
+    });
+  });
+  describe('##shouldShimModuleDefinition', () => {
+    it('should return false for js files', () => {
+      const store = createTestStore();
+      store.create('test.js');
+      return assert.becomes(store.shouldShimModuleDefinition('test.js'), false);
+    });
+    it('should return true for non-js files', () => {
+      const store = createTestStore();
+      store.create('test.json');
+      return assert.becomes(store.shouldShimModuleDefinition('test.json'), true);
+    });
+  });
+  describe('##moduleCode', () => {
+    it('should return `moduleContents` if `shouldShimModuleDefinition` is false', () => {
+      const store = createTestStore({
+        shouldShimModuleDefinition: () => false,
+        moduleContents: () => 'test module contents'
+      });
+      store.create('test.js');
+      return assert.becomes(store.moduleCode('test.js'), 'test module contents');
+    });
+    it('should return a shim module definition containing `moduleContents` if `shouldShimModuleDefinition` is true', () => {
+      const store = createTestStore({
+        shouldShimModuleDefinition: () => true,
+        moduleContents: () => 'test module contents'
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.moduleCode('test.js'),
+        [
+          'Object.defineProperty(exports, "__esModule", {',
+          '  value: true',
+          '});',
+          `exports["default"] = test module contents;`,
+          'if (module.hot) {',
+          '  module.hot.accept();',
+          '}'
+        ].join('\n')
+      );
+    });
+  });
+  describe('##shouldDefineModule', () => {
+    it('should return true in most cases', () => {
+      const store = createTestStore({}, {
+        bootstrapRuntime: '__'
+      });
+      store.create('test.js');
+      return assert.becomes(store.shouldDefineModule('test.js'), true);
+    });
+    it('should return false if the record is the bootstrap runtime', () => {
+      const store = createTestStore({}, {
+        bootstrapRuntime: 'test.js'
+      });
+      store.create('test.js');
+      return assert.becomes(store.shouldDefineModule('test.js'), false);
+    });
+  });
+  describe('##moduleDefinition', () => {
+    it('should generate a module definition from the `babelFile` code generated for js files', () => {
+      const store = createTestStore({
+        code: () => 'test code',
+        resolvedDependencies: () => ({foo: './foo.js'}),
+        hash: () => 'test hash'
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.moduleDefinition('test.js'),
+        createJSModuleDefinition({
+          name: 'test.js',
+          deps: {foo: './foo.js'},
+          hash: 'test hash',
+          code: 'test code'
+        })
+      );
+    });
+    it('should generate a module definition for json files that exports the `code` job', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        code: () => 'test code',
+        hash: () => 'test hash'
+      });
+      store.create('test.json');
+      return assert.becomes(
+        store.moduleDefinition('test.json'),
+        createJSModuleDefinition({
+          name: 'test.json',
+          deps: {},
+          hash: 'test hash',
+          code: [
+            'Object.defineProperty(exports, "__esModule", {',
+            '  value: true',
+            '});',
+            'exports["default"] = test code;',
+            'if (module.hot) {',
+            '  module.hot.accept();',
+            '}'
+          ].join('\n')
+        })
+      );
+    });
+    it('should generate a module definition for css files that exports the `url` job', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        resolvedDependencies: () => ({}),
+        url: () => 'test url',
+        hash: () => 'test hash'
+      });
+      store.create('test.css');
+      return assert.becomes(
+        store.moduleDefinition('test.css'),
+        createJSModuleDefinition({
+          name: 'test.css',
+          deps: {},
+          hash: 'test hash',
+          code: [
+            'Object.defineProperty(exports, "__esModule", {',
+            '  value: true',
+            '});',
+            'exports["default"] = "test url";',
+            'if (module.hot) {',
+            '  module.hot.accept();',
+            '}'
+          ].join('\n')
+        })
+      );
+    });
+    it('should generate a module definition for non-text files that exports the `url` job', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        url: () => 'test url',
+        hash: () => 'test hash'
+      });
+      store.create('test.png');
+      return assert.becomes(
+        store.moduleDefinition('test.png'),
+        createJSModuleDefinition({
+          name: 'test.png',
+          deps: {},
+          hash: 'test hash',
+          code: [
+            'Object.defineProperty(exports, "__esModule", {',
+            '  value: true',
+            '});',
+            'exports["default"] = "test url";',
+            'if (module.hot) {',
+            '  module.hot.accept();',
+            '}'
+          ].join('\n')
+        })
       );
     });
   });
