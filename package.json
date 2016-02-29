@@ -2,12 +2,13 @@
   "name": "unfort",
   "version": "0.4.0",
   "description": "unfort",
-  "main": "index.js",
+  "main": "lib/unfort.js",
   "scripts": {
+    "build": "./scripts/build.js",
     "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
     "_test": "mocha --reporter spec 'lib/**/tests/*.js'",
     "lint": "eslint bootstrap/*.js scripts/**.js src/**.js",
-    "build": "./scripts/build.js"
+    "coverage": "babel-node node_modules/babel-istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- --reporter spec 'src/**/tests/*.js'"
   },
   "repository": {
     "type": "git",
@@ -50,6 +51,7 @@
   "devDependencies": {
     "babel-cli": "^6.3.13",
     "babel-eslint": "^5.0.0",
+    "babel-istanbul": "^0.6.0",
     "babel-plugin-check-es2015-constants": "^6.5.0",
     "babel-plugin-transform-es2015-destructuring": "^6.5.0",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.5.2",
@@ -58,7 +60,9 @@
     "chai": "^3.2.0",
     "chai-as-promised": "^5.2.0",
     "chai-immutable": "^1.5.3",
+    "codecov": "^1.0.1",
     "eslint": "^2.0.0",
+    "istanbul": "^0.4.2",
     "memorystream": "^0.3.1",
     "mocha": "^2.2.5",
     "rimraf": "^2.5.0",

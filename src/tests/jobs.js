@@ -35,6 +35,7 @@ describe('unfort/jobs', () => {
       const store = createTestStore({
         hash: () => 'test hash',
         code: () => 'test code',
+        moduleDefinition: () => 'test module definition',
         url: () => 'test url',
         sourceMap: () => 'test source map',
         sourceMapUrl: () => 'test source url',
@@ -50,6 +51,7 @@ describe('unfort/jobs', () => {
           const expected = {
             hash: 'test hash',
             code: 'test code',
+            moduleDefinition: 'test module definition',
             url: 'test url',
             sourceMap: 'test source map',
             sourceMapUrl: 'test source url',

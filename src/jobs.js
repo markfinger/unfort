@@ -26,11 +26,11 @@ export function createJobs({getState}={}) {
     ready(ref, store) {
       // All the jobs that must be completed before
       // the record is emitted
-      // TODO: add module definitions
       return Promise.all([
         ref.name,
         store.hash(ref),
         store.code(ref),
+        store.moduleDefinition(ref),
         store.url(ref),
         store.sourceMap(ref),
         store.sourceMapUrl(ref),
@@ -159,12 +159,24 @@ export function createJobs({getState}={}) {
         .then(name => {
           const {sourceRoot, fileEndpoint} = getState();
 
-          const relUrl = path.relative(sourceRoot, name).split(path.ext).join('/');
-          return fileEndpoint + relUrl;
+          // Try to produce a more readable url, but fallback to an absolute
+          // path if necessary. The fallback is necessary if the record is
+          // being pulled in from a symbolic link
+          let relPath;
+          if (startsWith(name, sourceRoot)) {
+            relPath = path.relative(sourceRoot, name);
+          } else {
+            relPath = name;
+          }
+
+          return fileEndpoint + relPath.split(path.ext).join('/');
         });
     },
-    // Note: `url` and `sourceUrl` are mostly duplicates. This is intentional,
-    // so that they can be overridden individually
+    /**
+     * A url to the original content of the record
+     *
+     * TODO: this has diverged from `url`, need to consolidate them. use `relativePathIfContained` in utils.js
+     */
     sourceUrl(ref) {
       const {sourceRoot, fileEndpoint} = getState();
 

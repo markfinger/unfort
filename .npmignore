@@ -1,10 +1,18 @@
 src/*
 scripts/*
-.babelrc
-.eslintrc
 .gitignore
+.babelrc
+
+# CI conf
+.eslintrc
 .hound.yml
 .travis.yml
 
 # Editor cruft
 .idea
+
+# Build artifacts
+.unfort
+
+# Coverage directory used by tools like istanbul
+coverage

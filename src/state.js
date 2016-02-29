@@ -103,7 +103,7 @@ export function createState(options={}) {
     state = state.set('entryPoints', []);
   }
 
-  if (state.cacheDirectory && !state.jobCache) {
+  if (!state.jobCache) {
     state = state.set('jobCache', createMockCache());
   }
 

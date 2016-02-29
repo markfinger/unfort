@@ -84,6 +84,34 @@ describe('unfort/utils', () => {
         ].join('\n')
       );
     });
+    it('should not override a code frame already attached', () => {
+      const err = new Error('test');
+      err.codeFrame = 'test code frame';
+      assert.equal(
+        describeError(err, __filename),
+        [
+          chalk.red(__filename) + '\n',
+          err.message,
+          'test code frame',
+          err.stack
+        ].join('\n')
+      );
+    });
+    it('should silently fail if a file cannot be read for the code frame', () => {
+      const err = new Error('test');
+      err.loc = {
+        line: 1,
+        column: 1
+      };
+      assert.equal(
+        describeError(err, '__file that does not exist__'),
+        [
+          chalk.red('__file that does not exist__') + '\n',
+          err.message,
+          err.stack
+        ].join('\n')
+      );
+    });
   });
   describe('describeErrorList', () => {
     it('should produce a textual description of a list of errors, such that they can be logged', () => {
@@ -127,12 +155,28 @@ describe('unfort/utils', () => {
       createRecordContentStream({
         data: {
           isTextFile: true,
-          code: 'test_code'
+          moduleDefinition: 'test module definition'
         }
       })
         .pipe(stream)
         .on('finish', () => {
-          assert.equal(stream.toString(), 'test_code');
+          assert.equal(stream.toString(), 'test module definition');
+          done();
+        });
+    });
+    it('should add a textual record\'s source map annotation to the stream', (done) => {
+      const stream = MemoryStream.createWriteStream();
+
+      createRecordContentStream({
+        data: {
+          isTextFile: true,
+          moduleDefinition: 'test module definition',
+          sourceMapAnnotation: ' test source map'
+        }
+      })
+        .pipe(stream)
+        .on('finish', () => {
+          assert.equal(stream.toString(), 'test module definition test source map');
           done();
         });
     });

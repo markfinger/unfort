@@ -1,8 +1,10 @@
 import fs from 'fs';
+import path from 'path';
 import {Readable} from 'stream';
 import babelCodeFrame from 'babel-code-frame';
 import chalk from 'chalk';
 import {includes} from 'lodash/collection';
+import {startsWith} from 'lodash/string';
 
 /**
  * We need to rebuild source maps for js files such that it
@@ -73,7 +75,7 @@ export function createRecordContentStream(record) {
   }
 
   const stream = new Readable();
-  stream.push(record.data.code);
+  stream.push(record.data.moduleDefinition);
 
   if (record.data.sourceMapAnnotation) {
     stream.push(record.data.sourceMapAnnotation);
@@ -160,4 +162,19 @@ export function describeErrorList(errors) {
       }
     })
     .join('\n');
+}
+
+/**
+ * If a location is contained by a directory, returns a relative path,
+ * otherwise returns the location.
+ * @param {String} dirname
+ * @param {String} location
+ * @returns {String}
+ */
+export function relativePathIfContained(dirname, location) {
+  if (startsWith(location, dirname)) {
+    return path.relative(dirname, location);
+  } else {
+    return location;
+  }
 }
