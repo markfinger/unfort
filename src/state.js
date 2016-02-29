@@ -27,6 +27,8 @@ export const State = imm.Record({
   cacheDirectory: null,
   // The record store's jobs
   jobs: null,
+  // The directory containing the hot runtime's vendor packages
+  vendorRoot,
 
 
   // ================
@@ -39,14 +41,12 @@ export const State = imm.Record({
   environmentHash: null,
 
 
-  // ===========================
-  // The module system's runtime
-  // ===========================
+  // =================
+  // The module system
+  // =================
 
   bootstrapRuntime,
   hotRuntime,
-  vendorRoot,
-
 
   // ====================
   // Server configuration
@@ -84,8 +84,13 @@ export const State = imm.Record({
   recordsBySourceMapUrl: null
 });
 
-export function createState(options={}) {
-  let state = State(options);
+/**
+ * Creates a state object and sets defaults for required values
+ *
+ * @param {Object} overrides
+ */
+export function createState(overrides={}) {
+  let state = State(overrides);
 
   if (!state.sourceRoot) {
     state = state.set('sourceRoot', process.cwd());
