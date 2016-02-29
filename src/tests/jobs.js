@@ -520,8 +520,7 @@ describe('unfort/jobs', () => {
           sourceType: 'module',
           sourceMaps: true,
           sourceMapTarget: 'test url',
-          sourceFileName: 'test source url',
-          babelrc: false
+          sourceFileName: 'test source url'
         }
       );
     });

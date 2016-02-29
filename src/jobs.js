@@ -254,8 +254,7 @@ export function createJobs({getState}={}) {
             sourceType: 'module',
             sourceMaps: true,
             sourceMapTarget: url,
-            sourceFileName: sourceUrl,
-            babelrc: false
+            sourceFileName: sourceUrl
           };
         });
     },
