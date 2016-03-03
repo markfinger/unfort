@@ -30,6 +30,7 @@ export function createJobs({getState}={}) {
         ref.name,
         store.hash(ref),
         store.content(ref),
+        store.moduleDefinition(ref),
         store.url(ref),
         store.sourceMap(ref),
         store.sourceMapUrl(ref),
@@ -160,7 +161,8 @@ export function createJobs({getState}={}) {
 
           // Try to produce a more readable url, but fallback to an absolute
           // path if necessary. The fallback is necessary if the record is
-          // being pulled in from a symbolic link
+          // being pulled in from outside the source root, eg: by a symbolic
+          // link
           let relPath;
           if (startsWith(name, sourceRoot)) {
             relPath = path.relative(sourceRoot, name);
@@ -527,7 +529,12 @@ export function createJobs({getState}={}) {
               }
 
               if (ext === '.js') {
-                if (ref.name === getState().bootstrapRuntime) {
+                const state = getState();
+                // Serve up the runtimes without any transformation
+                if (
+                  ref.name === state.bootstrapRuntime ||
+                  ref.name === state.hotRuntime
+                ) {
                   return store.readText(ref);
                 }
 
@@ -543,32 +550,6 @@ export function createJobs({getState}={}) {
                 `Unknown text file extension: ${ext}. Cannot generate code for file: ${ref.name}`
               );
             });
-        });
-    },
-    content(ref, store) {
-      return Promise.all([
-        store.isTextFile(ref),
-        store.ext(ref)
-      ])
-        .then(([isTextFile, ext]) => {
-          if (!isTextFile) {
-            return null;
-          }
-
-          if (
-            ref.name === getState().bootstrapRuntime ||
-            ext === '.css'
-          ) {
-            return store.code(ref);
-          }
-
-          if (ext === '.js' || ext === '.json') {
-            return store.moduleDefinition(ref);
-          }
-
-          return Promise.reject(
-            `Unknown text file extension: ${ext}. Cannot generate content for file: ${ref.name}`
-          );
         });
     },
     /**
@@ -624,37 +605,60 @@ export function createJobs({getState}={}) {
         });
     },
     /**
-     * We use this as a hook so that we can push the bootstrap runtime
-     * down to the client without any shims or wrapper code
-     */
-    shouldDefineModule(ref) {
-      return ref.name !== getState().bootstrapRuntime;
-    },
-    /**
      * Create the module definition that we use to inject a record into
      * the runtime
      */
     moduleDefinition(ref, store) {
-      return store.shouldDefineModule(ref)
-        .then(shouldDefineModule => {
-          if (!shouldDefineModule) {
-            return null;
-          }
+      // The bootstrap is the one file that we need to ensure is pushed
+      // to the client without any shims or wrappers
+      if (ref.name === getState().bootstrapRuntime) {
+        return null;
+      }
 
-          return Promise.all([
-            store.resolvedDependencies(ref),
-            store.hash(ref),
-            store.moduleCode(ref)
-          ])
-            .then(([resolvedDependencies, hash, moduleCode]) => {
-              return createJSModuleDefinition({
-                name: ref.name,
-                deps: resolvedDependencies,
-                hash,
-                code: moduleCode
-              });
-            });
+      return Promise.all([
+        store.resolvedDependencies(ref),
+        store.hash(ref),
+        store.moduleCode(ref)
+      ])
+        .then(([resolvedDependencies, hash, moduleCode]) => {
+          return createJSModuleDefinition({
+            name: ref.name,
+            deps: resolvedDependencies,
+            hash,
+            code: moduleCode
+          });
         });
+    },
+    /**
+     * Generates the executable content of a record.
+     * For js and json records, this is the module definition.
+     * For css, this is the stylesheet.
+     */
+    content(ref, store) {
+      return Promise.all([
+        store.isTextFile(ref),
+        store.ext(ref)
+      ])
+      .then(([isTextFile, ext]) => {
+        if (!isTextFile) {
+          return null;
+        }
+
+        if (
+          ref.name === getState().bootstrapRuntime ||
+          ext === '.css'
+        ) {
+          return store.code(ref);
+        }
+
+        if (ext === '.js' || ext === '.json') {
+          return store.moduleDefinition(ref);
+        }
+
+        return Promise.reject(
+          `Unknown text file extension: ${ext}. Cannot generate content for file: ${ref.name}`
+        );
+      });
     },
     /**
      * Generates a textual representation of a record's source map

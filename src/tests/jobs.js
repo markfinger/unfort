@@ -34,6 +34,7 @@ describe('unfort/jobs', () => {
       const store = createTestStore({
         hash: () => 'test hash',
         content: () => 'test content',
+        moduleDefinition: () => 'test module definition',
         url: () => 'test url',
         sourceMap: () => 'test source map',
         sourceMapUrl: () => 'test source url',
@@ -49,6 +50,7 @@ describe('unfort/jobs', () => {
           const expected = {
             hash: 'test hash',
             content: 'test content',
+            moduleDefinition: 'test module definition',
             url: 'test url',
             sourceMap: 'test source map',
             sourceMapUrl: 'test source url',
@@ -331,6 +333,20 @@ describe('unfort/jobs', () => {
       return assert.becomes(
         store.url('/foo/bar/woz.png'),
         '/files/bar/woz.png'
+      );
+    });
+    it('should produce an absolute url for files that live outside the source root', () => {
+      const store = createTestStore({
+        isTextFile: () => true,
+        hashedName: () => '/bar/foo-10.js'
+      }, {
+        sourceRoot: '/foo/',
+        fileEndpoint: '/files/'
+      });
+      store.create('/bar/foo.js');
+      return assert.becomes(
+        store.url('/bar/foo.js'),
+        '/files//bar/foo-10.js'
       );
     });
   });
@@ -1199,23 +1215,14 @@ describe('unfort/jobs', () => {
       );
     });
   });
-  describe('##shouldDefineModule', () => {
-    it('should return true in most cases', () => {
-      const store = createTestStore({}, {
-        bootstrapRuntime: '__'
-      });
-      store.create('test.js');
-      return assert.becomes(store.shouldDefineModule('test.js'), true);
-    });
-    it('should return false if the record is the bootstrap runtime', () => {
+  describe('##moduleDefinition', () => {
+    it('should return `null` for the bootstrap', () => {
       const store = createTestStore({}, {
         bootstrapRuntime: 'test.js'
       });
       store.create('test.js');
-      return assert.becomes(store.shouldDefineModule('test.js'), false);
+      return assert.becomes(store.moduleDefinition('test.js'), null);
     });
-  });
-  describe('##moduleDefinition', () => {
     it('should generate a module definition from the `babelFile` code generated for js files', () => {
       const store = createTestStore({
         code: () => 'test code',
@@ -1307,6 +1314,56 @@ describe('unfort/jobs', () => {
             '}'
           ].join('\n')
         })
+      );
+    });
+  });
+  describe('##content', () => {
+    it('should return null for non-text files', () => {
+      const store = createTestStore({
+        isTextFile: () => false
+      });
+      store.create('test.png');
+      return assert.becomes(store.content('test.png'), null);
+    });
+    it('should return `code` for the bootstrap', () => {
+      const store = createTestStore({
+        code: () => 'test code'
+      }, {
+        bootstrapRuntime: 'test.js'
+      });
+      store.create('test.js');
+      return assert.becomes(store.content('test.js'), 'test code');
+    });
+    it('should return `code` for css files', () => {
+      const store = createTestStore({
+        code: () => 'test code'
+      });
+      store.create('test.css');
+      return assert.becomes(store.content('test.css'), 'test code');
+    });
+    it('should return `moduleDefinition` for js files', () => {
+      const store = createTestStore({
+        moduleDefinition: () => 'test module definition'
+      });
+      store.create('test.js');
+      return assert.becomes(store.content('test.js'), 'test module definition');
+    });
+    it('should return `moduleDefinition` for json files', () => {
+      const store = createTestStore({
+        moduleDefinition: () => 'test module definition'
+      });
+      store.create('test.json');
+      return assert.becomes(store.content('test.json'), 'test module definition');
+    });
+    it('should reject for unknown text file extensions', () => {
+      const store = createTestStore({
+        isTextFile: () => true,
+        moduleDefinition: () => 'test module definition'
+      });
+      store.create('test.png');
+      return assert.isRejected(
+        store.content('test.png'),
+        /Unknown text file extension: \.png\. Cannot generate content for file: test\.png/
       );
     });
   });
