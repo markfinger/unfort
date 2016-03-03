@@ -380,6 +380,29 @@ export function createJobs({getState}={}) {
 
           return store.analyzeDependencies(ref)
             .then(deps => deps.map(dep => dep.source))
+            // Remove any parts of the identifier that we wont be able to
+            // map to the file system
+            .then(ids => ids.map(id => {
+              // Webpack loaders
+              const bangStart = id.indexOf('!');
+              if (bangStart !== -1) {
+                id = id.slice(0, bangStart);
+              }
+
+              // Url params
+              const paramStart = id.indexOf('?');
+              if (paramStart !== -1) {
+                id = id.slice(0, paramStart);
+              }
+
+              // Url hashes
+              const hashStart = id.indexOf('#');
+              if (hashStart !== -1) {
+                id = id.slice(0, hashStart);
+              }
+
+              return id;
+            }))
             .then(ids => cachedData.dependencyIdentifiers = ids);
         });
     },

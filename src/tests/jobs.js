@@ -800,6 +800,24 @@ describe('unfort/jobs', () => {
           {dependencyIdentifiers: ['foo', 'bar']}
         ));
     });
+    it('should clean artifacts from the identifiers', () => {
+      const store = createTestStore({
+        readCache: () => ({}),
+        analyzeDependencies: () => [
+          // Webpack loaders
+          {source: 'foo!bar'},
+          // Url params
+          {source: 'bar?foo'},
+          // Url hashes
+          {source: 'woz#foo'}
+        ]
+      });
+      store.create('test.js');
+      return assert.becomes(
+        store.dependencyIdentifiers('test.js'),
+        ['foo', 'bar', 'woz']
+      );
+    });
   });
   describe('##pathDependencyIdentifiers', () => {
     it('should return the dependency identifiers that indicate relative or absolute paths', () => {
