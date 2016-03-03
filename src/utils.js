@@ -112,14 +112,19 @@ export function createRecordSourceMapStream(record) {
 export function describeError(err, file) {
   const lines = [];
 
+  // If the error occurred in a particular file's processing, we
+  // contextualize the error
   if (file) {
     lines.push(chalk.red(file) + '\n');
   }
 
+  // If the stack trace already contains the message, we improve the
+  // readability by omitting the message
   if (!includes(err.stack, err.message)) {
     lines.push(err.message);
   }
 
+  // Improve the reporting on parse errors by generating a code frame
   if (err.loc && !err.codeFrame) {
     let text;
     try {
