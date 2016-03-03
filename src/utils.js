@@ -116,7 +116,9 @@ export function describeError(err, file) {
     lines.push(chalk.red(file) + '\n');
   }
 
-  lines.push(err.message);
+  if (!includes(err.stack, err.message)) {
+    lines.push(err.message);
+  }
 
   if (err.loc && !err.codeFrame) {
     let text;

@@ -51,10 +51,7 @@ describe('unfort/utils', () => {
       const err = new Error('test');
       assert.equal(
         describeError(err),
-        [
-          err.message,
-          err.stack
-        ].join('\n')
+        err.stack
       );
     });
     it('should accept an optional file and provide further context', () => {
@@ -63,7 +60,6 @@ describe('unfort/utils', () => {
         describeError(err, 'test_filename'),
         [
           chalk.red('test_filename') + '\n',
-          err.message,
           err.stack
         ].join('\n')
       );
@@ -78,7 +74,6 @@ describe('unfort/utils', () => {
         describeError(err, __filename),
         [
           chalk.red(__filename) + '\n',
-          err.message,
           babelCodeFrame(fs.readFileSync(__filename, 'utf8'), 1, 1),
           err.stack
         ].join('\n')
@@ -91,7 +86,6 @@ describe('unfort/utils', () => {
         describeError(err, __filename),
         [
           chalk.red(__filename) + '\n',
-          err.message,
           'test code frame',
           err.stack
         ].join('\n')
@@ -107,7 +101,6 @@ describe('unfort/utils', () => {
         describeError(err, '__file that does not exist__'),
         [
           chalk.red('__file that does not exist__') + '\n',
-          err.message,
           err.stack
         ].join('\n')
       );
