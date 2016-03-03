@@ -61,7 +61,7 @@ export function createRecordDescription(record) {
  * Returns a stream that can pipe a record's content.
  *
  * If the record represents a text file, it emits the Record's
- * `code` and, if available, the `sourceMapAnnotation`.
+ * `content` and, if available, the `sourceMapAnnotation`.
  *
  * If the record is not a text file, it simply pipes directly
  * from the filesystem.
@@ -75,7 +75,7 @@ export function createRecordContentStream(record) {
   }
 
   const stream = new Readable();
-  stream.push(record.data.moduleDefinition);
+  stream.push(record.data.content);
 
   if (record.data.sourceMapAnnotation) {
     stream.push(record.data.sourceMapAnnotation);

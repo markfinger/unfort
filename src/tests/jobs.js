@@ -31,11 +31,9 @@ describe('unfort/jobs', () => {
 
   describe('##ready', () => {
     it('should trigger evaluation of the data set required for the record', () => {
-      // TODO check the codebase and see if these are still needed
       const store = createTestStore({
         hash: () => 'test hash',
-        code: () => 'test code',
-        moduleDefinition: () => 'test module definition',
+        content: () => 'test content',
         url: () => 'test url',
         sourceMap: () => 'test source map',
         sourceMapUrl: () => 'test source url',
@@ -50,8 +48,7 @@ describe('unfort/jobs', () => {
           const record = store.get('test.js');
           const expected = {
             hash: 'test hash',
-            code: 'test code',
-            moduleDefinition: 'test module definition',
+            content: 'test content',
             url: 'test url',
             sourceMap: 'test source map',
             sourceMapUrl: 'test source url',

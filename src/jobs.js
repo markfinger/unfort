@@ -29,8 +29,7 @@ export function createJobs({getState}={}) {
       return Promise.all([
         ref.name,
         store.hash(ref),
-        store.code(ref),
-        store.moduleDefinition(ref),
+        store.content(ref),
         store.url(ref),
         store.sourceMap(ref),
         store.sourceMapUrl(ref),
@@ -351,7 +350,6 @@ export function createJobs({getState}={}) {
           // Note: we reject the `ast` job for .css files as we handle
           // it during the initial traversal and transformation in the
           // `postcssTransform` job
-
           throw new Error(`Unknown extension "${ext}", cannot parse "${ref.name}"`);
         });
     },
@@ -415,20 +413,28 @@ export function createJobs({getState}={}) {
         modules: browserifyBuiltins
       };
     },
+    /**
+     * If a dependency identifier is relative (./ ../) or absolute (/), there are
+     * edge-cases where caching the resolved path may produce the wrong result.
+     * For example: an identifier "./foo" may resolve to either a "./foo.js" or
+     * or "./foo/index.js". Detecting these cases is problematic, so we avoid the
+     * problem by ensuring that the resolver always inspects the file system for
+     * path-based identifiers originating from files that we expect to change
+     * frequently.
+     *
+     * The one exception is files that live in node_modules, we aggressively cache
+     * these as we assume they are static. This enables us to avoid some costly IO
+     * overhead when possible
+     */
     shouldCacheResolvedPathDependencies(ref) {
-      // If a dependency identifier is relative (./ ../) or absolute (/), there are
-      // edge-cases where caching the resolved path may produce the wrong result.
-      // For example: an identifier "./foo" may resolve to either a "./foo.js" or
-      // or "./foo/index.js". Detecting these cases is problematic, so we avoid the
-      // problem by ensuring that the resolver always inspects the file system for
-      // path-based identifiers originating from files that we expect to change
-      // frequently
       return startsWith(ref.name, getState().rootNodeModules);
     },
+    /**
+     * If a dependency identifier refers to a package (eg: is not a path-based
+     * identifier), we can cache the resolved path and leave higher levels to
+     * perform cache invalidation
+     */
     shouldCacheResolvedPackageDependencies() {
-      // If a dependency identifier refers to a package (eg: is not a path-based
-      // identifier), we can cache the resolved path and leave higher levels to
-      // perform cache invalidation
       return true;
     },
     resolvePathDependencies(ref, store) {
@@ -514,6 +520,32 @@ export function createJobs({getState}={}) {
                 `Unknown text file extension: ${ext}. Cannot generate code for file: ${ref.name}`
               );
             });
+        });
+    },
+    content(ref, store) {
+      return Promise.all([
+        store.isTextFile(ref),
+        store.ext(ref)
+      ])
+        .then(([isTextFile, ext]) => {
+          if (!isTextFile) {
+            return null;
+          }
+
+          if (
+            ref.name === getState().bootstrapRuntime ||
+            ext === '.css'
+          ) {
+            return store.code(ref);
+          }
+
+          if (ext === '.js' || ext === '.json') {
+            return store.moduleDefinition(ref);
+          }
+
+          return Promise.reject(
+            `Unknown text file extension: ${ext}. Cannot generate content for file: ${ref.name}`
+          );
         });
     },
     /**
@@ -625,13 +657,14 @@ export function createJobs({getState}={}) {
                   }
 
                   if (ext === '.js') {
-                    return store.babelFile(ref).then(file => {
-                      // Offset each line in the source map to reflect the call to
-                      // the module runtime
-                      file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
+                    return store.babelFile(ref)
+                      .then(file => {
+                        // Offset each line in the source map to reflect the call to
+                        // the module runtime
+                        file.map.mappings = JS_MODULE_SOURCE_MAP_LINE_OFFSET + file.map.mappings;
 
-                      return cachedData.sourceMap = JSON.stringify(file.map);
-                    });
+                        return cachedData.sourceMap = JSON.stringify(file.map);
+                      });
                   }
 
                   if (ext === '.json') {

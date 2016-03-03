@@ -155,12 +155,12 @@ describe('unfort/utils', () => {
       createRecordContentStream({
         data: {
           isTextFile: true,
-          moduleDefinition: 'test module definition'
+          content: 'test content'
         }
       })
         .pipe(stream)
         .on('finish', () => {
-          assert.equal(stream.toString(), 'test module definition');
+          assert.equal(stream.toString(), 'test content');
           done();
         });
     });
@@ -170,13 +170,13 @@ describe('unfort/utils', () => {
       createRecordContentStream({
         data: {
           isTextFile: true,
-          moduleDefinition: 'test module definition',
+          content: 'test content',
           sourceMapAnnotation: ' test source map'
         }
       })
         .pipe(stream)
         .on('finish', () => {
-          assert.equal(stream.toString(), 'test module definition test source map');
+          assert.equal(stream.toString(), 'test content test source map');
           done();
         });
     });
