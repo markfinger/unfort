@@ -1,7 +1,7 @@
 // We reduce page load times by using pre-built and compressed
 // libraries. This shaves around 500kb from the payload
-import socketIoClient from '../vendor/socket.io-client';
-import _ from '../vendor/lodash';
+const socketIoClient = require('../vendor/socket.io-client');
+const _ = require('../vendor/lodash');
 
 // Newer browsers support explicit prototype manipulation,
 // but slightly older ones need a shim that uses the
@@ -31,7 +31,7 @@ if (_.isFunction(Object.setPrototypeOf)) {
 // test-case so that we can warn when things are likely to break
 (() => {
   const proto1 = {};
-  const obj = _.create(proto1);
+  const obj = Object.create(proto1);
 
   if (getPrototypeOf(obj) !== proto1) {
     console.warn('[hot] Prototype introspection is not supported. The hot runtime should be removed');
@@ -176,7 +176,6 @@ __modules.buffered = [];
 // Monkey-patch `defineModule` so that we can intercept incoming modules
 __modules.defineModule = function defineModuleHotWrapper(mod) {
   mod = __modules.extendModule(mod);
-
   const {name, hash} = mod;
 
   // Prevent unexpected modules from being applied

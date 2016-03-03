@@ -2,8 +2,8 @@ import path from 'path';
 import imm from 'immutable';
 import {createMockCache} from 'kv-cache';
 
-export const bootstrapRuntime = require.resolve('../bootstrap/bootstrap');
-export const hotRuntime = require.resolve('./hot-runtime');
+export const bootstrapRuntime = require.resolve('../runtimes/bootstrap');
+export const hotRuntime = require.resolve('../runtimes/hot');
 export const vendorRoot = path.normalize(path.join(__dirname, '..', 'vendor'));
 
 /**
