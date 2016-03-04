@@ -74,10 +74,10 @@ export const State = imm.Record({
   // We use wrappers around the console object so that we can prevent
   // output during tests
   logInfo: function() {
-    console.info.apply(console, arguments)
+    console.info.apply(console, arguments);
   },
   logError: function() {
-    console.error.apply(console, arguments)
+    console.error.apply(console, arguments);
   },
 
 

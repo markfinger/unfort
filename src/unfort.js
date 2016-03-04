@@ -2,7 +2,7 @@ import path from 'path';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import {includes} from 'lodash/collection';
-import {startsWith, repeat} from 'lodash/string';
+import {repeat} from 'lodash/string';
 import {values} from 'lodash/object';
 import sourceMapSupport from 'source-map-support';
 import envHash from 'env-hash';
@@ -51,22 +51,7 @@ export function createBuild(options={}) {
         state.recordStore.create(file);
       }
 
-      // Start watching any new directories
-      if (startsWith(file, state.sourceRoot)) {
-        const sourceRootLength = state.sourceRoot.length;
-
-        let dirname = path.dirname(file);
-        if (dirname === sourceRootLength) {
-          state.watchers.watchDirectory(dirname);
-        } else {
-          // We walk up the directory structure to the source root and
-          // start watching every directory that we encounter
-          while (dirname.length > sourceRootLength) {
-            state.watchers.watchDirectory(dirname);
-            dirname = path.dirname(dirname);
-          }
-        }
-      }
+      state.watchers.watchFile(file);
 
       // Start the `resolvedDependencies` job
       return state.recordStore.resolvedDependencies(file)
@@ -133,7 +118,14 @@ export function createBuild(options={}) {
 
     // To complete the build, we call the `ready` job on every record so that
     // we can snapshot the record store with the knowledge that it contains
-    // all the data that we need
+    // all the data that we need.
+    //
+    // Note: the `ready` job also triggers any remaining code generation tasks
+    // that were not necessary for the trace to complete. As a lot of code
+    // generation is synchronous, CPU-intensive work that blocks the event-loop,
+    // it's generally more efficient to defer as much code generation as possible,
+    // so that we don't block the IO-intensive work that's required to trace out
+    // the graph
     Promise.all(
       graphState.keySeq().toArray().map(name => {
         return state.recordStore.ready(name)
@@ -160,7 +152,88 @@ export function createBuild(options={}) {
           const elapsed = (new Date()).getTime() - codeGenerationState;
           state.logInfo(`${chalk.bold('Code generation elapsed:')} ${elapsed}ms`);
 
-          emitBuild();
+          const prevState = getState();
+
+          const nodeState = state.graph.getState();
+          const prevNodeState = prevState.nodes;
+
+          // Find all the nodes that were removed from the graph during the
+          // build process
+          const prunedNodes = [];
+          if (prevNodeState) {
+            prevNodeState.forEach((_, name) => {
+              if (!nodeState.has(name)) {
+                prunedNodes.push(name);
+              }
+            });
+          }
+
+          // Remove all records that are no longer represented in the graph.
+          // While most of the graph structure would have settled quite early
+          // in the build process, we leave the records in memory for as long
+          // as possible. This enables us to respond more swiftly to changes
+          // that occur during the build, as we've preserved the computationally
+          // expensive part of the process
+          prunedNodes.forEach(name => {
+            state.recordStore.remove(name);
+          });
+
+          const recordsState = state.recordStore.getState();
+          const prevRecordsState = prevState.records;
+
+          setState(
+            prevState.merge({
+              records: recordsState,
+              nodes: nodeState,
+              // Clear out any errors from previous builds
+              errors: null,
+              // Maps of records so that the file endpoint can perform record look ups
+              // trivially. This saves us from having to iterate over every record
+              recordsByUrl: recordsState
+                .filter(record => Boolean(record.data.url))
+                .mapKeys((_, record) => record.data.url),
+              recordsBySourceMapUrl: recordsState
+                .filter(record => Boolean(record.data.sourceMapAnnotation))
+                .mapKeys((_, record) => record.data.sourceMapUrl)
+            })
+          );
+
+          // Signal any connected clients that the build is completed
+          emitBuild(getState, {prunedNodes, prevRecordsState});
+
+          // We write all the computationally expensive data to disk, so that
+          // we can reduce the startup cost of repeated builds
+          state.logInfo(`${chalk.bold('Cache write:')} ${recordsState.size} records...`);
+          const cacheWriteStart = (new Date()).getTime();
+          Promise.all(
+            recordsState.keySeq().toArray()
+              .map(name => state.recordStore.writeCache(name))
+          )
+            .then(() => {
+              const elapsed = (new Date()).getTime() - cacheWriteStart;
+              state.logInfo(`${chalk.bold('Cache write elapsed:')} ${elapsed}ms`);
+            })
+            .catch(err => {
+              if (state.recordStore.isIntercept(err)) {
+                // If the record store emitted an intercept, it means that a record
+                // was removed or invalidated during the cache write. In this case,
+                // we can just ignore it, as the tracing would have already restarted
+                return;
+              }
+
+              err.message = 'Cache write error: ' + err.message;
+              emitError(getState, err);
+            })
+            .then(() => {
+              const elapsed = (new Date()).getTime() - traceStart;
+              state.logInfo(`${chalk.bold('Total elapsed:')} ${elapsed}ms`);
+
+              // We should provide some form of visual indication that the build
+              // has finished
+              state.logInfo(repeat('-', 80));
+
+              signalBuildCompleted();
+            });
         }
       })
       .catch(err => {
@@ -175,7 +248,7 @@ export function createBuild(options={}) {
         // Visually indicate that the build completed
         state.logInfo(repeat('-', 80));
 
-        // Flush errors to any pending callbacks
+        // Flush any pending callbacks and let them handle the errors
         signalBuildCompleted();
       });
   });
@@ -233,112 +306,6 @@ export function createBuild(options={}) {
     node.dependents.forEach(dependent => {
       state.graph.traceFromNode(dependent);
     });
-  }
-
-  function emitBuild() {
-    const prevState = getState();
-
-    const nodeState = state.graph.getState();
-    const prevNodeState = prevState.nodes;
-
-    // Find all the nodes that were removed from the graph during the
-    // build process
-    const prunedNodes = [];
-    if (prevNodeState) {
-      prevNodeState.forEach((_, name) => {
-        if (!nodeState.has(name)) {
-          prunedNodes.push(name);
-        }
-      });
-    }
-
-    // Remove all records that are no longer represented in the graph.
-    // While most of the graph structure would have settled quite early
-    // in the build process, we leave the records in memory for as long
-    // as possible. This enables us to respond more swiftly to changes
-    // that occur during the build, as we've preserved the computationally
-    // expensive part of the process
-    prunedNodes.forEach(name => {
-      state.recordStore.remove(name);
-    });
-
-    const recordsState = state.recordStore.getState();
-    const prevRecordsState = prevState.records;
-
-    setState(
-      prevState.merge({
-        records: recordsState,
-        nodes: nodeState,
-        // Clear out any errors from previous builds
-        errors: null,
-        // Maps of records so that the file endpoint can perform record look ups
-        // trivially. This saves us from having to iterate over every record
-        recordsByUrl: recordsState
-          .filter(record => Boolean(record.data.url))
-          .mapKeys((_, record) => record.data.url),
-        recordsBySourceMapUrl: recordsState
-          .filter(record => Boolean(record.data.sourceMapAnnotation))
-          .mapKeys((_, record) => record.data.sourceMapUrl)
-      })
-    );
-
-    // The payload that we send with the `unfort:build-complete` signal.
-    // The hot runtime uses this to reconcile the front-end by
-    // adding, updating or removing assets. We don't send the assets
-    // down the wire, we only tell the runtime what has changed and
-    // where it can fetch each asset from
-    const payload = {
-      records: {},
-      removed: {}
-    };
-
-    const recordsToCache = [];
-
-    recordsState.forEach(record => {
-      if (record.name !== state.bootstrapRuntime) {
-        recordsToCache.push(record.name);
-        payload.records[record.name] = createRecordDescription(record);
-      }
-    });
-
-    prunedNodes.forEach(name => {
-      const prevRecord = prevRecordsState.get(name);
-      payload.removed[name] = createRecordDescription(prevRecord);
-    });
-
-    // Send the payload over the wire to any connected browser
-    state.server.getSockets()
-      .forEach(socket => socket.emit('unfort:build-complete', payload));
-
-    // We write all the computationally expensive data to disk, so that
-    // we can reduce the startup cost of repeated builds
-    state.logInfo(`${chalk.bold('Cache write:')} ${recordsToCache.length} records...`);
-    const cacheWriteStart = (new Date()).getTime();
-    Promise.all(
-      recordsToCache.map(name => state.recordStore.writeCache(name))
-    )
-      .then(() => {
-        const elapsed = (new Date()).getTime() - cacheWriteStart;
-        state.logInfo(`${chalk.bold('Cache write elapsed:')} ${elapsed}ms`);
-      })
-      .catch(err => {
-        if (state.recordStore.isIntercept(err)) {
-          // If the record store emitted an intercept, it means that a record
-          // was removed or invalidated during the cache write. In this case,
-          // we can just ignore it, as the tracing would have already restarted
-          return;
-        }
-
-        err.message = 'Cache write error: ' + err.message;
-        emitError(getState, err);
-      })
-      .then(() => {
-        // We should provide some form of visual indication that the build
-        // has finished
-        state.logInfo(repeat('-', 80));
-
-        signalBuildCompleted();
-      });
   }
 
   setState(
@@ -431,6 +398,36 @@ function emitError(getState, err, file) {
   const cleanedMessage = stripAnsi(message);
   state.server.getSockets()
     .forEach(socket => socket.emit('unfort:build-error', cleanedMessage));
+}
+
+function emitBuild(getState, {prunedNodes, prevRecordsState}) {
+  const state = getState();
+  const recordsState = state.recordStore.getState();
+
+  // The payload that we send with the `unfort:build-complete` signal.
+  // The hot runtime uses this to reconcile the front-end by
+  // adding, updating or removing assets. We don't send the assets
+  // down the wire, we only tell the runtime what has changed and
+  // where it can fetch each asset from
+  const payload = {
+    records: {},
+    removed: {}
+  };
+
+  recordsState.forEach(record => {
+    if (record.name !== state.bootstrapRuntime) {
+      payload.records[record.name] = createRecordDescription(record);
+    }
+  });
+
+  prunedNodes.forEach(name => {
+    const prevRecord = prevRecordsState.get(name);
+    payload.removed[name] = createRecordDescription(prevRecord);
+  });
+
+  // Send the payload over the wire to any connected browser
+  state.server.getSockets()
+    .forEach(socket => socket.emit('unfort:build-complete', payload));
 }
 
 function extendJobState(getState, setState, fn) {

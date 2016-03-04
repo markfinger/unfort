@@ -1,3 +1,4 @@
+import path from 'path';
 import chokidar from 'chokidar';
 import imm from 'immutable';
 import {startsWith} from 'lodash/string';
@@ -9,12 +10,12 @@ import {uniq} from 'lodash/array';
  * @type {Record}
  * @property {FSWatcher} watcher
  * @property {FSWatcher} nodeModulesWatcher
- * @property {Function} watchDirectory
+ * @property {Function} watchFile
  */
 const Watchers = imm.Record({
   watcher: null,
   nodeModulesWatcher: null,
-  watchDirectory: null
+  watchFile: null
 });
 
 /**
@@ -61,10 +62,8 @@ export function createWatchers({getState, restartTraceOfFile}) {
   watcher.on('error', error => console.error(`Watcher error: ${error}`));
 
   // We use another watcher to keep a shallow watch on node_modules.
-  // We generally treat node_modules as a fairly static lump of data,
-  // but there are plenty of real world situations where we need to
-  // detect changes so that we can either rebuild a failed graph or
-  // invalidate the current one
+  // This enables us to detect package changes, which may enable a
+  // a failed graph to be rebuilt, or may invalidate the current one
   const nodeModulesWatcher = chokidar.watch([getState().rootNodeModules], {
     persistent: true,
     depth: 0
@@ -105,6 +104,24 @@ export function createWatchers({getState, restartTraceOfFile}) {
     });
   });
 
+  function watchFile(file) {
+    const state = getState();
+
+    // Start watching any new directories
+    let dirname = path.dirname(file);
+    if (startsWith(dirname, state.sourceRoot)) {
+      const sourceRootLength = state.sourceRoot.length;
+      // We walk up the directory structure to the source root and
+      // start watching every directory that we encounter
+      do {
+        watchDirectory(dirname);
+        dirname = path.dirname(dirname);
+      } while (dirname.length > sourceRootLength);
+    } else {
+      watchDirectory(dirname);
+    }
+  }
+
   // The directories that our watcher has been instructed to observe.
   // We use an object as a map as it's far more performant than
   // chokidar's `getWatched` method
@@ -116,9 +133,8 @@ export function createWatchers({getState, restartTraceOfFile}) {
    * @param {String} dirname
    */
   function watchDirectory(dirname) {
-    if (startsWith(dirname, getState().rootNodeModules)) {
-      // We leave everything in node_modules to be handled by
-      // its specific watcher
+    if (dirname === getState().rootNodeModules) {
+      // nodeModulesWatcher handles this particular directory
       return;
     }
 
@@ -162,6 +178,6 @@ export function createWatchers({getState, restartTraceOfFile}) {
   return Watchers({
     watcher,
     nodeModulesWatcher,
-    watchDirectory
+    watchFile
   });
 }
