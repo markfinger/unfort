@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
 import {includes} from 'lodash/collection';
@@ -6,6 +7,7 @@ import {repeat} from 'lodash/string';
 import {values} from 'lodash/object';
 import sourceMapSupport from 'source-map-support';
 import envHash from 'env-hash';
+import rimraf from 'rimraf';
 import {createFileCache} from 'kv-cache';
 import {createGraph} from 'cyclic-dependency-graph';
 import {createRecordStore} from 'record-store';
@@ -349,6 +351,8 @@ export function createBuild(options={}) {
         setState(state.set('jobCache', createFileCache(cacheDir)));
         state.jobCache.events.on('error', err => emitError(getState, err));
 
+        cleanCacheDirectory(state.cacheDirectory, hash);
+
         // Start tracing from each entry point
         [state.bootstrapRuntime, ...state.entryPoints].forEach(file => {
           state.graph.setNodeAsEntry(file);
@@ -445,4 +449,32 @@ function extendJobState(getState, setState, fn) {
   const newJobs = Object.assign({}, jobs, overrides);
 
   setState(state.set('jobs', newJobs));
+}
+
+/**
+ * Removes all directories from `cacheDirectory` that do not match `currentDirectory`
+ *
+ * @param {String} cacheDirectory
+ * @param {String} currentDirectory
+ */
+function cleanCacheDirectory(cacheDirectory, currentDirectory) {
+  fs.readdir(cacheDirectory, (err, contents) => {
+    function logCacheCleanupFailure (err) {
+      console.error('Failed to clean cache directory...');
+      console.error(err);
+    }
+
+    console.log(contents, currentDirectory);
+
+    if (err) return logCacheCleanupFailure(err);
+
+    contents
+      .filter(dirname => dirname !== currentDirectory)
+      .forEach(dirname => rimraf(
+        path.join(cacheDirectory, dirname),
+        err => {
+          if (err) logCacheCleanupFailure(err);
+        }
+      ));
+  });
 }
