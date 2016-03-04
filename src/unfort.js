@@ -18,9 +18,7 @@ import {createRecordDescription, describeError} from './utils';
 import {createState} from './state';
 import packageJson from '../package.json';
 
-/**
- * Convenience hook for referencing the hot runtime in entry points
- */
+// Convenience hook for referencing the hot runtime in entry points
 export {hotRuntime} from './state';
 
 /**
@@ -459,7 +457,7 @@ function extendJobState(getState, setState, fn) {
  */
 function cleanCacheDirectory(cacheDirectory, currentDirectory) {
   fs.readdir(cacheDirectory, (err, contents) => {
-    function logCacheCleanupFailure (err) {
+    function logCacheCleanupFailure(err) {
       console.error('Failed to clean cache directory...');
       console.error(err);
     }
