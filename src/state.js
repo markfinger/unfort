@@ -67,6 +67,19 @@ export const State = imm.Record({
   graph: null,
   watchers: null,
 
+  // =======
+  // Loggers
+  // =======
+
+  // We use wrappers around the console object so that we can prevent
+  // output during tests
+  logInfo: function() {
+    console.info.apply(console, arguments)
+  },
+  logError: function() {
+    console.error.apply(console, arguments)
+  },
+
 
   // =============================
   // Data generated from the build
