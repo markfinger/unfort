@@ -72,7 +72,7 @@ export function createServer({getState, onBuildCompleted}) {
 
 export function createServeRecordFromState({getState, onBuildCompleted}) {
   /**
-   * Feeds a record from state to an (express-compatible) server response
+   * Feeds a record from a build's state to an (express-compatible) server response
    *
    * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
    * @param res - a server's response object

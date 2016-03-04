@@ -462,8 +462,6 @@ function cleanCacheDirectory(cacheDirectory, currentDirectory) {
       console.error(err);
     }
 
-    console.log(contents, currentDirectory);
-
     if (err) return logCacheCleanupFailure(err);
 
     contents
