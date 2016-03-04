@@ -289,6 +289,11 @@ export function createBuild(options={}) {
 
     const node = state.graph.getState().get(file);
 
+    const record = state.recordStore.get(file);
+    if (record.data.cacheKey) {
+      state.jobCache.invalidate(record.data.cacheKey);
+    }
+
     // Remove any data associated with the file
     state.recordStore.remove(file);
 
