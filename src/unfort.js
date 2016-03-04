@@ -289,6 +289,8 @@ export function createBuild(options={}) {
 
     const node = state.graph.getState().get(file);
 
+    // Clean up any associated cache files, so that we can cut
+    // down on the size of the cache directories
     const record = state.recordStore.get(file);
     if (record.data.cacheKey) {
       state.jobCache.invalidate(record.data.cacheKey);
