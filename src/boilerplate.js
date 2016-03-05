@@ -27,6 +27,16 @@ export function createRecordStream(build, recordUrl) {
   return null;
 }
 
+/**
+ * Returns a record's mime-type that was inferred during the build process.
+ * If no record is found, `null` is returned.
+ *
+ * Note: the mime-type should have been inferred during the build process's `mimeType` job
+ *
+ * @param {Object} build - on object representing a build
+ * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
+ * @returns {String|null}
+ */
 export function getRecordMimeType(build, recordUrl) {
   const {recordsByUrl} = build.getState();
 
@@ -34,6 +44,8 @@ export function getRecordMimeType(build, recordUrl) {
   if (record) {
     return record.data.mimeType;
   }
+
+  return null;
 }
 
 /**
@@ -58,7 +70,10 @@ export function createRecordInjectionStream(build, entryPoints) {
   const scripts = [];
   const inlineScripts = [];
 
+  // Traverse the graph from the entry points and resolve an
+  // execution order that will preserve the CSS cascade
   const executionOrder = resolveExecutionOrder(nodes, entryPoints);
+
   executionOrder.forEach(name => {
     const record = records.get(name);
 
@@ -84,6 +99,8 @@ export function createRecordInjectionStream(build, entryPoints) {
   stream.push(`if (!window.__modules) {\n`);
   bootstrap.data.content.split('\n')
     .forEach(line => {
+      // Increase the readability of the stream by indenting each
+      // line of the bootstrap
       stream.push('  ');
       stream.push(line);
       stream.push('\n');
@@ -145,6 +162,7 @@ export function createRecordInjectionStream(build, entryPoints) {
 })();
 `);
 
+  // Signal the end of the stream
   stream.push(null);
 
   return stream;
