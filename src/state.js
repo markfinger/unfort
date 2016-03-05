@@ -1,6 +1,5 @@
 import path from 'path';
 import imm from 'immutable';
-import {createMockCache} from 'kv-cache';
 
 export const bootstrapRuntime = require.resolve('../runtimes/bootstrap');
 export const hotRuntime = require.resolve('../runtimes/hot');
@@ -115,10 +114,6 @@ export function createState(overrides={}) {
 
   if (!state.entryPoints) {
     state = state.set('entryPoints', []);
-  }
-
-  if (!state.jobCache) {
-    state = state.set('jobCache', createMockCache());
   }
 
   return state;

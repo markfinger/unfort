@@ -20,12 +20,18 @@ describe('unfort/jobs', () => {
   });
 
   function createTestStore(overrides={}, state={}) {
+    if (!state.jobCache) {
+      state.jobCache = createMockCache();
+    }
+
     let jobs = createJobs({
       getState() {
         return state;
       }
     });
+
     jobs = assign(jobs, overrides);
+
     return createRecordStore(jobs);
   }
 

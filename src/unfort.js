@@ -49,24 +49,27 @@ export function createBuild(options={}) {
     return state;
   }
 
-  setState(state.set('graph', createGraph({
-    getDependencies: file => {
-      // Ensure that the record store is synchronised with the graph
-      if (!state.recordStore.has(file)) {
-        state.recordStore.create(file);
+  if (!state.graph) {
+    const graph = createGraph({
+      getDependencies: file => {
+        // Ensure that the record store is synchronised with the graph
+        if (!state.recordStore.has(file)) {
+          state.recordStore.create(file);
+        }
+
+        state.watchers.watchFile(file);
+
+        // Start the `resolvedDependencies` job
+        return state.recordStore.resolvedDependencies(file)
+          .then(resolved => {
+            // We assume that `resolvedDependencies` returns a map of identifiers to
+            // resolved paths, for example: `{jquery: '/path/to/jquery.js'}`
+            return values(resolved);
+          });
       }
-
-      state.watchers.watchFile(file);
-
-      // Start the `resolvedDependencies` job
-      return state.recordStore.resolvedDependencies(file)
-        .then(resolved => {
-          // We assume that `resolvedDependencies` returns a map of identifiers to
-          // resolved paths, for example: `{jquery: '/path/to/jquery.js'}`
-          return values(resolved);
-        });
-    }
-  })));
+    });
+    setState(state.set('graph', graph));
+  }
 
   let traceStart;
   state.graph.events.on('started', () => {
@@ -323,25 +326,55 @@ export function createBuild(options={}) {
   function start() {
     state.logInfo(`${chalk.bold('Unfort:')} v${packageJson.version}`);
 
-    setState(state.set('recordStore', createRecordStore(state.jobs)));
+    ensureJobsAreBoundToState();
 
-    setState(state.set('watchers', createWatchers({getState, restartTraceOfFile})));
+    if (!state.recordStore) {
+      const recordStore = createRecordStore(state.jobs);
+      setState(state.set('recordStore', recordStore));
+    }
 
-    // We generate a hash of the environment's state, so that we can
-    // namespace all the cached date. This enables us to ignore any
-    // data that may have been generated with other versions
-    envHash(state.envHash)
-      .then(hash => {
-        setState(state.set('environmentHash', hash));
+    if (!state.watchers) {
+      const watchers = createWatchers({getState, restartTraceOfFile});
+      setState(state.set('watchers', watchers));
+    }
 
-        state.logInfo(chalk.bold('EnvHash: ') + hash);
+    if (!state.environmentHash) {
+      // Generate a hash that reflects the state of the environment and
+      // enables the persistent cache to avoid expensive cache-invalidation
+      const environmentHash = envHash(state.envHash)
+        .then(hash => {
+          state.logInfo(chalk.bold('EnvHash: ') + hash);
+          return hash;
+        });
+      setState(state.set('environmentHash', environmentHash));
+    }
+
+    if (!state.jobCache) {
+      const jobCache = Promise.resolve(state.environmentHash)
+        .then(hash => {
+          // Create a persistent file cache that namespaces all data
+          // with the environment hash. This enables us to trivially
+          // invalidate any data that is likely to have been generated
+          // with a different set of libraries of dependencies
+          const cacheDir = path.join(state.cacheDirectory, hash);
+          cleanCacheDirectory(state.cacheDirectory, hash);
+
+          const fileCache = createFileCache(cacheDir);
+          fileCache.events.on('error', err => emitError(getState, err));
+
+          return fileCache;
+        });
+      setState(state.set('jobCache', jobCache));
+    }
+
+    return Promise.resolve(state.jobCache)
+      .then(jobCache => {
+        if (jobCache !== state.jobCache) {
+          setState(state.set('jobCache', jobCache));
+        }
+
+        state.logInfo(chalk.bold('Root URL: ') + state.rootUrl);
         state.logInfo(repeat('-', 80));
-
-        const cacheDir = path.join(state.cacheDirectory, hash);
-        setState(state.set('jobCache', createFileCache(cacheDir)));
-        state.jobCache.events.on('error', err => emitError(getState, err));
-
-        cleanCacheDirectory(state.cacheDirectory, hash);
 
         // Start tracing from each entry point
         [state.bootstrapRuntime, ...state.entryPoints].forEach(file => {
@@ -351,7 +384,12 @@ export function createBuild(options={}) {
       });
   }
 
-  state = state.set('jobs', createJobs({getState}));
+  function ensureJobsAreBoundToState() {
+    if (!state.jobs) {
+      const jobs = createJobs({getState});
+      state = state.set('jobs', jobs);
+    }
+  }
 
   /**
    * Allow jobs to be overridden - this is pretty essential for all manner
@@ -376,6 +414,7 @@ export function createBuild(options={}) {
    * ```
    */
   function extendJobs(fn) {
+    ensureJobsAreBoundToState();
     extendJobState(getState, setState, fn);
   }
 
@@ -384,6 +423,7 @@ export function createBuild(options={}) {
     setState,
     start,
     extendJobs,
+    restartTraceOfFile,
     onCompleted: onBuildCompleted,
     hasErrors: () => stateContainsErrors(state),
     describeErrors: () => describeBuildStateErrors(state)
