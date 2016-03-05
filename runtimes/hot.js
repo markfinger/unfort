@@ -517,10 +517,12 @@ function removeStylesheet(record) {
   const links = document.getElementsByTagName('link');
 
   _.forEach(links, link => {
-    const attributeName = link.getAttribute('data-unfort-name');
-    if (attributeName === name) {
-      link.parentNode.removeChild(link);
-      return false;
+    // Sometimes we end up with weird values here
+    if (link) {
+      const attributeName = link.getAttribute('data-unfort-name');
+      if (attributeName === name) {
+        link.parentNode.removeChild(link);
+      }
     }
   });
 }
@@ -529,7 +531,7 @@ function replaceScript(record) {
   const {name, url} = record;
 
   // Clean up any pre-existing scripts
-  removeScript(name);
+  removeScript(record);
 
   // Add a new <script> element
   const script = document.createElement('script');
@@ -544,10 +546,12 @@ function removeScript(record) {
   const scripts = document.getElementsByTagName('script');
 
   _.forEach(scripts, script => {
-    const attributeName = script.getAttribute('data-unfort-name');
-    if (attributeName === name) {
-      script.parentNode.removeChild(script);
-      return false;
+    // Sometimes we end up with weird values here
+    if (script) {
+      const attributeName = script.getAttribute('data-unfort-name');
+      if (attributeName === name) {
+        script.parentNode.removeChild(script);
+      }
     }
   });
 }
