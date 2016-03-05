@@ -10,46 +10,6 @@ focuses primarily on improving performance in development environments.
 npm install --save unfort
 ```
 
-
-### Quick start
-
-
-```js
-const unfort = require('unfort');
-
-const build = unfort.createBuild({
-  entryPoints: [
-    unfort.hotRuntime,
-    require.resolve('./path/to/your/file')
-  ],
-  envHash: {
-    // The files and directories that we introspect when
-    // determining if we can still use cached data
-    files: [__filename, 'package.json'],
-    directories: ['node_modules']
-  }
-});
-
-build.start();
-
-const server = build.getState().server;
-
-server.app.get('/', (req, res) => {
-  res.end(`
-    <html>
-    <head></head>
-    <body>
-      <script src="/inject.js"></script>
-    </body>
-    </html>
-  `);
-});
-
-const recordInjector = server.createRecordInjector(build);
-server.app.get('/inject.js', (req, res) => recordInjector(res));
-```
-
-
 ## Design goals
 
 Aim for:
@@ -61,10 +21,6 @@ Aim for:
   Write the expensive data to disk. Repeated builds should reuse the data.
   Cache invalidation should be smart, but when it fails, allow all the data
   to be easily nuked.
-- **Prioritize clarity, but enable optimizations.**
-  Avoid significant structural changes to source files. Provide source
-  maps. Link to &lt;script&gt; and &lt;link&gt; elements for improved source map support
-  in smaller code-bases. Enable network optimizations for larger code-bases.
 - **Code over configuration.**
   Only provide the most minimal set of options. The higher-level processes
   should be hard-coded wiring. For the inevitable edge-cases, expose the
@@ -86,7 +42,7 @@ Things to _explicitly avoid_:
 - **Config files.**
   If a configuration file requires more than 20 lines, the build tool is
   probably trying to do too many things.
-- **Builtin support for tool _X_ or file format _Y_.**
+- **Support for tool _X_ or file format _Y_.**
   Integrating other tooling or file formats should be left entirely up to the
   user.
 - **Support for older browsers.**
