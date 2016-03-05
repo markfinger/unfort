@@ -11,7 +11,6 @@ describe('unfort/state', () => {
       assert.equal(state.sourceRoot, process.cwd());
       assert.equal(state.rootNodeModules, path.join(process.cwd(), 'node_modules'));
       assert.equal(state.cacheDirectory, path.join(process.cwd(), '.unfort'));
-      assert.isObject(state.jobCache);
     });
     it('should allow values to be defined', () => {
       const state = createState({
