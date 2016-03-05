@@ -97,8 +97,7 @@ Things to _explicitly avoid_:
   that is both difficult to read and unpleasant to hack on.
 - **Abstractions: CLIs, plugins, loaders, transforms, etc.**
   Make the minimal amount of abstractions necessary. Whenever possible, push
-  boilerplate into user-space. Leave the one-liners to be developed by those
-  who are willing to deal with lazy internet people.
+  boilerplate into user-space.
 
 
 ## Status
