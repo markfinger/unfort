@@ -63,7 +63,7 @@ Aim for:
   to be easily nuked.
 - **Prioritize clarity, but enable optimizations.**
   Avoid significant structural changes to source files. Provide source
-  maps. Link to <script> and <link> elements for improved source map support
+  maps. Link to &lt;script&gt; and &lt;link&gt; elements for improved source map support
   in smaller code-bases. Enable network optimizations for larger code-bases.
 - **Code over configuration.**
   Only provide the most minimal set of options. The higher-level processes
