@@ -57,13 +57,14 @@ Aim for:
 - **Rapid feedback loops during development.**
   In most cases, changes should be applied in ~100-200ms. Provide a REPL-like
   experience from the comfort of a text editor.
-- **Assets that can easily introspected in browser devtools.**
-  Source maps should be provided. Avoid methods like eval or inline style
-  elements which improve build or network performance at the cost of clarity.
-- **Improved build times with persistent caching.**
+- **Improve build times with persistent caching.**
   Write the expensive data to disk. Repeated builds should reuse the data.
   Cache invalidation should be smart, but when it fails, allow all the data
   to be easily nuked.
+- **Prioritize clarity, but enable optimizations.**
+  Avoid significant structural changes to source files. Provide source
+  maps. Link to <script> and <link> elements for improved source map support
+  in smaller code-bases. Enable network optimizations for larger code-bases.
 - **Code over configuration.**
   Only provide the most minimal set of options. The higher-level processes
   should be hard-coded wiring. For the inevitable edge-cases, expose the
@@ -91,14 +92,13 @@ Things to _explicitly avoid_:
 - **Support for older browsers.**
   Support evergreen browsers from vendors who keep pace with standards.
 - **Support for anything but the latest version of Node.**
-  Maintaining backwards compatibility is a pain. It requires a byzantine
-  codebase, and often requires a build process to generate code that's
-  difficult to read or hack on.
+  Maintaining compatibility across language features is a pain. It requires
+  a byzantine codebase, and often requires a build process to generate code
+  that is both difficult to read and unpleasant to hack on.
 - **Abstractions: CLIs, plugins, loaders, transforms, etc.**
-  Make the minimal amount of abstractions necessary to maintain a clean
-  codebase. Whenever possible, push boilerplate into user-space. Leave the
-  one-liners to be developed by those who are willing to deal with lazy
-  internet people.
+  Make the minimal amount of abstractions necessary. Whenever possible, push
+  boilerplate into user-space. Leave the one-liners to be developed by those
+  who are willing to deal with lazy internet people.
 
 
 ## Status
@@ -112,7 +112,7 @@ Things to _explicitly avoid_:
 
 ## Development Notes
 
-The following commands are available to interact with the project:
+The following commands are available to interact with unfort's code-base:
 
 - `npm run build` builds the project into a form that node can interpret
 - `npm test` runs the test suite
