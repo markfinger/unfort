@@ -157,7 +157,7 @@ export function createJobs({getState}={}) {
           }
         })
         .then(name => {
-          const {sourceRoot, fileEndpoint} = getState();
+          const {sourceRoot, rootUrl} = getState();
 
           // Try to produce a more readable url, but fallback to an absolute
           // path if necessary. The fallback is necessary if the record is
@@ -170,7 +170,7 @@ export function createJobs({getState}={}) {
             relPath = name;
           }
 
-          return fileEndpoint + relPath.split(path.ext).join('/');
+          return rootUrl + relPath.split(path.ext).join('/');
         });
     },
     /**
@@ -179,10 +179,10 @@ export function createJobs({getState}={}) {
      * TODO: this has diverged from `url`, need to consolidate them. use `relativePathIfContained` in utils.js
      */
     sourceUrl(ref) {
-      const {sourceRoot, fileEndpoint} = getState();
+      const {sourceRoot, rootUrl} = getState();
 
       const relUrl = path.relative(sourceRoot, ref.name).split(path.ext).join('/');
-      return fileEndpoint + relUrl;
+      return rootUrl + relUrl;
     },
     sourceMapUrl(ref, store) {
       return store.url(ref)

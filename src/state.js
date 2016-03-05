@@ -29,6 +29,8 @@ export const State = imm.Record({
   jobs: null,
   // The directory containing the hot runtime's vendor packages
   vendorRoot,
+  rootUrl: null,
+  getSockets: null,
 
 
   // ================
@@ -48,20 +50,10 @@ export const State = imm.Record({
   bootstrapRuntime,
   hotRuntime,
 
-  // ====================
-  // Server configuration
-  // ====================
-
-  hostname: '127.0.0.1',
-  port: 3000,
-  fileEndpoint: '/_cwd_/',
-
-
   // ===================
   // Stateful subsystems
   // ===================
 
-  server: null,
   recordStore: null,
   jobCache: null,
   graph: null,
@@ -104,6 +96,10 @@ export const State = imm.Record({
  */
 export function createState(overrides={}) {
   let state = State(overrides);
+
+  if (!state.getSockets) {
+    state = state.set('getSockets', () => []);
+  }
 
   if (!state.sourceRoot) {
     state = state.set('sourceRoot', process.cwd());

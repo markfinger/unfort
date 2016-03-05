@@ -314,12 +314,12 @@ describe('unfort/jobs', () => {
         hashedName: () => '/foo/bar/woz-10.js'
       }, {
         sourceRoot: '/foo/',
-        fileEndpoint: '/files/'
+        rootUrl: 'http://localhost:3000/files/'
       });
       store.create('/foo/bar/woz.js');
       return assert.becomes(
         store.url('/foo/bar/woz.js'),
-        '/files/bar/woz-10.js'
+        'http://localhost:3000/files/bar/woz-10.js'
       );
     });
     it('should produce a relative url for non-text files', () => {
@@ -327,12 +327,12 @@ describe('unfort/jobs', () => {
         isTextFile: () => false
       }, {
         sourceRoot: '/foo/',
-        fileEndpoint: '/files/'
+        rootUrl: 'http://localhost:3000/files/'
       });
       store.create('/foo/bar/woz.png');
       return assert.becomes(
         store.url('/foo/bar/woz.png'),
-        '/files/bar/woz.png'
+        'http://localhost:3000/files/bar/woz.png'
       );
     });
     it('should produce an absolute url for files that live outside the source root', () => {
@@ -341,12 +341,12 @@ describe('unfort/jobs', () => {
         hashedName: () => '/bar/foo-10.js'
       }, {
         sourceRoot: '/foo/',
-        fileEndpoint: '/files/'
+        rootUrl: 'http://localhost:3000/files/'
       });
       store.create('/bar/foo.js');
       return assert.becomes(
         store.url('/bar/foo.js'),
-        '/files//bar/foo-10.js'
+        'http://localhost:3000/files//bar/foo-10.js'
       );
     });
   });
@@ -354,12 +354,12 @@ describe('unfort/jobs', () => {
     it('should produce a url to the original content of a record', () => {
       const store = createTestStore({}, {
         sourceRoot: '/foo/',
-        fileEndpoint: '/files/'
+        rootUrl: 'http://localhost:3000/files/'
       });
       store.create('/foo/bar/woz.png');
       return assert.becomes(
         store.url('/foo/bar/woz.png'),
-        '/files/bar/woz.png'
+        'http://localhost:3000/files/bar/woz.png'
       );
     });
   });

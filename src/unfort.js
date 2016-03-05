@@ -11,23 +11,28 @@ import rimraf from 'rimraf';
 import {createFileCache} from 'kv-cache';
 import {createGraph} from 'cyclic-dependency-graph';
 import {createRecordStore} from 'record-store';
-import {createServer} from './server';
 import {createJobs} from './jobs';
 import {createWatchers} from './watchers';
-import {createRecordDescription, describeError} from './utils';
+import {createRecordDescription, describeError, describeErrorList} from './utils';
 import {createState} from './state';
 import packageJson from '../package.json';
 
 // Convenience hook for referencing the hot runtime in entry points
 export {hotRuntime} from './state';
 
+// Convenience hooks to expose web server boilerplate
+export {createRecordStream, getRecordMimeType, createRecordInjectionStream} from './boilerplate';
+
 /**
  * Binds some helpers to the process which provide more clarity
  * for debugging
  */
 export function installDebugHelpers() {
+  // Add source map support for our babel build
   sourceMapSupport.install();
 
+  // Occasionally we'll break the promise chain somewhere,
+  // this picks up those inexplicable silent failures
   process.on('unhandledRejection', err => {
     throw err;
   });
@@ -68,7 +73,7 @@ export function createBuild(options={}) {
     traceStart = (new Date()).getTime();
 
     signalBuildStarted();
-    state.server.getSockets()
+    state.getSockets()
       .forEach(socket => socket.emit('unfort:build-started'));
   });
 
@@ -315,25 +320,12 @@ export function createBuild(options={}) {
     });
   }
 
-  setState(
-    state.set('server', createServer({
-      getState,
-      onBuildCompleted
-    }))
-  );
-
   function start() {
     state.logInfo(`${chalk.bold('Unfort:')} v${packageJson.version}`);
 
     setState(state.set('recordStore', createRecordStore(state.jobs)));
 
     setState(state.set('watchers', createWatchers({getState, restartTraceOfFile})));
-
-    state.server.bindFileEndpoint();
-
-    state.server.httpServer.listen(state.port, state.hostname, () => {
-      state.logInfo(`${chalk.bold('Server:')} http://${state.hostname}:${state.port}`);
-    });
 
     // We generate a hash of the environment's state, so that we can
     // namespace all the cached date. This enables us to ignore any
@@ -389,9 +381,12 @@ export function createBuild(options={}) {
 
   return {
     getState,
+    setState,
     start,
     extendJobs,
-    onBuildCompleted
+    onCompleted: onBuildCompleted,
+    hasErrors: () => stateContainsErrors(state),
+    describeErrors: () => describeBuildStateErrors(state)
   };
 }
 
@@ -405,7 +400,7 @@ function emitError(getState, err, file) {
   state.logError('\n' + message);
 
   const cleanedMessage = stripAnsi(message);
-  state.server.getSockets()
+  state.getSockets()
     .forEach(socket => socket.emit('unfort:build-error', cleanedMessage));
 }
 
@@ -435,7 +430,7 @@ function emitBuild(getState, {prunedNodes, prevRecordsState}) {
   });
 
   // Send the payload over the wire to any connected browser
-  state.server.getSockets()
+  state.getSockets()
     .forEach(socket => socket.emit('unfort:build-complete', payload));
 }
 
@@ -473,4 +468,12 @@ function cleanCacheDirectory(cacheDirectory, currentDirectory) {
         }
       ));
   });
+}
+
+function stateContainsErrors(state) {
+  return Boolean(state.errors);
+}
+
+function describeBuildStateErrors(state) {
+  return describeErrorList(state.errors);
 }
