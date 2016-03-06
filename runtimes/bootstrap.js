@@ -109,6 +109,10 @@
     return mod.commonjs.exports;
   };
 
+  __modules.getModuleExports = function getModuleExports(mod) {
+    return mod.commonjs.exports;
+  };
+
   // Given a module with a predefined set of dependencies, this produces
   // the `require` function that modules use to call other modules
   __modules.buildRequire = function buildRequire(mod) {
@@ -130,15 +134,13 @@
         );
       }
 
-      // If a module has already been evaluated, we return the values that it
-      // exported. Note: we need to respect the `executed` flag to prevent
-      // cyclic dependencies from triggering multiple executions of a module
-      if (depMod.executed) {
-        return depMod.commonjs.exports;
+      // We need to respect the `executed` flag to prevent cyclic dependencies
+      // from triggering multiple executions of a module
+      if (!depMod.executed) {
+        __modules.executeModule(depName);
       }
 
-      // Call the module's factory and return its exports
-      return __modules.executeModule(depName);
+      return __modules.getModuleExports(depMod);
     };
   };
 
