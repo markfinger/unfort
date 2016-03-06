@@ -357,10 +357,11 @@ export function createBuild(options={}) {
           // invalidate any data that is likely to have been generated
           // with a different set of libraries of dependencies
           const cacheDir = path.join(state.cacheDirectory, hash);
-          cleanCacheDirectory(state.cacheDirectory, hash);
-
           const fileCache = createFileCache(cacheDir);
           fileCache.events.on('error', err => emitError(getState, err));
+
+          // Remove any data from previous hashes
+          cleanCacheDirectory(state.cacheDirectory, hash);
 
           return fileCache;
         });
