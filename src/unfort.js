@@ -300,7 +300,7 @@ export function createBuild(options={}) {
     // Clean up any associated cache files, so that we can cut
     // down on the size of the cache directories
     const record = state.recordStore.get(file);
-    if (record.data.cacheKey) {
+    if (record && record.data.cacheKey) {
       state.jobCache.invalidate(record.data.cacheKey);
     }
 
