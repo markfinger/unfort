@@ -7,7 +7,7 @@
     "build": "./scripts/build.js",
     "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
     "_test": "mocha --reporter spec 'lib/**/tests/*.js'",
-    "lint": "eslint bootstrap/*.js scripts/**.js src/**.js",
+    "lint": "eslint runtimes/*.js scripts/**.js src/**.js",
     "coverage": "babel-node node_modules/babel-istanbul/lib/cli.js cover node_modules/mocha/bin/_mocha -- --reporter spec 'src/**/tests/*.js'"
   },
   "repository": {
