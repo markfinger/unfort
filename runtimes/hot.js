@@ -1,49 +1,13 @@
-// We reduce page load times by using pre-built and compressed
-// libraries. This shaves around 500kb from the payload
 const socketIoClient = require('../vendor/socket.io-client');
 const _ = require('../vendor/lodash');
+// We reduce page load times by using pre-built and compressed
+// libraries. This shaves around 500kb from the payload
 
-// Newer browsers support explicit prototype manipulation,
-// but slightly older ones need a shim that uses the
-// `__proto__` binding
-let getPrototypeOf;
-let setPrototypeOf;
-
-if (_.isFunction(Object.getPrototypeOf)) {
-  getPrototypeOf = Object.getPrototypeOf;
-} else {
-  getPrototypeOf = function fallbackGetPrototypeOf(obj) {
-    return obj.__proto__;
-  };
+if (typeof Proxy !== 'function') {
+  throw new Error(
+    '[hot] Proxy objects are not supported in this environment. The hot runtime should be removed'
+  );
 }
-
-if (_.isFunction(Object.setPrototypeOf)) {
-  setPrototypeOf = Object.setPrototypeOf;
-} else {
-  setPrototypeOf = function fallbackSetPrototypeOf(obj, proto) {
-    obj.__proto__ = proto;
-  };
-}
-
-// Older browsers tend to support varying degrees of prototype
-// introspection and manipulation. As the hot runtime depends
-// on being able to perform both, we run through a quick
-// test-case so that we can warn when things are likely to break
-(() => {
-  const proto1 = {};
-  const obj = Object.create(proto1);
-
-  if (getPrototypeOf(obj) !== proto1) {
-    console.warn('[hot] Prototype introspection is not supported. The hot runtime should be removed');
-    return;
-  }
-
-  const proto2 = {};
-  setPrototypeOf(obj, proto2);
-  if (getPrototypeOf(obj) !== proto2) {
-    console.warn('[hot] Prototype manipulation is not supported. The hot runtime should be removed');
-  }
-})();
 
 function log() {
   if (global.__QUIET_UNFORT__ !== true) {
@@ -54,17 +18,100 @@ function log() {
 // Before we start monkey-patching the runtime, we need to preserve some references
 const extendModule = __modules.extendModule;
 const defineModule = __modules.defineModule;
+const getModuleExports = __modules.getModuleExports;
 
-// Monkey-patch `extendModule` so that we can add the `hot` API
+/**
+ * Creates a proxy that allows module exports to be swapped during
+ * runtime. This enables the new version of module to be immediately
+ * exposed to its dependencies without much complexity.
+ *
+ * Note: there is a small overhead to using a proxy. You may notice
+ * some degradation in performance if hot loops are frequently
+ * introspecting a module's exports.
+ *
+ * @returns {Object}
+ */
+function createModuleExportsProxy() {
+  let exports = null;
+
+  // As these functions are likely to be extremely hot during normal
+  // code execution, they need to be kept small and simple so that
+  // JIT compilers can inline them
+  const proxy = new Proxy({}, {
+    has(_, prop) {
+      return prop in exports;
+    },
+    get(_, property) {
+      return exports[property];
+    },
+    set(_, property, value) {
+      return exports[property] = value;
+    },
+    ownKeys(_) {
+      return Object.getOwnPropertyNames(exports);
+    }
+  });
+
+  return {
+    proxy,
+    setModule(mod) {
+      // Given that the proxy is going to be heavily used during
+      // normal code execution, we unpack the module's commonjs
+      // shim, so that we drop the amount of property look-ups
+      // necessary to resolve a value
+      exports = mod.commonjs.exports;
+    }
+  };
+}
+
+// Monkey-patch `getModuleExports` so that we can inject export
+// proxies for modules that indicate they are ES2015 modules.
+//
+// By relying os how babel implements its ES -> commonjs shim,
+// we can make some assumptions:
+//
+// 1) a dependency with the flag `__esModule` is unlikely to ever
+//    bind to `module.exports` directly.
+// 2) a dependent that imports ES modules via babel will *always*
+//    access exports via lazily-evaluated property look-ups.
+//
+// The combination of these two assumptions enable us to perform
+// hot swaps that immediately and transparently cascade through
+// the entire module system.
+//
+// Caveat: this relies heavily on the implementation details of
+// babel's ES -> commonjs plugin. If the implementation ever
+// changes in a way that breaks our assumptions, we'll probably
+// need to fork the plugin. Additionally, these hacks may or may
+// not be required when the loader spec is implemented in browsers
+__modules.getModuleExports = function getModuleExportsHotWrapper(dependency) {
+  const dependencyExports = dependency.commonjs.exports;
+  if (dependencyExports && dependencyExports.__esModule) {
+    return dependency.hot.exportsProxy.proxy;
+  }
+
+  // Fallback to the default
+  return getModuleExports(dependency);
+};
+
+
+// Monkey-patch `extendModule` so that we can add the `hot` API and
+// data that we use to track the state of hot swaps
 __modules.extendModule = function extendModuleHotWrapper(mod) {
   mod = extendModule(mod);
 
-  // State associated with swapping the module
   if (mod.hot === undefined) {
+    // For ES modules, we expose a proxy to their exports that
+    // enables their bindings to be dynamically swapped after
+    // each execution
+    const exportsProxy = createModuleExportsProxy();
+    exportsProxy.setModule(mod);
+
+    // State associated with swapping the module
     mod.hot = {
       // The previous state of the module
       previous: null,
-      exportsProxy: {},
+      exportsProxy,
       accepted: false,
       acceptedCallback: null,
       onExit: null,
@@ -202,10 +249,16 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
     __modules.buffered = [];
 
     const modulesSwapped = Object.create(null);
+    const toSwap = [];
 
-    const toSwap = _buffered.map(mod => {
+    _buffered.forEach(mod => {
       modulesSwapped[mod.name] = true;
-      return [mod, __modules.modules[mod.name]];
+      toSwap.push([
+        // The incoming version
+        mod,
+        // The previous version or `undefined`
+        __modules.modules[mod.name]
+      ]);
     });
 
     toSwap.forEach(([mod, prevMod]) => {
@@ -224,34 +277,36 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
           prevMod.hot.exitData = prevMod.hot.onExit();
         }
 
+        // Store the previous version of the module so that the next version
+        // can introspect it to resolve the `module.hot.enter` data
+        mod.hot.previous = prevMod;
+
         // Prevent memory leaks by removing any references to past
         // versions of the module that is about to be swapped
-        if (prevMod.hot.previous) {
-          prevMod.hot.previous = null;
-        }
+        prevMod.hot.previous = null;
 
-        // We pass the exports proxy between module states so that dependent modules
-        // have their references updated when we swap
+        // We pass the exports proxy between module states so that dependent
+        // modules have their references updated when we swap
         mod.hot.exportsProxy = prevMod.hot.exportsProxy;
 
-        // Store the previous version of the module so that the next version
-        // can introspect it
-        mod.hot.previous = prevMod;
+        // Point the exports proxy at the new module
+        mod.hot.exportsProxy.setModule(mod);
       }
 
       // Update the runtime's module registry
       defineModule(mod);
     });
 
+    // Execute each module
     toSwap.forEach(([mod]) => {
       // If we're applying multiple modules, it's possible that new
-      // modules may execute other new modules, so we need to iterate
-      // through and selectively execute modules that have not been
-      // called yet.
+      // modules may trigger execution of other new modules, so we
+      // need to iterate through and selectively execute modules.
+      //
+      // Note: if a module throws an error during execution, the entire
+      // hot swap will fail with it. This is by design, as it prevents
+      // unexpected behaviour
       if (!mod.executed) {
-        // Note: if a module throws an error during execution, the entire
-        // hot swap will fail with it. This is by design, as it prevents
-        // unexpected behaviour
         __modules.executeModule(mod.name);
       }
     });
@@ -263,41 +318,19 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
       }
     });
 
+    // If a module specified a `module.hot.changes` callback and it
+    // was not swapped, then we call it now
     _.forOwn(__modules.modules, mod => {
-      // Handle modules which have been removed
+      // Ignore modules that were removed
       if (mod === undefined) {
         return;
       }
 
-      // If a module was not swapped and it has specified a callback to
-      // `module.hot.changes`, then we call it
-      if (!modulesSwapped[mod.name] && mod.hot.onChanges) {
+      if (mod.hot.onChanges && !modulesSwapped[mod.name]) {
         mod.hot.onChanges();
       }
     });
   }
-};
-
-const executeModule = __modules.executeModule;
-__modules.executeModule = function executeModuleHotWrapper(name) {
-  executeModule(name);
-
-  const mod = __modules.modules[name];
-  const exports = mod.commonjs.exports;
-  if (
-    _.isObject(exports) &&
-    !_.isFunction(exports) &&
-    exports.__esModule
-  ) {
-    const exportsProxy = mod.hot.exportsProxy;
-
-    if (getPrototypeOf(exportsProxy) !== exports) {
-      setPrototypeOf(exportsProxy, exports);
-      mod.commonjs.exports = exportsProxy;
-    }
-  }
-
-  return mod.commonjs.exports;
 };
 
 const io = socketIoClient();
@@ -353,12 +386,14 @@ io.on('unfort:build-complete', ({records, removed}) => {
     return console.warn(message);
   }
 
-  // We try to avoid issues from concurrent-ish updates by resetting
-  // the pending state so that any calls to `defineModule` will be ignored
+  // We try to avoid race conditions by resetting the pending state so
+  // that any calls to `defineModule` are ignored. This enables us to
+  // ignore any pending fetches for previous swaps
   __modules.pending = {};
 
-  // If a module has already been buffered for execution, we can ignore
-  // updates for it
+  // Filter out updates for any modules that have already been buffered
+  // for execution. This enables us to avoid any edge-cases where the
+  // browser may neglect to fetch the asset twice
   __modules.buffered = __modules.buffered.filter(({name, hash}) => {
     if (_.includes(accepted, name) && records[name].hash === hash) {
       _.pull(accepted, name);
@@ -409,7 +444,7 @@ io.on('unfort:build-complete', ({records, removed}) => {
     // call it to ensure that our module buffer is inevitably cleared and
     // the runtime's module registry is updated. This prevents an issue where
     // reverting a css asset to a previous version may have no effect as the
-    // registry assumes it's already been applied
+    // registry assumes it has already been applied
     if (
       _.endsWith(record.url, '.css') ||
       !record.isTextFile
@@ -426,16 +461,27 @@ io.on('unfort:build-complete', ({records, removed}) => {
   });
 });
 
+/**
+ * Creates a module factory that exports the provided url
+ * as the default and allows hot swaps to occur
+ *
+ * @param {String} url
+ * @returns {Function}
+ */
 function createRecordUrlModule(url) {
   return function recordUrlModule(module, exports) {
     exports.default = url;
     exports.__esModule = true;
-    if (module.hot) {
-      module.hot.accept();
-    }
+    module.hot.accept();
   };
 }
 
+/**
+ * Removes any <script> or <link> elements that are associated
+ * with the provided record.
+ *
+ * @param {Object} record
+ */
 function removeRecordAssetFromDocument(record) {
   const {name, url} = record;
 
@@ -504,10 +550,11 @@ function replaceStylesheet(record) {
   link.href = url;
   link.setAttribute('data-unfort-name', name);
   // We insert new stylesheets at the top of the head as this
-  // optimises for the common case where a stylesheet import is
-  // at the top of a file and its dependents may override the
-  // selectors. If we don't do this, the cascade can get messed
-  // up when you add new styles
+  // reflects the common case where a stylesheet import is at
+  // the top of a file and its dependents rely on the cascade
+  // to override the import's selectors and rules. If we were
+  // to place the stylesheet elsewhere, the cascade will
+  // probably produce unexpected results
   document.head.insertBefore(link, document.head.firstChild);
 }
 
@@ -517,7 +564,7 @@ function removeStylesheet(record) {
   const links = document.getElementsByTagName('link');
 
   _.forEach(links, link => {
-    // Sometimes we end up with weird values here
+    // Sometimes we end up with `null` here, for reasons unknown
     if (link) {
       const attributeName = link.getAttribute('data-unfort-name');
       if (attributeName === name) {
@@ -546,7 +593,7 @@ function removeScript(record) {
   const scripts = document.getElementsByTagName('script');
 
   _.forEach(scripts, script => {
-    // Sometimes we end up with weird values here
+    // Sometimes we end up with `null` here, for reasons unknown
     if (script) {
       const attributeName = script.getAttribute('data-unfort-name');
       if (attributeName === name) {
