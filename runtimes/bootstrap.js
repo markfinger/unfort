@@ -30,8 +30,13 @@
     return __modules.extendModule(mod);
   };
 
-  // Adds some data and flags that we use during the
-  // initialization process
+  // Adds some data and flags that we use during the initialization
+  // process.
+  //
+  // Note: the `undefined` checks allow this function to be run multiple
+  // times over a module. Additionally, they enable downstream providers
+  // to manipulate modules in whatever way they like. In effect, they're
+  // mostly intended as sane defaults
   __modules.extendModule = function extendModuleObject(mod) {
     // A flag that we use to prevent multiple executions of a module
     // when cyclic dependencies are encountered
@@ -39,8 +44,8 @@
       mod.executed = false;
     }
 
+    // The `module` object that is passed to the factory
     if (mod.commonjs === undefined) {
-      // The `module` object that is passed to the factory
       mod.commonjs = {
         exports: {},
         // Expose the module to its factory, this is mostly to enable some
@@ -60,7 +65,7 @@
       mod.global = global;
     }
 
-    // A lot of Node modules use the `process` global to resolve if they
+    // A lot of node modules use the `process` global to resolve if they
     // should run in production mode or not, so we pass this in as a shim
     // when the factory is called
     if (mod.process === undefined) {
@@ -109,8 +114,10 @@
     return mod.commonjs.exports;
   };
 
-  __modules.getModuleExports = function getModuleExports(mod) {
-    return mod.commonjs.exports;
+  // Enable downstream providers to manipulate the provisioning
+  // of a module's exports
+  __modules.getModuleExports = function getModuleExports(dependency) {
+    return dependency.commonjs.exports;
   };
 
   // Given a module with a predefined set of dependencies, this produces
