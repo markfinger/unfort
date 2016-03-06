@@ -109,17 +109,19 @@ export function createWatchers({getState, restartTraceOfFile}) {
 
     // Start watching any new directories
     let dirname = path.dirname(file);
-    if (startsWith(dirname, state.sourceRoot)) {
-      const sourceRootLength = state.sourceRoot.length;
-      // We walk up the directory structure to the source root and
-      // start watching every directory that we encounter
-      do {
-        watchDirectory(dirname);
-        dirname = path.dirname(dirname);
-      } while (dirname.length > sourceRootLength);
-    } else {
-      watchDirectory(dirname);
+    if (!startsWith(dirname, state.sourceRoot)) {
+      return watchDirectory(dirname);
     }
+
+    // We walk up the directory structure to the source root and
+    // start watching every directory that we encounter. This
+    // enables us to detect more cases where a broken build can
+    // be restarted
+    const sourceRootLength = state.sourceRoot.length;
+    do {
+      watchDirectory(dirname);
+      dirname = path.dirname(dirname);
+    } while (dirname.length > sourceRootLength);
   }
 
   // The directories that our watcher has been instructed to observe.
