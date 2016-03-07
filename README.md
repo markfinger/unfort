@@ -56,7 +56,9 @@ Things to _explicitly avoid_:
   boilerplate into user-space.
 
 
-## Status
+## Development Notes
+
+#### Status
 
 [![npm version](https://badge.fury.io/js/unfort.svg)](https://badge.fury.io/js/unfort)
 [![Build Status](https://travis-ci.org/markfinger/unfort.svg?branch=master)](https://travis-ci.org/markfinger/unfort)
@@ -65,10 +67,7 @@ Things to _explicitly avoid_:
 [![devDependency Status](https://david-dm.org/markfinger/unfort/dev-status.svg)](https://david-dm.org/markfinger/unfort#info=devDependencies)
 
 
-## Development Notes
-
-
-### Scripts
+#### Scripts
 
 The following commands are available to interact with unfort's code-base:
 
@@ -80,7 +79,7 @@ The following commands are available to interact with unfort's code-base:
 - `npm run coverage` runs the test suite and generates a coverage report in the "coverage" directory
 
 
-### Related packages
+#### Related packages
 
 The following related packages used to be part of unfort's codebase:
 
