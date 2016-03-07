@@ -67,6 +67,9 @@ Things to _explicitly avoid_:
 
 ## Development Notes
 
+
+### Scripts
+
 The following commands are available to interact with unfort's code-base:
 
 - `npm run build` builds the project into a form that node can interpret
@@ -76,3 +79,17 @@ The following commands are available to interact with unfort's code-base:
 - `npm run lint` runs `eslint` over the project
 - `npm run coverage` runs the test suite and generates a coverage report in the "coverage" directory
 
+
+### Related packages
+
+The following related packages used to be part of unfort's codebase:
+
+- [cyclic-dependency-graph](https://github.com/markfinger/cyclic-dependency-graph)
+- [record-store](https://github.com/markfinger/record-store)
+- [kv-cache](https://github.com/markfinger/kv-cache)
+- [env-hash](https://github.com/markfinger/env-hash)
+- [babylon-ast-dependencies](https://github.com/markfinger/babylon-ast-dependencies)
+- [postcss-ast-dependencies](https://github.com/markfinger/postcss-ast-dependencies)
+
+If you're digging through and things seem a bit opaque, their codebases might shed
+some light.
