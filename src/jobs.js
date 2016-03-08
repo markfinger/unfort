@@ -40,10 +40,12 @@ export function createJobs({getState}={}) {
       ]);
     },
     basename(ref) {
-      return path.basename(ref.name, path.extname(ref.name));
+      return Promise.resolve(
+        path.basename(ref.name, path.extname(ref.name))
+      );
     },
     ext(ref) {
-      return path.extname(ref.name);
+      return Promise.resolve(path.extname(ref.name));
     },
     isTextFile(ref, store) {
       return store.ext(ref).then(ext => {
@@ -106,7 +108,7 @@ export function createJobs({getState}={}) {
         });
     },
     cache() {
-      return getState().jobCache;
+      return Promise.resolve(getState().jobCache);
     },
     cacheKey(ref, store) {
       return store.isTextFile(ref)
@@ -206,7 +208,7 @@ export function createJobs({getState}={}) {
       });
     },
     postcssPlugins() {
-      return [];
+      return Promise.resolve([]);
     },
     postcssTransformOptions(ref, store) {
       return Promise.all([
@@ -308,7 +310,7 @@ export function createJobs({getState}={}) {
     shouldBabelTransform(ref) {
       const {rootNodeModules, vendorRoot} = getState();
 
-      return (
+      return Promise.resolve(
         !startsWith(ref.name, rootNodeModules) &&
         !startsWith(ref.name, vendorRoot)
       );
@@ -425,7 +427,7 @@ export function createJobs({getState}={}) {
         });
     },
     resolverOptions(ref) {
-      return {
+      return Promise.resolve({
         // The directory that the resolver starts in when looking for a file
         // to matches an identifier
         basedir: path.dirname(ref.name),
@@ -436,7 +438,7 @@ export function createJobs({getState}={}) {
         // We use browserify's as they tend to upgrade them more often. Webpack's
         // `node-libs-browser` is another alternative
         modules: browserifyBuiltins
-      };
+      });
     },
     /**
      * If a dependency identifier is relative (./ ../) or absolute (/), there are
@@ -452,7 +454,9 @@ export function createJobs({getState}={}) {
      * overhead when possible
      */
     shouldCacheResolvedPathDependencies(ref) {
-      return startsWith(ref.name, getState().rootNodeModules);
+      return Promise.resolve(
+        startsWith(ref.name, getState().rootNodeModules)
+      );
     },
     /**
      * If a dependency identifier refers to a package (eg: is not a path-based
@@ -460,7 +464,7 @@ export function createJobs({getState}={}) {
      * perform cache invalidation
      */
     shouldCacheResolvedPackageDependencies() {
-      return true;
+      return Promise.resolve(true);
     },
     resolvePathDependencies(ref, store) {
       return Promise.all([
@@ -612,7 +616,7 @@ export function createJobs({getState}={}) {
       // The bootstrap is the one file that we need to ensure is pushed
       // to the client without any shims or wrappers
       if (ref.name === getState().bootstrapRuntime) {
-        return null;
+        return Promise.resolve(null);
       }
 
       return Promise.all([
