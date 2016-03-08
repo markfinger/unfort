@@ -82,10 +82,10 @@ export const State = imm.Record({
   nodes: null,
   // The latest snapshot of the record store
   records: null,
-  // Used by the file endpoint for resolving content
+  // Used to map the `url` job to a specific record
   recordsByUrl: null,
-  // Used by the file endpoint for resolving source maps
-  recordsBySourceMapUrl: null
+  // Used to map the `fileDependencies` job to one or more records
+  recordsByFileDependencies: null
 });
 
 /**

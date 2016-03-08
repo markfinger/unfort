@@ -36,7 +36,8 @@ export function createJobs({getState}={}) {
         store.sourceMapAnnotation(ref),
         store.hashedFilename(ref),
         store.isTextFile(ref),
-        store.mimeType(ref)
+        store.mimeType(ref),
+        store.fileDependencies(ref)
       ]);
     },
     basename(ref) {
@@ -708,6 +709,19 @@ export function createJobs({getState}={}) {
                 });
             });
         });
+    },
+    /**
+     * If any other files were used to generate this record, this should
+     * this should return an array of paths to those files. This enables
+     * the file watchers to invalidate a record when its dependencies
+     * change.
+     *
+     * An example use-case would be compiling a CSS file with LESS or
+     * SASS. As those tools will bundle multiple files into a single file,
+     * you should return an array of the bundled files
+     */
+    fileDependencies() {
+      return Promise.resolve([]);
     }
   };
 }

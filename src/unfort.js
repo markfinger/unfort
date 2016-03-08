@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import chalk from 'chalk';
 import stripAnsi from 'strip-ansi';
+import imm from 'immutable';
 import {includes} from 'lodash/collection';
 import {repeat} from 'lodash/string';
 import {values} from 'lodash/object';
@@ -195,11 +196,16 @@ export function createBuild(options={}) {
               nodes: nodeState,
               // Clear out any errors from previous builds
               errors: null,
-              // Maps of records so that the file endpoint can perform record look ups
-              // trivially. This saves us from having to iterate over every record
+              // Maps of records by their `url` job. This enables trivial record
+              // lookups in web servers and saves us from having to iterate over
+              // every record
               recordsByUrl: recordsState
                 .filter(record => Boolean(record.data.url))
-                .mapKeys((_, record) => record.data.url)
+                .mapKeys((_, record) => record.data.url),
+              // Maps of files and the records that they are dependencies of.
+              // The file watcher uses this to invalidate records when a dependency
+              // changes
+              recordsByFileDependencies: createRecordsByFileDependencies(recordsState)
             })
           );
 
@@ -514,4 +520,27 @@ function stateContainsErrors(state) {
 
 function describeBuildStateErrors(state) {
   return describeErrorList(state.errors);
+}
+
+/**
+ * Creates an immutable map of file dependencies to their associated
+ * records
+ *
+ * @param {object} recordsState
+ * @returns {immutable.Map}
+ */
+function createRecordsByFileDependencies(recordsState) {
+  let recordsByFileDependencies = {};
+  recordsState
+    .filter(record => record.data.fileDependencies.length > 0)
+    .forEach(record => {
+      record.data.fileDependencies.forEach(fileDep => {
+        if (!recordsByFileDependencies[fileDep]) {
+          recordsByFileDependencies[fileDep] = [record];
+        } else {
+          recordsByFileDependencies[fileDep].push(record);
+        }
+      });
+    });
+  return imm.fromJS(recordsByFileDependencies);
 }

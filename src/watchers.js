@@ -153,8 +153,17 @@ export function createWatchers({getState, restartTraceOfFile}) {
    * @param {string} file
    */
   function onChangeToFile(file) {
-    if (getState().graph.getState().has(file)) {
-      restartTraceOfFile(file);
+    const {
+      graph, recordsByFileDependencies
+    } = getState();
+
+    if (graph.getState().has(file)) {
+      return restartTraceOfFile(file);
+    } else if (recordsByFileDependencies && recordsByFileDependencies.has(file)) {
+      recordsByFileDependencies.get(file)
+        .forEach(record => {
+          restartTraceOfFile(record.name);
+        });
     } else {
       restartFailedBuild();
     }

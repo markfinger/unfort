@@ -45,7 +45,8 @@ describe('unfort/jobs', () => {
         sourceMapAnnotation: () => 'test source annotation',
         hashedFilename: () => 'test hashed filename',
         isTextFile: () => 'test is text file',
-        mimeType: () => 'test mime type'
+        mimeType: () => 'test mime type',
+        fileDependencies: () => 'test file dependencies'
       });
       store.create('test.js');
       return store.ready('test.js')
@@ -59,7 +60,8 @@ describe('unfort/jobs', () => {
             sourceMapAnnotation: 'test source annotation',
             hashedFilename: 'test hashed filename',
             isTextFile: 'test is text file',
-            mimeType: 'test mime type'
+            mimeType: 'test mime type',
+            fileDependencies: 'test file dependencies'
           };
           for (let key in expected) {
             if (expected.hasOwnProperty(key)) {
@@ -1432,6 +1434,13 @@ describe('unfort/jobs', () => {
         store.sourceMap('test.png'),
         /Unknown text file extension: \.png\. Cannot generate source map for file: test\.png/
       );
+    });
+  });
+  describe('##fileDependencies', () => {
+    it('should return an empty array', () => {
+      const store = createTestStore();
+      store.create('test.js');
+      return assert.becomes(store.fileDependencies('test.js'), []);
     });
   });
 });
