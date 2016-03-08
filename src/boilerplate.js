@@ -2,20 +2,24 @@ import {Readable} from 'stream';
 import {resolveExecutionOrder} from 'cyclic-dependency-graph';
 
 /**
- * Creates a readable stream that injects all the necessary files for the entry points
+ * Creates a readable stream that injects all the necessary files for the
+ * entry points
  *
  * @param {Object} build - an object representing a build
- * @param {Array} [entryPoints] - an optional override that filters the records by specific entry points
+ * @param {Object} [options] - an optional override that filters the
+ *   records by specific entry points
  */
-export function createRecordInjectionStream(build, entryPoints) {
+export function createRecordInjectionStream(build, options={}) {
   const state = build.getState();
 
   const {
     records, bootstrapRuntime, nodes
   } = state;
 
-  // Allow overrides
-  entryPoints = entryPoints || state.entryPoints;
+  const {
+    entryPoints = state.entryPoints,
+    evalRecords = false
+  } = options;
 
   const stream = new Readable();
   const bootstrap = records.get(bootstrapRuntime);
@@ -30,14 +34,25 @@ export function createRecordInjectionStream(build, entryPoints) {
   executionOrder.forEach(name => {
     const record = records.get(name);
 
-    const {url, ext, moduleDefinition} = record.data;
+    const {url, ext, moduleDefinition, sourceMapAnnotation} = record.data;
 
     if (ext === '.css') {
       styles.push({url, name});
     }
 
     if (ext === '.js' || ext === '.json') {
-      scripts.push({url, name});
+      if (evalRecords) {
+        let evalString = 'eval(';
+        if (sourceMapAnnotation) {
+          evalString += JSON.stringify(moduleDefinition + sourceMapAnnotation);
+        } else {
+          evalString += JSON.stringify(moduleDefinition);
+        }
+        evalString += ');';
+        inlineScripts.push(evalString);
+      } else {
+        scripts.push({url, name});
+      }
     } else {
       inlineScripts.push(moduleDefinition);
     }
