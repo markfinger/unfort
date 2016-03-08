@@ -530,7 +530,8 @@ function describeBuildStateErrors(state) {
  * @returns {immutable.Map}
  */
 function createRecordsByFileDependencies(recordsState) {
-  let recordsByFileDependencies = {};
+  const recordsByFileDependencies = {};
+
   recordsState
     .filter(record => record.data.fileDependencies.length > 0)
     .forEach(record => {
@@ -542,5 +543,6 @@ function createRecordsByFileDependencies(recordsState) {
         }
       });
     });
+  
   return imm.fromJS(recordsByFileDependencies);
 }
