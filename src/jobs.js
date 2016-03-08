@@ -9,6 +9,7 @@ import browserifyBuiltins from 'browserify/lib/builtins';
 import _browserResolve from 'browser-resolve';
 import promisify from 'promisify-node';
 import {startsWith, endsWith} from 'lodash/string';
+import {includes} from 'lodash/collection';
 import {zipObject} from 'lodash/array';
 import {assign} from 'lodash/object';
 import {isNull} from 'lodash/lang';
@@ -32,8 +33,6 @@ export function createJobs({getState}={}) {
         store.content(ref),
         store.moduleDefinition(ref),
         store.url(ref),
-        store.sourceMap(ref),
-        store.sourceMapUrl(ref),
         store.sourceMapAnnotation(ref),
         store.hashedFilename(ref),
         store.isTextFile(ref),
@@ -175,48 +174,49 @@ export function createJobs({getState}={}) {
     },
     /**
      * A url to the original content of the record
-     *
-     * TODO: this has diverged from `url`, need to consolidate them. use `relativePathIfContained` in utils.js
      */
-    sourceUrl(ref) {
-      const {sourceRoot, rootUrl} = getState();
-
-      const relUrl = path.relative(sourceRoot, ref.name).split(path.ext).join('/');
-      return rootUrl + relUrl;
-    },
-    sourceMapUrl(ref, store) {
-      return store.url(ref)
-        .then(url => url + '.map');
+    sourceUrl(ref, store) {
+      return store.hashedFilename(ref)
+        .then(hashedFilename => {
+          // We use the hashed filename to get around browser caching of
+          // source map origins
+          return 'file://' + path.join(path.dirname(ref.name), hashedFilename);
+        });
     },
     sourceMapAnnotation(ref, store) {
       return Promise.all([
-        store.url(ref),
-        store.sourceMapUrl(ref)
-      ]).then(([url, sourceMapUrl]) => {
-        if (endsWith(url, '.css')) {
-          return `\n/*# sourceMappingURL=${sourceMapUrl} */`;
-        }
-
+        store.ext(ref),
+        store.sourceMap(ref)
+      ]).then(([ext, sourceMap]) => {
         if (
-          endsWith(url, '.js') ||
-          endsWith(url, '.json')
+          !sourceMap ||
+          !includes(['.css', '.js', '.json'], ext)
         ) {
-          return `\n//# sourceMappingURL=${sourceMapUrl}`;
+          return null;
         }
 
-        return null;
+        const base64SourceMap = (new Buffer(sourceMap)).toString('base64');
+        const body = 'sourceMappingURL=data:application/json;charset=utf-8;base64,' + base64SourceMap;
+
+        if (ext === '.css') {
+          return `\n/*# ${body} */`;
+        } else {
+          return '\n//# ' + body;
+        }
       });
     },
     postcssPlugins() {
       return [];
     },
     postcssTransformOptions(ref, store) {
-      return store.hashedName(ref)
-        .then(hashedName => {
-          const state = getState();
+      return Promise.all([
+        store.url(ref),
+        store.sourceUrl(ref)
+      ])
+        .then(([url, sourceUrl]) => {
           return {
-            from: path.relative(state.sourceRoot, ref.name),
-            to: path.relative(state.sourceRoot, hashedName),
+            from: sourceUrl,
+            to: url,
             // Generate a source map, but keep it separate from the code
             map: {
               inline: false,

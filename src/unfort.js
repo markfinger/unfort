@@ -21,7 +21,7 @@ import packageJson from '../package.json';
 export {hotRuntime} from './state';
 
 // Convenience hooks to expose web server boilerplate
-export {createRecordStream, getRecordMimeType, createRecordInjectionStream} from './boilerplate';
+export {createRecordInjectionStream} from './boilerplate';
 
 /**
  * Binds some helpers to the process which provide more clarity
@@ -199,10 +199,7 @@ export function createBuild(options={}) {
               // trivially. This saves us from having to iterate over every record
               recordsByUrl: recordsState
                 .filter(record => Boolean(record.data.url))
-                .mapKeys((_, record) => record.data.url),
-              recordsBySourceMapUrl: recordsState
-                .filter(record => Boolean(record.data.sourceMapAnnotation))
-                .mapKeys((_, record) => record.data.sourceMapUrl)
+                .mapKeys((_, record) => record.data.url)
             })
           );
 

@@ -42,8 +42,6 @@ describe('unfort/jobs', () => {
         content: () => 'test content',
         moduleDefinition: () => 'test module definition',
         url: () => 'test url',
-        sourceMap: () => 'test source map',
-        sourceMapUrl: () => 'test source url',
         sourceMapAnnotation: () => 'test source annotation',
         hashedFilename: () => 'test hashed filename',
         isTextFile: () => 'test is text file',
@@ -58,8 +56,6 @@ describe('unfort/jobs', () => {
             content: 'test content',
             moduleDefinition: 'test module definition',
             url: 'test url',
-            sourceMap: 'test source map',
-            sourceMapUrl: 'test source url',
             sourceMapAnnotation: 'test source annotation',
             hashedFilename: 'test hashed filename',
             isTextFile: 'test is text file',
@@ -67,7 +63,11 @@ describe('unfort/jobs', () => {
           };
           for (let key in expected) {
             if (expected.hasOwnProperty(key)) {
-              assert.equal(record.data[key], expected[key]);
+              assert.equal(
+                record.data[key],
+                expected[key],
+                `${key} - ${record.data[key]} should equal ${expected[key]}`
+              );
             }
           }
         });
@@ -369,56 +369,43 @@ describe('unfort/jobs', () => {
       );
     });
   });
-  describe('##sourceMapUrl', () => {
-    it('should produce a url to a record\'s source map', () => {
-      const store = createTestStore({
-        url: () => '/foo/bar.js'
-      });
-      store.create('/foo/bar.js');
-      return assert.becomes(
-        store.sourceMapUrl('/foo/bar.js'),
-        '/foo/bar.js.map'
-      );
-    });
-  });
   describe('##sourceMapAnnotation', () => {
     it('should produce a source map annotation for css files', () => {
       const store = createTestStore({
         url: () => '/foo/bar.css',
-        sourceMapUrl: () => '/foo/bar.css.map'
+        sourceMap: () => 'test source map'
       });
       store.create('/foo/bar.css');
       return assert.becomes(
         store.sourceMapAnnotation('/foo/bar.css'),
-        '\n/*# sourceMappingURL=/foo/bar.css.map */'
+        '\n/*# sourceMappingURL=data:application/json;charset=utf-8;base64,dGVzdCBzb3VyY2UgbWFw */'
       );
     });
     it('should produce a source map annotation for js files', () => {
       const store = createTestStore({
         url: () => '/foo/bar.js',
-        sourceMapUrl: () => '/foo/bar.js.map'
+        sourceMap: () => 'test source map'
       });
       store.create('/foo/bar.js');
       return assert.becomes(
         store.sourceMapAnnotation('/foo/bar.js'),
-        '\n//# sourceMappingURL=/foo/bar.js.map'
+        '\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,dGVzdCBzb3VyY2UgbWFw'
       );
     });
     it('should produce a source map annotation for json files', () => {
       const store = createTestStore({
         url: () => '/foo/bar.json',
-        sourceMapUrl: () => '/foo/bar.json.map'
+        sourceMap: () => 'test source map'
       });
       store.create('/foo/bar.json');
       return assert.becomes(
         store.sourceMapAnnotation('/foo/bar.json'),
-        '\n//# sourceMappingURL=/foo/bar.json.map'
+        '\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,dGVzdCBzb3VyY2UgbWFw'
       );
     });
     it('should produce null for files other than js, css or json', () => {
       const store = createTestStore({
-        url: () => '/foo/bar.png',
-        sourceMapUrl: () => null
+        url: () => '/foo/bar.png'
       });
       store.create('/foo/bar.png');
       return assert.becomes(
@@ -440,16 +427,15 @@ describe('unfort/jobs', () => {
   describe('##postcssTransformOptions', () => {
     it('should return the processing options that are passed to postcss', () => {
       const store = createTestStore({
-        hashedName: () => '/foo/bar/test-123.css'
-      }, {
-        sourceRoot: '/foo'
+        sourceUrl: () => 'test source url',
+        url: () => 'test url'
       });
-      store.create('/foo/bar/test.css');
+      store.create('test.css');
       return assert.becomes(
-        store.postcssTransformOptions('/foo/bar/test.css'),
+        store.postcssTransformOptions('test.css'),
         {
-          from: 'bar/test.css',
-          to: 'bar/test-123.css',
+          from: 'test source url',
+          to: 'test url',
           map: {
             inline: false,
             annotation: false
