@@ -27,7 +27,7 @@ export const JS_MODULE_SOURCE_MAP_LINE_OFFSET = ';';
  * @param deps
  * @param hash
  * @param code
- * @returns {String}
+ * @returns {string}
  */
 export function createJSModuleDefinition({name, deps, hash, code}) {
   const lines = [
@@ -43,7 +43,7 @@ export function createJSModuleDefinition({name, deps, hash, code}) {
  * Produces a description of a record that the hot runtime can consume
  *
  * @param {Record} record
- * @returns {Object}
+ * @returns {object}
  */
 export function createRecordDescription(record) {
   return {
@@ -60,8 +60,8 @@ export function createRecordDescription(record) {
  * Accepts an optional path to a file, which will be used to
  * provide extra context for the error.
  *
- * @param {Error} err
- * @param {String} [file]
+ * @param {error} err
+ * @param {string} [file]
  * @returns {string}
  */
 export function describeError(err, file) {
@@ -111,8 +111,8 @@ export function describeError(err, file) {
  * Given an Array of errors (or error objects from the graph), produce a
  * a textual description appropriate for logging
  *
- * @param {Array} errors
- * @returns {String}
+ * @param {array} errors
+ * @returns {string}
  */
 export function describeErrorList(errors) {
   return errors

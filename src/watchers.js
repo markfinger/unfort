@@ -22,8 +22,8 @@ const Watchers = imm.Record({
  * Produces file watchers that detect file-system changes and
  * either invalidate files or re-start failed builds
  *
- * @param {Function} getState
- * @param {Function} restartTraceOfFile
+ * @param {function} getState
+ * @param {function} restartTraceOfFile
  * @returns {Watchers}
  */
 export function createWatchers({getState, restartTraceOfFile}) {
@@ -132,7 +132,7 @@ export function createWatchers({getState, restartTraceOfFile}) {
   /**
    * Ensures that the watcher is observing a particular directory
    *
-   * @param {String} dirname
+   * @param {string} dirname
    */
   function watchDirectory(dirname) {
     if (dirname === getState().rootNodeModules) {
@@ -150,7 +150,7 @@ export function createWatchers({getState, restartTraceOfFile}) {
    * Given a particular file that has changed, invalidate any data
    * and restart the build if necessary
    *
-   * @param {String} file
+   * @param {string} file
    */
   function onChangeToFile(file) {
     if (getState().graph.getState().has(file)) {

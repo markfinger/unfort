@@ -287,7 +287,7 @@ export function createBuild(options={}) {
    * retracing the graph from the files that used to depend on
    * it
    *
-   * @param {String} file
+   * @param {string} file
    */
   function restartTraceOfFile(file) {
     state.logInfo(`${chalk.bold('Retracing:')} ${file}`);
@@ -396,7 +396,7 @@ export function createBuild(options={}) {
    * Calls the provided function with the currently bound jobs and merges
    * the returned object into the state object.
    *
-   * @param {Function} fn
+   * @param {function} fn
    * @example An example override of a `foo` job
    * extendJobs(jobs => {
    *   return {
@@ -485,8 +485,8 @@ function extendJobState(getState, setState, fn) {
 /**
  * Removes all directories from `cacheDirectory` that do not match `currentDirectory`
  *
- * @param {String} cacheDirectory
- * @param {String} currentDirectory
+ * @param {string} cacheDirectory
+ * @param {string} currentDirectory
  */
 function cleanCacheDirectory(cacheDirectory, currentDirectory) {
   fs.readdir(cacheDirectory, (err, contents) => {

@@ -91,7 +91,7 @@ export const State = imm.Record({
 /**
  * Creates a state object and sets defaults for required values
  *
- * @param {Object} overrides
+ * @param {object} overrides
  */
 export function createState(overrides={}) {
   let state = State(overrides);

@@ -5,9 +5,13 @@ import {resolveExecutionOrder} from 'cyclic-dependency-graph';
  * Creates a readable stream that injects all the necessary files for the
  * entry points
  *
- * @param {Object} build - an object representing a build
- * @param {Object} [options] - an optional override that filters the
- *   records by specific entry points
+ * @param {object} build - an object representing a build
+ * @param {object} [options]
+ * @param {array} [options.entryPoints] - an array of entry points to inject.
+ *   If not provided, all entry points will be injected.
+ * @param {boolean} [options.evalRecords=false] - indicates that JS and JSON records
+ *   should be executed with `eval`, rather then fetched via urls. This can
+ *   heavily improve page load time for a larger codebase.
  */
 export function createRecordInjectionStream(build, options={}) {
   const state = build.getState();
