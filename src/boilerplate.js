@@ -1,52 +1,5 @@
 import {Readable} from 'stream';
 import {resolveExecutionOrder} from 'cyclic-dependency-graph';
-import {createRecordContentStream, createRecordSourceMapStream} from './utils';
-
-/**
- * Produces a readable stream for any matching records, or returns null.
- *
- * @param {Object} build - an object representing a build
- * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
- * @return {null|stream.Readable}
- */
-export function createRecordStream(build, recordUrl) {
-  const {
-    recordsByUrl, recordsBySourceMapUrl
-  } = build.getState();
-
-  const record = recordsByUrl.get(recordUrl);
-  if (record) {
-    return createRecordContentStream(record);
-  }
-
-  const sourceMapRecord = recordsBySourceMapUrl.get(recordUrl);
-  if (sourceMapRecord) {
-    return createRecordSourceMapStream(sourceMapRecord);
-  }
-
-  return null;
-}
-
-/**
- * Returns a record's mime-type that was inferred during the build process.
- * If no record is found, `null` is returned.
- *
- * Note: the mime-type should have been inferred during the build process's `mimeType` job
- *
- * @param {Object} build - on object representing a build
- * @param {String} recordUrl - the url that will be compared to the state's record look-up maps
- * @returns {String|null}
- */
-export function getRecordMimeType(build, recordUrl) {
-  const {recordsByUrl} = build.getState();
-
-  const record = recordsByUrl.get(recordUrl);
-  if (record) {
-    return record.data.mimeType;
-  }
-
-  return null;
-}
 
 /**
  * Creates a readable stream that injects all the necessary files for the entry points
