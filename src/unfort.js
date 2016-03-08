@@ -536,13 +536,13 @@ function createRecordsByFileDependencies(recordsState) {
     .filter(record => record.data.fileDependencies.length > 0)
     .forEach(record => {
       record.data.fileDependencies.forEach(fileDep => {
-        if (!recordsByFileDependencies[fileDep]) {
-          recordsByFileDependencies[fileDep] = [record];
-        } else {
+        if (recordsByFileDependencies[fileDep]) {
           recordsByFileDependencies[fileDep].push(record);
+        } else {
+          recordsByFileDependencies[fileDep] = [record];
         }
       });
     });
-  
+
   return imm.fromJS(recordsByFileDependencies);
 }
