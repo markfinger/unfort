@@ -1,10 +1,7 @@
 import fs from 'fs';
-import path from 'path';
-import {Readable} from 'stream';
 import babelCodeFrame from 'babel-code-frame';
 import chalk from 'chalk';
 import {includes} from 'lodash/collection';
-import {startsWith} from 'lodash/string';
 
 /**
  * We need to rebuild source maps for js files such that it

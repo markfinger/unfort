@@ -8,7 +8,7 @@ import postcss from 'postcss';
 import browserifyBuiltins from 'browserify/lib/builtins';
 import _browserResolve from 'browser-resolve';
 import promisify from 'promisify-node';
-import {startsWith, endsWith} from 'lodash/string';
+import {startsWith} from 'lodash/string';
 import {includes} from 'lodash/collection';
 import {zipObject} from 'lodash/array';
 import {assign} from 'lodash/object';
