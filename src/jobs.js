@@ -176,11 +176,11 @@ export function createJobs({getState}={}) {
      * A url to the original content of the record
      */
     sourceUrl(ref, store) {
-      return store.hashedFilename(ref)
-        .then(hashedFilename => {
-          // We use the hashed filename to get around browser caching of
-          // source map origins
-          return 'file://' + path.join(path.dirname(ref.name), hashedFilename);
+      return store.hash(ref)
+        .then(hash => {
+          // We append the hash to get around browser caching of
+          // source maps
+          return 'file://' + ref.name + '?' + hash;
         });
     },
     sourceMapAnnotation(ref, store) {
