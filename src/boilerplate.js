@@ -18,7 +18,7 @@ export function createRecordInjectionStream(build, options={}) {
   } = state;
 
   const {
-    entryPoints = state.entryPoints,
+    entryPoints = state.entryPoints
   } = options;
 
   const stream = new Readable();
