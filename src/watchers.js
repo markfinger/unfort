@@ -3,6 +3,7 @@ import chokidar from 'chokidar';
 import imm from 'immutable';
 import {startsWith} from 'lodash/string';
 import {uniq} from 'lodash/array';
+import {debounce} from 'lodash/function';
 
 /**
  * The API returned by `createWatchers`
@@ -104,6 +105,35 @@ export function createWatchers({getState, restartTraceOfFile}) {
     });
   });
 
+  /**
+   * If a previous build failed, we start a retrace of nodes that
+   * were known to have failed.
+   *
+   * When the watcher starts, it crawls the directories and frequently
+   * checks to see if it should restart a failed build. To prevent
+   * spamming during a build that fails during the initial crawl,
+   * we debounce the check
+   */
+  const _debouncedRestartFailedBuild = debounce(
+    function _restartFailedBuild() {
+      const errors = getState().errors;
+      if (errors) {
+        const nodesToRetrace = errors
+          .map(error => error.node)
+          .filter(node => node);
+
+        uniq(nodesToRetrace).forEach(node => {
+          restartTraceOfFile(node);
+        });
+      }
+    },
+    200,
+    {leading: true, trailing: true}
+  );
+  function restartFailedBuild() {
+    _debouncedRestartFailedBuild();
+  }
+
   function watchFile(file) {
     const state = getState();
 
@@ -166,23 +196,6 @@ export function createWatchers({getState, restartTraceOfFile}) {
         });
     } else {
       restartFailedBuild();
-    }
-  }
-
-  /**
-   * If a previous build failed, we start a retrace of nodes that
-   * were known to have failed
-   */
-  function restartFailedBuild() {
-    const errors = getState().errors;
-    if (errors) {
-      const nodesToRetrace = errors
-        .map(error => error.node)
-        .filter(node => node);
-
-      uniq(nodesToRetrace).forEach(node => {
-        restartTraceOfFile(node);
-      });
     }
   }
 
