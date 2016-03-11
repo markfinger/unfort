@@ -8,12 +8,14 @@ An opinionated build tool for development environments.
 - [Bootstrap Runtime](#bootstrap-runtime)
 - [Hot Runtime](#hot-runtime)
   - [Proxy bindings](#proxy-bindings)
+  - [module.hot API](#modulehot-api)
+  - [module.hot.accept](#modulehotaccept)
   - [module.hot.changes](#modulehotchanges)
   - [module.hot.exit](#modulehotexit)
   - [module.hot.enter](#modulehotenter)
+- [The Build Process at a High-Level](#the-build-process-at-a-high-level)
 - [Development Notes](#development-notes)
   - [Status](#status)
-  - [The Build Process at a High-Level](#the-build-process-at-a-high-level)
   - [Scripts](#scripts)
   - [Related Packages](#related-packages)
 
@@ -105,27 +107,7 @@ __modules.buildRequire(mod)
 The hot runtime monkey-patches the bootstrap runtime to add support for hot
 swapping of assets.
 
-To hook into the hot swap system, JS assets are provided with a `module.hot`
-API that loosely resembles Webpack's HMR.
-
-> As stylesheets and JSON are inherently stateless, they are automatically
-> hot swapped when changes occur.
-
-When dealing with hot swaps for JS files, the most common use-case is denoting
-that a file can be hot swapped:
-
-```js
-// Indicate that an asset can be swapped
-module.hot.accept();
-
-// You can also specify a function that will be called when
-// the asset is being swapped out
-module.hot.accept(() => {
-  // ...
-});
-```
-
-#### Proxy bindings
+### Proxy bindings
 
 To provide an improved development workflow, the hot runtime provides proxy
 bindings between modules. These bindings are updated when a dependency is
@@ -135,6 +117,33 @@ change the entire system's behaviour.
 Mindful of the more dynamic system that proxy bindings enable, additional
 methods are available on the `module.hot` object which provide more control
 when dealing with the module life-cycle.
+
+
+### module.hot API
+
+To hook into the hot swap system, JS assets are provided with a `module.hot`
+API that loosely resembles Webpack's HMR.
+
+> Note: as stylesheets and JSON are inherently stateless, they are automatically
+> hot swapped when changes occur.
+
+
+#### module.hot.accept()
+
+Allows you to denote that a file can be hot swapped.
+
+```js
+module.hot.accept();
+```
+
+Accepts an optional callback that will be executed after the module has been
+removed.
+
+```js
+module.hot.accept(() => {
+  // ...
+});
+```
 
 #### module.hot.changes
 
@@ -187,19 +196,7 @@ module.hot.enter(prevState => {
 });
 ```
 
-
-## Development Notes
-
-#### Status
-
-[![npm version](https://badge.fury.io/js/unfort.svg)](https://badge.fury.io/js/unfort)
-[![Build Status](https://travis-ci.org/markfinger/unfort.svg?branch=master)](https://travis-ci.org/markfinger/unfort)
-[![codecov.io](https://codecov.io/github/markfinger/unfort/coverage.svg?branch=master)](https://codecov.io/github/markfinger/unfort?branch=master)
-[![Dependency Status](https://david-dm.org/markfinger/unfort.svg)](https://david-dm.org/markfinger/unfort)
-[![devDependency Status](https://david-dm.org/markfinger/unfort/dev-status.svg)](https://david-dm.org/markfinger/unfort#info=devDependencies)
-
-
-#### The Build Process at a High-Level
+### The Build Process at a High-Level
 
 Given a set of files that represent entry points to a codebase, the dependency
 graph will start tracing out each node by recursively asking the pipeline for
@@ -227,7 +224,18 @@ The completion of the code generation signals the end of the build, at which
 point we can start sending signals to the front-end to update its assets.
 
 
-#### Scripts
+## Development Notes
+
+### Status
+
+[![npm version](https://badge.fury.io/js/unfort.svg)](https://badge.fury.io/js/unfort)
+[![Build Status](https://travis-ci.org/markfinger/unfort.svg?branch=master)](https://travis-ci.org/markfinger/unfort)
+[![codecov.io](https://codecov.io/github/markfinger/unfort/coverage.svg?branch=master)](https://codecov.io/github/markfinger/unfort?branch=master)
+[![Dependency Status](https://david-dm.org/markfinger/unfort.svg)](https://david-dm.org/markfinger/unfort)
+[![devDependency Status](https://david-dm.org/markfinger/unfort/dev-status.svg)](https://david-dm.org/markfinger/unfort#info=devDependencies)
+
+
+### Scripts
 
 The following commands are available to interact with unfort's code-base:
 
@@ -242,7 +250,7 @@ The following commands are available to interact with unfort's code-base:
   "coverage" directory.
 
 
-#### Related Packages
+### Related Packages
 
 These packages used to live in unfort, but have been externalized, you may find
 it useful to read or improve their codebases:
