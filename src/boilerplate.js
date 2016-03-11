@@ -2,16 +2,13 @@ import {Readable} from 'stream';
 import {resolveExecutionOrder} from 'cyclic-dependency-graph';
 
 /**
- * Creates a readable stream that injects all the necessary files for the
- * entry points
+ * Creates a readable stream that injects urls to all the necessary files
+ * for the entry points
  *
  * @param {object} build - an object representing a build
  * @param {object} [options]
  * @param {array} [options.entryPoints] - an array of entry points to inject.
  *   If not provided, all entry points will be injected.
- * @param {boolean} [options.evalRecords=false] - indicates that JS and JSON records
- *   should be executed with `eval`, rather then fetched via urls. This can
- *   heavily improve page load time for a larger codebase.
  */
 export function createRecordInjectionStream(build, options={}) {
   const state = build.getState();
@@ -22,7 +19,6 @@ export function createRecordInjectionStream(build, options={}) {
 
   const {
     entryPoints = state.entryPoints,
-    evalRecords = false
   } = options;
 
   const stream = new Readable();
@@ -38,25 +34,14 @@ export function createRecordInjectionStream(build, options={}) {
   executionOrder.forEach(name => {
     const record = records.get(name);
 
-    const {url, ext, moduleDefinition, sourceMapAnnotation} = record.data;
+    const {url, ext, moduleDefinition} = record.data;
 
     if (ext === '.css') {
       styles.push({url, name});
     }
 
     if (ext === '.js' || ext === '.json') {
-      if (evalRecords) {
-        let evalString = 'eval(';
-        if (sourceMapAnnotation) {
-          evalString += JSON.stringify(moduleDefinition + sourceMapAnnotation);
-        } else {
-          evalString += JSON.stringify(moduleDefinition);
-        }
-        evalString += ');';
-        inlineScripts.push(evalString);
-      } else {
-        scripts.push({url, name});
-      }
+      scripts.push({url, name});
     } else {
       inlineScripts.push(moduleDefinition);
     }
