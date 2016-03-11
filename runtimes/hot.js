@@ -9,8 +9,16 @@ if (typeof Proxy !== 'function') {
   );
 }
 
+const defaultOptions = {
+  SILENT_HOT_RUNTIME: false,
+  SOCKET_IO_URL: undefined,
+  SOCKET_IO_OPTIONS: undefined
+};
+
+const options = _.assign({}, defaultOptions, global.__UNFORT__);
+
 function log() {
-  if (global.__QUIET_UNFORT__ !== true) {
+  if (!options.SILENT_HOT_RUNTIME) {
     console.log.apply(console, arguments);
   }
 }
@@ -333,7 +341,7 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
   }
 };
 
-const io = socketIoClient();
+const io = socketIoClient(options.SOCKET_IO_URL, options.SOCKET_IO_OPTIONS);
 
 io.on('connect', () => {
   log('[hot] Connected');
