@@ -225,11 +225,15 @@ _.forEach(__modules.modules, __modules.extendModule);
 // not have a module available when we execute its dependent modules.
 // To get around this, we buffer all the modules and only start to
 // apply them once _.every pending module has been buffered
-__modules.pending = {};
+__modules.pending = null;
 __modules.buffered = [];
 
 // Monkey-patch `defineModule` so that we can intercept incoming modules
 __modules.defineModule = function defineModuleHotWrapper(mod) {
+  if (!__modules.pending) {
+    return defineModule(mod);
+  }
+
   mod = __modules.extendModule(mod);
   const {name, hash} = mod;
 
@@ -252,7 +256,8 @@ __modules.defineModule = function defineModuleHotWrapper(mod) {
   const readyToApply = _.every(__modules.pending, _.isUndefined);
 
   if (readyToApply) {
-    __modules.pending = {};
+    __modules.pending = null;
+
     const _buffered = __modules.buffered;
     __modules.buffered = [];
 
