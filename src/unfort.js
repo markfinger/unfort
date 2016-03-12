@@ -22,7 +22,7 @@ import packageJson from '../package.json';
 export {hotRuntime} from './state';
 
 // Convenience hooks to expose web server boilerplate
-export {createRecordInjectionStream} from './boilerplate';
+export {createBootstrapStream, createRecordInjectionStream, createRecordEvalStream} from './boilerplate';
 
 /**
  * Binds some helpers to the process which provide more clarity
