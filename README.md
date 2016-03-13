@@ -1,6 +1,6 @@
 # unfort
 
-A build tool targeting development environments for the web.
+A performant build tool for the web that targets development environments.
 
 Does some novel stuff:
  - **Hot swaps in milliseconds**, regardless of the codebase size
@@ -15,6 +15,10 @@ Some stuff that I'm currently using it for:
  - Replacing webpack in development environments
  - Enabling a REPL-like experience for prototyping
  - Providing asset hot-swaps when hacking on non-JS systems
+
+> Note: this is both an experimental and personal project. The docs are intentionally
+  high-level as changes are frequent and (often) breaking. You probably shouldn't use
+  this unless you're happy to hack on stuff.
 
 
 ## Documentation
@@ -59,10 +63,13 @@ Probably the biggest performance win that unfort has over webpack is a lack of a
 bundling phase. Unfort skips the need for a bundle by constructing simple shims that
 allow the entire codebase to be streamed directly out of memory and into the browser.
 
-On the parsing side, unfort's a bit slower to parse dependencies that live in
-node_modules as it uses the `babylon` parser, but it wins it back when handling
-babel-transformed files. Unfort's fairly lazy, so it just re-uses babel's AST and
-then manipulates the code and source maps by-hand to reflect unfort's module system.
+On the parsing side, unfort's faster when handling files that are transformed with
+babel as it re-uses the AST for dependency analysis.
+
+Unlike webpack's slow initial builds, unfort's reuse cached data to achieve much faster
+builds. After ~1s of reading in and validating data, the build will complete. As unfort
+stores data on a per-file basis, initial builds with only partial data will still
+complete in a fraction of the usual time.
 
 > Note: this is all a bit hand-wavy and simplified. If you've got any questions, feel
   free to open an issue and ask.
