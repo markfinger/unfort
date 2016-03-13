@@ -1,7 +1,7 @@
 {
   "name": "unfort",
   "version": "0.4.0",
-  "description": "unfort",
+  "description": "A performant build tool for the web that targets development environments",
   "main": "lib/unfort.js",
   "scripts": {
     "build": "./scripts/build.js",
