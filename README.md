@@ -64,8 +64,8 @@ node_modules as it uses the `babylon` parser, but it wins it back when handling
 babel-transformed files. Unfort's fairly lazy, so it just re-uses babel's AST and
 then manipulates the code and source maps by-hand to reflect unfort's module system.
 
-> Note: this as all a bit hand-wavy and simplified. If you've got any questions, feel
-  free to open an issue and ask any questions.
+> Note: this is all a bit hand-wavy and simplified. If you've got any questions, feel
+  free to open an issue and ask.
 
 
 ## Design Goals
@@ -274,8 +274,8 @@ Code generation involves a number of processes that include:
 The completion of the code generation signals the end of the build, at which
 point we can start sending signals to the front-end to update its assets.
 
-> Note: this as all a bit hand-wavy and simplified. If you've got any questions, feel
-  free to open an issue and ask any questions.
+> Note: this is all a bit hand-wavy and simplified. If you've got any questions, feel
+  free to open an issue and ask.
 
 
 ## Development Notes
