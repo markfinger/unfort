@@ -177,13 +177,7 @@ export function createRecordEvalStream(build, options={}) {
 
     const {url, ext, moduleDefinition, sourceMapAnnotation} = record.data;
 
-    if (ext === '.css') {
-      stream.push(`  // ${name}\n`);
-      stream.push(`  addStylesheet("${url}", "${name}");\n`);
-      stream.push('  eval(');
-      stream.push(JSON.stringify(moduleDefinition));
-      stream.push(');\n');
-    } else if (ext === '.js' || ext === '.json') {
+    if (ext === '.js' || ext === '.json') {
       stream.push(`  // ${record.name}\n`);
       stream.push('  eval(');
       const script = sourceMapAnnotation ?
@@ -191,6 +185,17 @@ export function createRecordEvalStream(build, options={}) {
         moduleDefinition;
       stream.push(JSON.stringify(script));
       stream.push(');\n');
+    } else {
+      if (ext === '.css') {
+        stream.push(`  // ${name}\n`);
+        stream.push(`  addStylesheet("${url}", "${name}");\n`);
+      }
+      moduleDefinition.split('\n')
+        .forEach(line => {
+          stream.push('  ');
+          stream.push(line);
+          stream.push('\n');
+        });
     }
   });
 
