@@ -21,8 +21,8 @@ import packageJson from '../package.json';
 // Convenience hook for referencing the hot runtime in entry points
 export {hotRuntime} from './state';
 
-// Convenience hooks to expose web server boilerplate
-export {createBootstrapStream, createRecordInjectionStream, createRecordEvalStream} from './boilerplate';
+// Convenience hooks to expose web server boilerplate streams
+export {createBootstrapStream, createRecordInjectionStream, createRecordEvalStream} from './streams';
 
 /**
  * Binds some helpers to the process which provide more clarity
