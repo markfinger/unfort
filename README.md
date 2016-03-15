@@ -100,22 +100,19 @@ Aim for:
 
 Things to _explicitly avoid_:
 
+- **Abstractions: config files, CLIs, plugins, loaders, etc.**
+  Make the most minimal amount of abstractions necessary for the common
+  use-case. Whenever possible, push boilerplate into user-space. Avoid
+  one-liners.
 - **Support for production environments.**
   Production environments require an entirely different set of features from
   a development environment. Supporting the needs of both is well outside of
   scope. Just use webpack or browserify.
-- **Config files.**
-  If a configuration file requires more than 20 lines, the build tool is
-  probably trying to do too many things.
 - **Support for tool _X_ or file format _Y_.**
   Integrating other tooling or file formats should be left entirely up to the
   user.
 - **Support older versions of _X_.**
   Aim to support evergreen browsers and the latest version of Node.
-- **Abstractions: CLIs, plugins, loaders, etc.**
-  Make the most minimal amount of abstractions necessary for the common
-  use-case. Whenever possible, push boilerplate into user-space. Avoid
-  one-liners.
 
 
 ## Bootstrap Runtime
