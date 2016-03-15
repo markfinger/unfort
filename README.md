@@ -1,6 +1,6 @@
 # unfort
 
-A performant build tool for the web that targets development environments.
+A build tool for the web that targets development environments.
 
 Does some novel stuff:
  - **Hot swaps in milliseconds**, regardless of the codebase size
