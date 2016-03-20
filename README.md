@@ -4,7 +4,7 @@ A build tool for the web that targets development environments.
 
 Does some novel stuff:
  - **Hot swaps in milliseconds**, regardless of the codebase size
- - **Persistent caching** to optimize start time
+ - **Persistent caching** to optimize build time
  - **Live bindings** that automatically update module imports during hot swaps
 
 Does some standard stuff:
@@ -17,15 +17,25 @@ Some stuff that I'm currently using it for:
  - Providing asset hot-swaps when hacking on non-JS systems
 
 > Note: this is both an experimental and personal project. The docs are intentionally
-  high-level as changes are frequent and (often) breaking. You probably shouldn't use
-  this unless you're happy to hack on stuff.
-
+  high-level as changes to the API are frequent and (often) breaking. You probably
+  shouldn't use this unless you're happy to read code and hack on stuff. Some of the
+  write-ups are a bit hand-wavy and simplified, so if you've got any questions, feel
+  free to open an issue and ask.
 
 ## Documentation
 
  - [Installation](#installation)
  - [Background](#background)
- - [Design Goals](#design-goals)
+   - [Design Goals](#design-goals)
+   - [Performance Wins (Compared to Webpack)](#performance-wins-compared-to-webpack)
+     - [No Bundling](#no-bundling)
+     - [Parsing and Code Generation](#parsing-and-code-generation)
+     - [Initial Builds](#initial-builds)
+   - [Performance Losses (Compared to Webpack)](#performance-losses-compared-to-webpack)
+   - [Reflections](#reflections)
+     - [Worker processes](#worker-processes)
+     - [Reuse of ASTs](#reuse-of-asts)
+     - [Persistent caching](#persistent-caching)
  - [Bootstrap Runtime](#bootstrap-runtime)
  - [Hot Runtime](#hot-runtime)
    - [Live Bindings](#live-bindings)
@@ -35,6 +45,7 @@ Some stuff that I'm currently using it for:
    - [module.hot.exit](#modulehotexit)
    - [module.hot.enter](#modulehotenter)
  - [The Build Process at a High-Level](#the-build-process-at-a-high-level)
+ - [The Pipeline](#the-pipeline)
  - [Development Notes](#development-notes)
    - [Status](#status)
    - [Scripts](#scripts)
@@ -50,32 +61,18 @@ npm install --save unfort
 
 ## Background
 
-For a bit of context: webpack's pretty amazing when you get started on a project, but
+Webpack and browserify are pretty amazing when you get started on a project, but
 performance drops sharply as your codebase grows. This sucks when you just want to hack
-on stuff.
+on stuff. I've [previously tried exploring](https://github.com/markfinger/webpack-build)
+improvements for webpack's performance, with some limited success.
 
-Basically, this is a re-implementation of some of
-[webpack's](https://github.com/webpack/webpack) features, with the big caveat that
-zero-consideration is given for production environments - in that situation, webpack
-(or whatever) is fine.
-
-Probably the biggest performance win that unfort has over webpack is a lack of a
-bundling phase. Unfort skips the need for a bundle by constructing simple shims that
-allow the entire codebase to be streamed directly out of memory and into the browser.
-
-On the parsing side, unfort's faster when handling files that are transformed with
-babel as it re-uses the AST for dependency analysis.
-
-Unlike webpack's slow initial builds, unfort's reuse cached data to achieve much faster
-builds. After ~1s of reading in and validating data, the build will complete. As unfort
-stores data on a per-file basis, initial builds with only partial data will still
-complete in a fraction of the usual time.
-
-> Note: this is all a bit hand-wavy and simplified. If you've got any questions, feel
-  free to open an issue and ask.
+Fundamentally, this project is an exploration of performance improvements for build tools
+that target the web. To keep the scope simple and to enable a variety of optimisations,
+the project has one major caveat: zero-consideration should be given for production
+environments.
 
 
-## Design Goals
+### Design Goals
 
 Aim for:
 
@@ -113,6 +110,118 @@ Things to _explicitly avoid_:
   user.
 - **Support older versions of _X_.**
   Aim to support evergreen browsers and the latest version of Node.
+
+
+### Performance Wins (Compared to Webpack)
+
+#### No Bundling
+
+Probably the biggest performance win that unfort has over webpack is a lack of a
+bundling phase. Unfort skips the need for a bundle by constructing simple shims that
+allow the entire codebase to be streamed directly out of memory and into the browser.
+
+
+#### Parsing and Code Generation
+
+On the parsing side, unfort's faster when handling files that are transformed with
+babel as it re-uses the AST for dependency analysis. It also avoids the multiple
+code-generation phases that webpack implicitly requires when using loaders.
+
+
+#### Initial Builds
+
+Unlike webpack's slow initial builds, unfort's reuse of cached data can enable much faster
+builds. After a small period of reading in and validating data, the build will complete.
+As unfort stores data on a per-file basis, initial builds with only a partial set of
+valid data will still complete in a fraction of the usual time.
+
+
+### Performance Losses (Compared to Webpack)
+
+On larger projects, unfort's initial builds without cached data can be somewhat slower.
+
+I suspect this would be a combination of:
+
+- **Parsing with babylon**.
+  Acorn is much faster, but would require us to expand our infrastructure to handle more
+  AST formats. By standardising on babel's AST, we get a *lot* of things for free.
+- **IO reads for missing data in the file cache.**
+  Could probably remove these as we'd know ahead of time that there is no data.
+- **babel-generator's overhead for rendering code and source maps.**
+  We're not manipulating the majority of files, so we could probably just remove
+  babel-generator and generate the source maps by hand.
+
+In general, I suspect there will be a lot of low-hanging fruit in this project as it
+hasn't been [profiled](https://github.com/markfinger/profiling-node) for some time.
+
+
+### Reflections
+
+Coming into the project I had assumed that reimplementing webpack with a combination of
+worker processes, re-use of ASTs, and persistent caching would provide significant wins.
+As is usual, some of these assumptions were correct and some proved incorrect.
+
+
+#### Worker processes
+
+I initially started this project with the intent to use worker processes to run jobs in
+parallel. After trying them on a couple of smaller projects I realized that they had a
+negative impact on performance and removed them from the codebase.
+
+Nonetheless, I've kept musing over them, and here are some notes in case anyone else
+wants to implement something with them:
+
+- There's a large cost associated with transporting data in and out of workers. So you'd
+  probably need to build your pipeline so that each file is handled by a specific worker
+  that doesn't require much context or interactions from the master process.
+- There's a large cost to spawning child processes. Node's pretty fast to boot, but it's
+  not so fast to read in large amounts of modules. You'd only want workers if you had build
+  times greater than 15 seconds where the spawn overhead is justified by the performance
+  improvements of parallel jobs
+- Spawn workers early so that you're job requests aren't blocked while the worker process
+  boots and initializes.
+- Spreading jobs around different processes limits the ability of v8's JIT to optimize
+  code accurately. You might want to try limiting the number of workers and/or using
+  particular workers for particular code paths.
+- Debugging workers is a pain. If you're going to implement a worker pipeline, make sure
+  that everything goes through an interface which enables you to force execution within
+  the master process. This enables you to use a debugger.
+
+
+### Reuse of ASTs
+
+Webpack's loader pipeline works on a low-level primitive: strings of code. This becomes
+a performance issue when each loader needs to individually parse the code, manipulate the
+AST and generate more code and source maps. Once each loader has been applied, webpack
+then parses the code (again) and starts all of its magic. While a lot of projects will
+only use a single loader (typically `babel-loader`), the re-parsing is still a performance
+issue.
+
+To get around this, we simply re-use babel's AST that we only parse files once while preserving
+the ability to introspect dependency identifiers. In cases where we're using babel's transforms,
+we simply apply babel's parser (babylon) directly to generate an AST. Consolidating on babel's
+pipeline ensures that we only need a single code-path to handle dependency analysis.
+
+
+#### Persistent caching
+
+Persistent caching has proven to work quite well. It adds a small overhead to initial builds,
+but **massively** reduces build times for repeated builds.
+
+For cache read/writes we use [kv-cache](https://github.com/markfinger/kv-cache) which enables
+us to store each file's data in separate files. This ensures that we can handle rebuilds with
+only partial data-sets and it removes any overhead associated with reading and discarding
+stale data. A downside is IO overhead that increases with the number of files that are used
+in the build.
+
+Our pipeline generates cache keys that are composed of the file's path, modified time. For
+textual files, we also generate a murmur hash of the content so that we can get around OS
+limitations on file-system accuracy.
+
+Cache invalidation is generally a pain, but we use [env-hash](https://github.com/markfinger/env-hash)
+to trivially invalidate cached data whenever key factors in the environment change. This
+enables us to discard any cached data when a new library is installed or changes are made
+to a build script or environmental files (such as `package.json` or `.babelrc`).
 
 
 ## Bootstrap Runtime
@@ -278,8 +387,74 @@ Code generation involves a number of processes that include:
 The completion of the code generation signals the end of the build, at which
 point we can start sending signals to the front-end to update its assets.
 
-> Note: this is all a bit hand-wavy and simplified. If you've got any questions, feel
-  free to open an issue and ask.
+
+### The Pipeline
+
+Unfort's pipeline mostly revolves around a [record-store](https://github.com/markfinger/record-store)
+instance that enables us to define a collection of jobs that can be applied to a file to produce
+some result.
+
+The record store is asynchronous and makes heavy use of promises. Asynchronous jobs enable
+us to split up CPU-intensive tasks so that we avoid blocking Node's event-loop. Promises enable
+the record store to both memoize a job's result and merge job requests together so we only
+generate data once per file.
+
+If you want to interact, override or tinker with the pipeline, you can use the `extendJobs` hook.
+
+For example, to remove source map annotations from all files:
+
+```
+const unfort = require('unfort');
+
+const build = unfort.createBuild({
+  // ...
+});
+
+build.extendJobs(defaults => {
+  return {
+    sourceMapAnnotation(ref, store) {
+      return null;
+    }
+  };
+});
+
+build.start();
+```
+
+If you wanted to override the cache key for files in a particular directory:
+
+```
+build.extendJobs(defaults => {
+  return {
+    cacheKey(ref, store) {
+      if (ref.name.indexOf('/some/dir') === 0) {
+        return 'some cache key';
+      } else {
+        return defaults.cacheKey(ref, store);
+      }
+    }
+  };
+});
+```
+
+If you want to add postcss plugins for specific files:
+
+```
+build.extendJobs(defaults => {
+  return {
+    postcssPlugins(ref, store) {
+      if (ref.name.indexOf('/some/dir') === 0) {
+        return [
+          // an array of plugins
+          // ...
+        ];
+      } else {
+        return defaults.postcssPlugins(ref, store);
+      }
+    }
+  };
+});
+```
 
 
 ## Development Notes
