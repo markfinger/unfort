@@ -412,10 +412,13 @@ the record store to both memoize a job's result and merge job requests together 
 generate data once per file.
 
 If you want to interact, override or tinker with the pipeline, you can use the `extendJobs` hook.
+The current list of jobs that are used are in [src/jobs.js](src/jobs.js). If you need extra clarity,
+you can either check the job tests in [src/tests/jobs.js](src/tests/jobs.js) or check how the jobs
+are used the [other parts of the system](src).
 
 For example, to remove source map annotations from all files:
 
-```
+```js
 const unfort = require('unfort');
 
 const build = unfort.createBuild({
@@ -435,7 +438,7 @@ build.start();
 
 If you wanted to override the cache key for files in a particular directory:
 
-```
+```js
 build.extendJobs(defaults => {
   return {
     cacheKey(ref, store) {
@@ -451,7 +454,7 @@ build.extendJobs(defaults => {
 
 If you want to add postcss plugins for specific files:
 
-```
+```js
 build.extendJobs(defaults => {
   return {
     postcssPlugins(ref, store) {
