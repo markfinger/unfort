@@ -8,7 +8,7 @@ Does some novel stuff:
  - **Live bindings** that automatically update module imports during hot swaps
 
 Does some standard stuff:
- - Built-in support for JS, JSON, CSS, and binary (image/font/etc) files
+ - Built-in support for JS, JSON, CSS and binary (image/font/etc) files
  - Exposes a babel & postcss pipeline by default - but happily accepts overrides
 
 Some stuff that I'm currently using it for:
