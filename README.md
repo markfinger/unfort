@@ -51,12 +51,16 @@ Some stuff that I'm currently using it for:
    - [Scripts](#scripts)
    - [Related Packages](#related-packages)
 
+--------------------------------------------------------------------------------------------
+
 
 ## Installation
 
 ```
 npm install --save unfort
 ```
+
+--------------------------------------------------------------------------------------------
 
 
 ## Background
@@ -188,7 +192,7 @@ wants to implement something with them:
   the master process. This enables you to use a debugger.
 
 
-### Reuse of ASTs
+#### Reuse of ASTs
 
 Webpack's loader pipeline works on a low-level primitive: strings of code. This becomes
 a performance issue when each loader needs to individually parse the code, manipulate the
@@ -223,6 +227,8 @@ to trivially invalidate cached data whenever key factors in the environment chan
 enables us to discard any cached data when a new library is installed or changes are made
 to a build script or environmental files (such as `package.json` or `.babelrc`).
 
+--------------------------------------------------------------------------------------------
+
 
 ## Bootstrap Runtime
 
@@ -255,6 +261,8 @@ __modules.buildRequire(mod)
 
 > Note: The bootstrap is designed to be monkey-patched. The hooks exposed are
   intended to enable experimental features during runtime.
+
+--------------------------------------------------------------------------------------------
 
 
 ## Hot Runtime
@@ -359,8 +367,10 @@ if (!state) {
 > Note: callbacks passed to `module.hot.enter` will only be called when a **new**
   version is entering. They will not be called when a module first initializes.
 
+--------------------------------------------------------------------------------------------
 
-### The Build Process at a High-Level
+
+## The Build Process at a High-Level
 
 Given a set of files that represent entry points to a codebase, the dependency
 graph will trace the graph by recursively asking the pipeline for the resolved
@@ -387,8 +397,10 @@ Code generation involves a number of processes that include:
 The completion of the code generation signals the end of the build, at which
 point we can start sending signals to the front-end to update its assets.
 
+--------------------------------------------------------------------------------------------
 
-### The Pipeline
+
+## The Pipeline
 
 Unfort's pipeline mostly revolves around a [record-store](https://github.com/markfinger/record-store)
 instance that enables us to define a collection of jobs that can be applied to a file to produce
@@ -455,6 +467,8 @@ build.extendJobs(defaults => {
   };
 });
 ```
+
+--------------------------------------------------------------------------------------------
 
 
 ## Development Notes
