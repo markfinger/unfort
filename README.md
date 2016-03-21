@@ -1,6 +1,7 @@
 # unfort
 
-A build tool for the web that targets development environments.
+A build tool for the web that prioritises performance during development. Fundamentally,
+this project is a greenfield reimplementation of a subset of webpack's features.
 
 Does some novel stuff:
  - **Hot swaps in milliseconds**, regardless of the codebase size
@@ -18,15 +19,17 @@ Some stuff that I'm currently using it for:
 
 > Note: this is both an experimental and personal project. The docs are intentionally
   high-level as changes to the API are frequent and (often) breaking. You probably
-  shouldn't use this unless you're happy to read code and hack on stuff. Some of the
-  write-ups are a bit hand-wavy and simplified, so if you've got any questions, feel
-  free to open an issue and ask.
+  shouldn't use this unless you're happy to read code and hack on stuff.
+
+> Some of the write-ups are a bit hand-wavy and simplified, so if you've got any
+  questions, feel free to open an issue and ask.
+
 
 ## Documentation
 
  - [Installation](#installation)
+ - [Design Goals](#design-goals)
  - [Background](#background)
-   - [Design Goals](#design-goals)
    - [Performance Wins (Compared to Webpack)](#performance-wins-compared-to-webpack)
      - [No Bundling](#no-bundling)
      - [Parsing and Code Generation](#parsing-and-code-generation)
@@ -63,20 +66,7 @@ npm install --save unfort
 --------------------------------------------------------------------------------------------
 
 
-## Background
-
-Webpack and browserify are pretty amazing when you get started on a project, but
-performance drops sharply as your codebase grows. This sucks when you just want to hack
-on stuff. I've [previously tried exploring](https://github.com/markfinger/webpack-build)
-improvements for webpack's performance, with some limited success.
-
-Fundamentally, this project is an exploration of performance improvements for build tools
-that target the web. To keep the scope simple and to enable a variety of optimisations,
-the project has one major caveat: zero-consideration should be given for production
-environments.
-
-
-### Design Goals
+## Design Goals
 
 Aim for:
 
@@ -115,6 +105,19 @@ Things to _explicitly avoid_:
 - **Support older versions of _X_.**
   Aim to support evergreen browsers and the latest version of Node.
 
+--------------------------------------------------------------------------------------------
+
+
+## Background
+
+Webpack and browserify are pretty amazing when you get started on a project, but performance
+tends to drop sharply as your codebase grows and incremental builds become a pain-point.
+I've [previously tried exploring](https://github.com/markfinger/webpack-build) improvements
+for webpack's performance, with some limited success.
+
+Hopefully this project's research and discoveries will enable improvements to the experience
+provided by comparable build tools.
+
 
 ### Performance Wins (Compared to Webpack)
 
@@ -123,6 +126,15 @@ Things to _explicitly avoid_:
 Probably the biggest performance win that unfort has over webpack is a lack of a
 bundling phase. Unfort skips the need for a bundle by constructing simple shims that
 allow the entire codebase to be streamed directly out of memory and into the browser.
+
+A single browser global is used by unfort to expose a module system with hooks for modules
+to register themselves. This enables modules to be simply appended to a document, in an
+execution context such as a script element or an eval statement. The module system also
+exposes hooks to execute from any entry point.
+
+This module system - while somewhat hacky - allows unfort to avoid the entire CPU-, IO-
+and memory-intensive bundling phase. Without a bundling phase, incremental rebuilds become
+much faster as we only need to recompile single files, rather than the entire codebase.
 
 
 #### Parsing and Code Generation
@@ -155,8 +167,8 @@ I suspect this would be a combination of:
   We're not manipulating the majority of files, so we could probably just remove
   babel-generator and generate the source maps by hand.
 
-In general, I suspect there will be a lot of low-hanging fruit in this project as it
-hasn't been [profiled](https://github.com/markfinger/profiling-node) for some time.
+In general, I suspect there will be still be a lot of low-hanging fruit in this project
+as it hasn't been [profiled](https://github.com/markfinger/profiling-node) for some time.
 
 
 ### Reflections
@@ -175,8 +187,8 @@ negative impact on performance and removed them from the codebase.
 Nonetheless, I've kept musing over them, and here are some notes in case anyone else
 wants to implement something with them:
 
-- There's a large cost associated with transporting data in and out of workers. So you'd
-  probably need to build your pipeline so that each file is handled by a specific worker
+- There's a large cost associated with transporting data in and out of workers. So you'll
+  probably want to build your pipeline such that each file is handled by a specific worker
   that doesn't require much context or interactions from the master process.
 - There's a large cost to spawning child processes. Node's pretty fast to boot, but it's
   not so fast to read in large amounts of modules. You'd only want workers if you had build
@@ -189,43 +201,71 @@ wants to implement something with them:
   particular workers for particular code paths.
 - Debugging workers is a pain. If you're going to implement a worker pipeline, make sure
   that everything goes through an interface which enables you to force execution within
-  the master process. This enables you to use a debugger.
+  the master process. By consolidating execution within the foreground process, it improves
+  your ability to introspect, in particular it enables you to use node's debugger.
 
 
 #### Reuse of ASTs
 
 Webpack's loader pipeline works on a low-level primitive: strings of code. This becomes
 a performance issue when each loader needs to individually parse the code, manipulate the
-AST and generate more code and source maps. Once each loader has been applied, webpack
+AST and then generate more code and source maps. Once each loader has been applied, webpack
 then parses the code (again) and starts all of its magic. While a lot of projects will
-only use a single loader (typically `babel-loader`), the re-parsing is still a performance
-issue.
+only use a single loader for JS files (typically `babel-loader`), the re-parsing is still
+a performance issue.
 
-To get around this, we simply re-use babel's AST that we only parse files once while preserving
-the ability to introspect dependency identifiers. In cases where we're using babel's transforms,
-we simply apply babel's parser (babylon) directly to generate an AST. Consolidating on babel's
-pipeline ensures that we only need a single code-path to handle dependency analysis.
+To get around this, we simply re-use the AST that babel generates during transformation
+so that we only need to parse files once, while preserving the ability to introspect
+dependency identifiers. In cases where we are not applying babel's transforms, we simply
+use babel's parser (babylon) directly to generate an AST. Consolidating on babel's pipeline
+ensures that we only need a single code-path to handle dependency analysis of JS files.
+
+Looking into the future, hopefully all parsers and tools will converge on the ESTree spec.
+This would enable build tools to simply pass ASTs around.
 
 
 #### Persistent caching
 
 Persistent caching has proven to work quite well. It adds a small overhead to initial builds,
-but **massively** reduces build times for repeated builds.
+but **massively** reduces the total time when repeating a build.
 
-For cache read/writes we use [kv-cache](https://github.com/markfinger/kv-cache) which enables
-us to store each file's data in separate files. This ensures that we can handle rebuilds with
-only partial data-sets and it removes any overhead associated with reading and discarding
-stale data. A downside is IO overhead that increases with the number of files that are used
-in the build.
+For cache read and writes unfort defaults to [kv-cache](https://github.com/markfinger/kv-cache)
+which enables us to store each file's data in separate files. The primary advantage of multiple
+files is that it removes any overhead associated with reading and discarding stale data. A
+downside is that IO overhead increases with the number of files that are used in the build.
+If IO overhead ever becomes too much of an issue, it may be worthwhile investigating a proper
+DB, such as SQLite, as a replacement store.
 
-Our pipeline generates cache keys that are composed of the file's path, modified time. For
+Our pipeline generates cache keys that are composed of the file's path and modified time. For
 textual files, we also generate a murmur hash of the content so that we can get around OS
 limitations on file-system accuracy.
 
-Cache invalidation is generally a pain, but we use [env-hash](https://github.com/markfinger/env-hash)
-to trivially invalidate cached data whenever key factors in the environment change. This
-enables us to discard any cached data when a new library is installed or changes are made
-to a build script or environmental files (such as `package.json` or `.babelrc`).
+Cache invalidation can be a pain. To get around it we use [env-hash](https://github.com/markfinger/env-hash)
+to namespace all cached data during the boot process. The namespace reflects key factors in
+the environment and enables us to discard cached data when a new library is installed, when
+changes are made to a build script, or when environmental files (such as `package.json` or
+`.babelrc`) are changed.
+
+
+#### Immutable data
+
+Internally, unfort makes heavy use of immutable data structures provided by the `immutable`
+package. These structures provide a number of key benefits:
+
+ - we can easily determine deep equality, enabling us to drop out of build phases when the graph
+   no longer equals what we started with.
+ - we can orchestrate complicated asynchronous flows with the simple understanding that
+   sub-systems will never be able to mutate our data.
+
+While I've used immutable data in a couple of different projects, unfort has been at a much
+larger scale. The experience has been extremely positive - there is a bit more boilerplate,
+but the safety guarantees make it extremely trivial to reason about what something can and
+can't do.
+
+If anyone is considering tooling for a build tool, I would **strongly** recommend starting with
+immutable data and only dropping to low-level JS objects when performance is required. The
+`Record` class in `immutable` is particularly useful, as it allows you to expose named properties
+so that you can use it as a drop-in replacement for read-only objects.
 
 --------------------------------------------------------------------------------------------
 
