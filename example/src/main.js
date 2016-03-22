@@ -1,3 +1,5 @@
+import './style.css';
+
 module.hot.accept();
 
-console.log('hello');
+console.log('what');

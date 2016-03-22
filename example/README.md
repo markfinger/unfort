@@ -23,6 +23,16 @@ node unfort.js
 
 Visit: http://127.0.0.1:3000/
 
-Check the console, and make some changes to `src/main.js`.
+Check the console, and make some changes to the files in `src`.
 
-With regards to performance, you can 
+
+### Notes
+
+If you want to test the persistent cache: run the build once, kill the process,
+then restart it. It should complete in a fraction of a second. Note: the entire
+cache is cleared when any changes are made to `unfort.js`, `.babelrc`,
+`package.json`, or the directories in `node_modules`.
+
+If you want to test incremental build perf, you might want to try installing a
+bunch of large libraries (jquery, react, etc), importing them in `src/main.js`,
+and then making changes to the files.
