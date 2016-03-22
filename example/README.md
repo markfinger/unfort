@@ -20,3 +20,9 @@ npm install --save \
 ```
 node unfort.js
 ```
+
+Visit: http://127.0.0.1:3000/
+
+Check the console, and make some changes to `src/main.js`.
+
+With regards to performance, you can 
