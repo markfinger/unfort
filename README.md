@@ -407,6 +407,29 @@ if (!state) {
 > Note: callbacks passed to `module.hot.enter` will only be called when a **new**
   version is entering. They will not be called when a module first initializes.
 
+
+### Configuration
+
+Default:
+
+```js
+{
+  SILENT_HOT_RUNTIME: false,
+  SOCKET_IO_URL: undefined,
+  SOCKET_IO_OPTIONS: undefined
+}
+```
+
+You can override them by binding to the browser global `UNFORT`. for example:
+
+```html
+<script>
+  window.UNFORT = {
+    SOCKET_IO_URL: 'http://127.0.0.1:3000'
+  };
+</script>
+```
+
 --------------------------------------------------------------------------------------------
 
 
