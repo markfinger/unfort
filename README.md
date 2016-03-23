@@ -43,10 +43,11 @@ Some stuff that I'm currently using it for:
  - [Hot Runtime](#hot-runtime)
    - [Live Bindings](#live-bindings)
    - [module.hot API](#modulehot-api)
-   - [module.hot.accept](#modulehotaccept)
-   - [module.hot.changes](#modulehotchanges)
-   - [module.hot.exit](#modulehotexit)
-   - [module.hot.enter](#modulehotenter)
+     - [module.hot.accept](#modulehotaccept)
+     - [module.hot.changes](#modulehotchanges)
+     - [module.hot.exit](#modulehotexit)
+     - [module.hot.enter](#modulehotenter)
+   - [Configuring the Hot Runtime](#configuring-the-hot-runtime)
  - [The Build Process at a High-Level](#the-build-process-at-a-high-level)
  - [The Pipeline](#the-pipeline)
  - [Development Notes](#development-notes)
@@ -406,6 +407,30 @@ if (!state) {
 
 > Note: callbacks passed to `module.hot.enter` will only be called when a **new**
   version is entering. They will not be called when a module first initializes.
+
+
+### Configuring the Hot Runtime
+
+Defaults:
+
+```js
+{
+  SILENT_HOT_RUNTIME: false,
+  SOCKET_IO_URL: undefined,
+  SOCKET_IO_OPTIONS: undefined
+}
+```
+
+You can override them by binding to the browser global `__UNFORT__`. for example:
+
+```html
+<script>
+  window.__UNFORT__ = {
+    SOCKET_IO_URL: 'http://127.0.0.1:3000'
+  };
+</script>
+```
+
 
 --------------------------------------------------------------------------------------------
 
