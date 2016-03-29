@@ -5,6 +5,7 @@
   "main": "lib/unfort.js",
   "scripts": {
     "build": "./scripts/build.js",
+    "prepublish": "npm run build -- --once",
     "test": "mocha --require source-map-support/register --reporter spec 'lib/**/tests/*.js'",
     "_test": "mocha --reporter spec 'lib/**/tests/*.js'",
     "lint": "eslint runtimes/*.js scripts/**.js src/**.js",
