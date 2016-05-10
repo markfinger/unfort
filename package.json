@@ -23,6 +23,7 @@
   "dependencies": {
     "babel-code-frame": "^6.5.0",
     "babel-core": "^6.5.0",
+    "babel-eslint": "^6.0.1",
     "babel-generator": "^6.5.0",
     "babylon": "^6.5.0",
     "babylon-ast-dependencies": "^1.0.1",
