@@ -429,6 +429,7 @@ export function createJobs({getState}={}) {
     },
     resolverOptions(ref) {
       return Promise.resolve({
+        filename: ref.name,
         // The directory that the resolver starts in when looking for a file
         // to matches an identifier
         basedir: path.dirname(ref.name),
