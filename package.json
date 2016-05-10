@@ -57,7 +57,7 @@
     "babel-plugin-transform-es2015-destructuring": "^6.5.0",
     "babel-plugin-transform-es2015-modules-commonjs": "^6.8.0",
     "babel-plugin-transform-es2015-parameters": "^6.5.0",
-    "babel-plugin-transform-es2015-shorthand-properties": "^6.5.0",
+    "babel-plugin-transform-es2015-shorthand-properties": "^6.8.0",
     "chai": "^3.2.0",
     "chai-as-promised": "^5.2.0",
     "chai-immutable": "^1.5.3",
