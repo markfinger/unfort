@@ -1,6 +1,6 @@
 {
   "name": "unfort",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "A build tool for the web that prioritises performance during development. Fundamentally, this project is a greenfield reimplementation of a subset of webpack's features.",
   "main": "lib/unfort.js",
   "scripts": {
