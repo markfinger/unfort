@@ -65,7 +65,7 @@
     "eslint": "^2.9.0",
     "istanbul": "^0.4.2",
     "memorystream": "^0.3.1",
-    "mocha": "^2.2.5",
+    "mocha": "^2.5.0",
     "rimraf": "^2.5.0",
     "yargs": "^4.7.0"
   }
