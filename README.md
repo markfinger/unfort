@@ -417,7 +417,8 @@ Defaults:
 {
   SILENT_HOT_RUNTIME: false,
   SOCKET_IO_URL: undefined,
-  SOCKET_IO_OPTIONS: undefined
+  SOCKET_IO_OPTIONS: undefined,
+  LIVE_BINDINGS_ES_MODULES_ONLY: true
 }
 ```
 
