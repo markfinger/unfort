@@ -12,7 +12,8 @@ if (typeof Proxy !== 'function') {
 const defaultOptions = {
   SILENT_HOT_RUNTIME: false,
   SOCKET_IO_URL: undefined,
-  SOCKET_IO_OPTIONS: undefined
+  SOCKET_IO_OPTIONS: undefined,
+  LIVE_BINDINGS_ES_MODULES_ONLY: true
 };
 
 const options = _.assign({}, defaultOptions, global.__UNFORT__);
@@ -94,7 +95,10 @@ function createModuleExportsProxy() {
 // not be required when the loader spec is implemented in browsers
 __modules.getModuleExports = function getModuleExportsHotWrapper(dependency) {
   const dependencyExports = dependency.commonjs.exports;
-  if (dependencyExports && dependencyExports.__esModule) {
+  if (
+    dependencyExports &&
+    (dependencyExports.__esModule || !options.LIVE_BINDINGS_ES_MODULES_ONLY)
+  ) {
     return dependency.hot.exportsProxy.proxy;
   }
 
