@@ -41,7 +41,7 @@
     "lodash": "^4.12.0",
     "mime-types": "^2.1.11",
     "mkdirp": "^0.5.1",
-    "postcss": "^5.0.20",
+    "postcss": "^5.0.21",
     "postcss-ast-dependencies": "^1.1.0",
     "promisify-node": "^0.4.0",
     "record-store": "^1.0.0",
