@@ -134,19 +134,19 @@ function createGraph({state=Map(), getDependencies}={}) {
 
         // If there are any dependencies encountered that we don't already
         // know about, we start tracing them
-        dependencies.forEach(depName => {
+        dependencies.forEach(depId => {
           if (
-            !isNodeDefined(state, depName) &&
-            !isNodePending(pendingJobs, depName)
+            !isNodeDefined(state, depId) &&
+            !isNodePending(pendingJobs, depId)
           ) {
-            traceFromNode(depName);
+            traceFromNode(depId);
           }
 
-          if (!isNodeDefined(state, depName)) {
-            state = addNode(state, depName);
+          if (!isNodeDefined(state, depId)) {
+            state = addNode(state, depId);
           }
 
-          state = addEdge(state, id, depName);
+          state = addEdge(state, id, depId);
         });
 
         // Enable progress updates
