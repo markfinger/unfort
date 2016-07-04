@@ -1,7 +1,7 @@
 const {Record, OrderedSet} = require('immutable');
 
 const Node = Record({
-  name: '',
+  id: '',
   dependencies: OrderedSet(),
   dependents: OrderedSet(),
   isEntryNode: false
@@ -18,26 +18,26 @@ module.exports = {
   pruneNodeAndUniqueDependencies
 };
 
-function addNode(nodes, name) {
-  const node = nodes.get(name);
+function addNode(nodes, id) {
+  const node = nodes.get(id);
 
   if (node) {
-    throw new Error(`Node "${name}" already exists`);
+    throw new Error(`Node "${id}" already exists`);
   }
 
-  return nodes.set(name, Node({
-    name
+  return nodes.set(id, Node({
+    id
   }));
 }
 
-function removeNode(nodes, name) {
-  const node = nodes.get(name);
+function removeNode(nodes, id) {
+  const node = nodes.get(id);
 
   if (!node) {
-    throw new Error(`Node "${name}" does not exist`);
+    throw new Error(`Node "${id}" does not exist`);
   }
 
-  return nodes.delete(name);
+  return nodes.delete(id);
 }
 
 function addEdge(nodes, head, tail) {
@@ -106,18 +106,18 @@ function removeEdge(nodes, head, tail) {
   return nodes;
 }
 
-function defineEntryNode(nodes, name) {
-  const node = nodes.get(name);
+function defineEntryNode(nodes, id) {
+  const node = nodes.get(id);
 
   if (!node) {
-    throw new Error(`Cannot define entry node "${name}" as it does not exist`);
+    throw new Error(`Cannot define entry node "${id}" as it does not exist`);
   }
 
-  return nodes.set(name, node.set('isEntryNode', true));
+  return nodes.set(id, node.set('isEntryNode', true));
 }
 
 /**
- * Given a Map containing nodes, returns an array of node names
+ * Given a Map containing nodes, returns an array of node ids
  * where each node is disconnected from the defined entry nodes
  *
  * @param {Map} nodes
@@ -127,16 +127,16 @@ function findNodesDisconnectedFromEntryNodes(nodes) {
   const entries = nodes.filter(node => node.isEntryNode);
 
   const disconnected = Object.create(null);
-  nodes.keySeq().forEach(name => {
-    disconnected[name] = true;
+  nodes.keySeq().forEach(id => {
+    disconnected[id] = true;
   });
 
   function checkFromNode(node) {
-    disconnected[node.name] = false;
+    disconnected[node.id] = false;
 
-    node.dependencies.forEach(name => {
-      if (disconnected[name]) {
-        checkFromNode(nodes.get(name));
+    node.dependencies.forEach(id => {
+      if (disconnected[id]) {
+        checkFromNode(nodes.get(id));
       }
     });
   }
@@ -144,27 +144,27 @@ function findNodesDisconnectedFromEntryNodes(nodes) {
   entries.forEach(checkFromNode);
 
   const keys = Object.keys(disconnected);
-  return keys.filter(name => disconnected[name]);
+  return keys.filter(id => disconnected[id]);
 }
 
-function pruneNodeAndUniqueDependencies(nodes, name) {
-  const node = nodes.get(name);
+function pruneNodeAndUniqueDependencies(nodes, id) {
+  const node = nodes.get(id);
 
   if (!node) {
-    throw new Error(`Cannot prune from node "${name}" as it has not been defined`);
+    throw new Error(`Cannot prune from node "${id}" as it has not been defined`);
   }
 
-  const pruned = [name];
+  const pruned = [id];
 
   if (node.dependents.size > 0) {
     node.dependents.forEach(dependentName => {
-      nodes = removeEdge(nodes, dependentName, name);
+      nodes = removeEdge(nodes, dependentName, id);
     });
   }
 
   if (node.dependencies.size > 0) {
     node.dependencies.forEach(dependencyName => {
-      nodes = removeEdge(nodes, name, dependencyName);
+      nodes = removeEdge(nodes, id, dependencyName);
       const dependency = nodes.get(dependencyName);
 
       if (
@@ -178,8 +178,8 @@ function pruneNodeAndUniqueDependencies(nodes, name) {
     });
   }
 
-  if (nodes.has(name)) {
-    nodes = removeNode(nodes, name);
+  if (nodes.has(id)) {
+    nodes = removeNode(nodes, id);
   }
 
   return {

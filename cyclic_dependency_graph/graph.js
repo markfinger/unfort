@@ -74,15 +74,15 @@ function createGraph({state=Map(), getDependencies}={}) {
    * Invoke the specified `getDependencies` function and build the
    * graph by recursively traversing unknown nodes
    *
-   * @param {String} name
+   * @param {String} id
    */
-  function traceFromNode(name) {
+  function traceFromNode(id) {
     const job = {
-      node: name,
+      node: id,
       isValid: true
     };
 
-    invalidatePendingJobsForNode(pendingJobs, name);
+    invalidatePendingJobsForNode(pendingJobs, id);
 
     // Ensure the job can be tracked
     pendingJobs.push(job);
@@ -104,7 +104,7 @@ function createGraph({state=Map(), getDependencies}={}) {
         return;
       }
 
-      getDependencies(name)
+      getDependencies(id)
         .then(handleDependencies)
         .catch(handleError)
         .then(signalIfCompleted);
@@ -128,8 +128,8 @@ function createGraph({state=Map(), getDependencies}={}) {
 
         const previousState = state;
 
-        if (!isNodeDefined(state, name)) {
-          state = addNode(state, name);
+        if (!isNodeDefined(state, id)) {
+          state = addNode(state, id);
         }
 
         // If there are any dependencies encountered that we don't already
@@ -146,12 +146,12 @@ function createGraph({state=Map(), getDependencies}={}) {
             state = addNode(state, depName);
           }
 
-          state = addEdge(state, name, depName);
+          state = addEdge(state, id, depName);
         });
 
         // Enable progress updates
         events.emit('traced', {
-          node: name,
+          node: id,
           diff: Diff({
             from: previousState,
             to: state
@@ -170,7 +170,7 @@ function createGraph({state=Map(), getDependencies}={}) {
 
         const signal = {
           error: err,
-          node: name,
+          node: id,
           state: state
         };
 
@@ -188,32 +188,32 @@ function createGraph({state=Map(), getDependencies}={}) {
    * from an entry node. You may want to call `pruneDisconnectedNodes` to
    * clean the graph of unwanted dependencies.
    *
-   * @param {String} name
+   * @param {String} id
    * @returns {Diff}
    */
-  function pruneNode(name) {
+  function pruneNode(id) {
     const previousState = state;
 
     // If the node is still pending, invalidate the associated job so
     // that it becomes a no-op
-    if (isNodePending(pendingJobs, name)) {
-      invalidatePendingJobsForNode(pendingJobs, name);
+    if (isNodePending(pendingJobs, id)) {
+      invalidatePendingJobsForNode(pendingJobs, id);
     }
 
-    if (isNodeDefined(state, name)) {
+    if (isNodeDefined(state, id)) {
       let updatedState = previousState;
 
-      const node = updatedState.get(name);
+      const node = updatedState.get(id);
 
       node.dependents.forEach(dependent => {
-        updatedState = removeEdge(updatedState, dependent, name);
+        updatedState = removeEdge(updatedState, dependent, id);
       });
 
       node.dependencies.forEach(dependency => {
-        updatedState = removeEdge(updatedState, name, dependency);
+        updatedState = removeEdge(updatedState, id, dependency);
       });
 
-      updatedState = removeNode(updatedState, name);
+      updatedState = removeNode(updatedState, id);
 
       state = updatedState;
     }
@@ -231,8 +231,8 @@ function createGraph({state=Map(), getDependencies}={}) {
    * been pruned completely, so we may still be persisting references to
    * nodes which are disconnected to the entry nodes.
    *
-   * An easy example of a situation that can cause this is a tournament.
-   * https://en.wikipedia.org/wiki/Tournament_(graph_theory)
+   * An easy example of a situation that can cause this is a touridnt.
+   * https://en.wikipedia.org/wiki/Touridnt_(graph_theory)
    *
    * To get around this problem, we need to walk the graph from the entry
    * nodes, note any that are unreachable, and then prune them directly
@@ -245,9 +245,9 @@ function createGraph({state=Map(), getDependencies}={}) {
     const disconnected = findNodesDisconnectedFromEntryNodes(state);
 
     let updatedState = previousState;
-    disconnected.forEach(name => {
-      if (updatedState.has(name)) {
-        const data = pruneNodeAndUniqueDependencies(updatedState, name);
+    disconnected.forEach(id => {
+      if (updatedState.has(id)) {
+        const data = pruneNodeAndUniqueDependencies(updatedState, id);
         updatedState = data.nodes;
       }
     });
@@ -281,17 +281,17 @@ function createGraph({state=Map(), getDependencies}={}) {
    * Hence we need to know a graph's entry points so that we can traverse it
    * from the entries and find the nodes which are disconnected
    *
-   * @param {String} name
+   * @param {String} id
    * @returns {Diff}
    */
-  function setNodeAsEntry(name) {
+  function setNodeAsEntry(id) {
     const previousState = state;
 
-    if (!isNodeDefined(state, name)) {
-      state = addNode(state, name);
+    if (!isNodeDefined(state, id)) {
+      state = addNode(state, id);
     }
 
-    state = defineEntryNode(state, name);
+    state = defineEntryNode(state, id);
 
     return Diff({
       from: previousState,
@@ -319,17 +319,17 @@ function createGraph({state=Map(), getDependencies}={}) {
   };
 }
 
-function isNodeDefined(nodes, name) {
-  return nodes.has(name);
+function isNodeDefined(nodes, id) {
+  return nodes.has(id);
 }
 
-function isNodePending(pendingJobs, name) {
-  return pendingJobs.some(job => job.node === name);
+function isNodePending(pendingJobs, id) {
+  return pendingJobs.some(job => job.node === id);
 }
 
-function invalidatePendingJobsForNode(pendingJobs, name) {
+function invalidatePendingJobsForNode(pendingJobs, id) {
   pendingJobs
-    .filter(job => job.node === name)
+    .filter(job => job.node === id)
     .forEach(job => {
       job.isValid = false;
       pull(pendingJobs, job);

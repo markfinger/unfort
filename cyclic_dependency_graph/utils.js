@@ -31,20 +31,20 @@ function createNodesFromNotation(text) {
     .filter(line => line);
 
   lines.forEach(line => {
-    const names = line
+    const ids = line
       .split('->')
-      .map(name => name.trim());
+      .map(id => id.trim());
 
     // Create each node
-    names.forEach(name => {
-      if (!nodes.has(name)) {
-        nodes = addNode(nodes, name);
+    ids.forEach(id => {
+      if (!nodes.has(id)) {
+        nodes = addNode(nodes, id);
       }
     });
 
     // Add edges
-    for (let i=0; i<names.length - 1; i++) {
-      nodes = addEdge(nodes, names[i], names[i + 1]);
+    for (let i=0; i<ids.length - 1; i++) {
+      nodes = addEdge(nodes, ids[i], ids[i + 1]);
     }
   });
 
@@ -61,7 +61,7 @@ function createNodesFromNotation(text) {
  * given `a -> b -> a`, the order will be ['b', 'a']
  *
  * @param {Map} nodes - an immutable.Map instance
- * @param {Array} entryNodes - an array of node names
+ * @param {Array} entryNodes - an array of node ids
  * @returns {Array}
  */
 function resolveExecutionOrder(nodes, entryNodes) {
@@ -69,21 +69,21 @@ function resolveExecutionOrder(nodes, entryNodes) {
   const order = [];
 
   function traverseFromNode(node) {
-    if (seen[node.name]) {
+    if (seen[node.id]) {
       return;
     }
-    seen[node.name] = true;
+    seen[node.id] = true;
 
-    node.dependencies.forEach(name => {
-      const dependency = nodes.get(name);
+    node.dependencies.forEach(id => {
+      const dependency = nodes.get(id);
       traverseFromNode(dependency);
     });
 
-    order.push(node.name);
+    order.push(node.id);
   }
 
-  entryNodes.forEach(name => {
-    const node = nodes.get(name);
+  entryNodes.forEach(id => {
+    const node = nodes.get(id);
     traverseFromNode(node);
   });
 

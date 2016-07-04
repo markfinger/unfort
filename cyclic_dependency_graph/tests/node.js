@@ -9,11 +9,11 @@ const {createNodesFromNotation} = require('../utils');
 
 describe('cyclic_dependency_graph/node', () => {
   describe('#Node', () => {
-    it('should have name, dependencies and dependents properties', () => {
+    it('should have id, dependencies and dependents properties', () => {
       const node = Node({
-        name: 'test'
+        id: 'test'
       });
-      assert.equal(node.name, 'test');
+      assert.equal(node.id, 'test');
       assert.instanceOf(node.dependencies, OrderedSet);
       assert.instanceOf(node.dependents, OrderedSet);
       assert.isFalse(node.isEntryNode);
@@ -28,7 +28,7 @@ describe('cyclic_dependency_graph/node', () => {
       assert.deepEqual(
         nodes,
         Map({
-          test: Node({name: 'test'})
+          test: Node({id: 'test'})
         })
       );
     });
@@ -72,7 +72,7 @@ describe('cyclic_dependency_graph/node', () => {
         createNodesFromNotation('a -> b')
       );
     });
-    it('should throw if the node names are the same', () => {
+    it('should throw if the node ids are the same', () => {
       assert.throws(
         () => addEdge(Map(), 'foo', 'foo'),
         'Edges must point to two different nodes. Cannot add an edge from "foo" to itself'
@@ -116,7 +116,7 @@ describe('cyclic_dependency_graph/node', () => {
         'Cannot remove edge from "foo" -> "bar" as "foo" has not been defined'
       );
 
-      nodes = Map({foo: Node({name: 'foo'})});
+      nodes = Map({foo: Node({id: 'foo'})});
 
       assert.throws(
         () => removeEdge(nodes, 'foo', 'bar'),

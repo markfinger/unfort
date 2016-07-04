@@ -8,15 +8,15 @@ describe('cyclic_dependency_graph/utils', () => {
     it('should create a single node', () => {
       assert.equal(
         createNodesFromNotation('a'),
-        Map({a: Node({name: 'a'})})
+        Map({a: Node({id: 'a'})})
       );
     });
     it('should create two nodes with an edge', () => {
       assert.equal(
         createNodesFromNotation('a -> b'),
         Map({
-          a: Node({name: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a'])})
+          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a'])})
         })
       );
     });
@@ -24,9 +24,9 @@ describe('cyclic_dependency_graph/utils', () => {
       assert.equal(
         createNodesFromNotation('a -> b -> c'),
         Map({
-          a: Node({name: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['c'])}),
-          c: Node({name: 'c', dependents: OrderedSet(['b'])})
+          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['c'])}),
+          c: Node({id: 'c', dependents: OrderedSet(['b'])})
         })
       );
     });
@@ -38,9 +38,9 @@ describe('cyclic_dependency_graph/utils', () => {
           c -> a
         `),
         Map({
-          a: Node({name: 'a', dependents: OrderedSet(['c']), dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['c'])}),
-          c: Node({name: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['a'])})
+          a: Node({id: 'a', dependents: OrderedSet(['c']), dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['c'])}),
+          c: Node({id: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['a'])})
         })
       );
     });
@@ -53,8 +53,8 @@ describe('cyclic_dependency_graph/utils', () => {
           b -> a
         `),
         Map({
-          a: Node({name: 'a', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['a'])})
+          a: Node({id: 'a', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['a'])})
         })
       );
     });
@@ -64,8 +64,8 @@ describe('cyclic_dependency_graph/utils', () => {
           a -> b -> a
         `),
         Map({
-          a: Node({name: 'a', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['a'])})
+          a: Node({id: 'a', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['a'])})
         })
       );
     });
@@ -77,9 +77,9 @@ describe('cyclic_dependency_graph/utils', () => {
           c -> b
         `),
         Map({
-          a: Node({name: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a', 'c']), dependencies: OrderedSet(['c'])}),
-          c: Node({name: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])})
+          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a', 'c']), dependencies: OrderedSet(['c'])}),
+          c: Node({id: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])})
         })
       );
     });
@@ -89,9 +89,9 @@ describe('cyclic_dependency_graph/utils', () => {
           a -> b -> c -> b
         `),
         Map({
-          a: Node({name: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({name: 'b', dependents: OrderedSet(['a', 'c']), dependencies: OrderedSet(['c'])}),
-          c: Node({name: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])})
+          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
+          b: Node({id: 'b', dependents: OrderedSet(['a', 'c']), dependencies: OrderedSet(['c'])}),
+          c: Node({id: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])})
         })
       );
     });

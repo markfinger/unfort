@@ -142,8 +142,8 @@ describe('cyclic_dependency_graph/graph', () => {
           // after emitting completed
 
           const graph = createGraph({
-            getDependencies(name) {
-              return Promise.reject(`Error: ${name}`);
+            getDependencies(id) {
+              return Promise.reject(`Error: ${id}`);
             }
           });
 
@@ -169,8 +169,8 @@ describe('cyclic_dependency_graph/graph', () => {
         });
         it('should handle multiple errors in one run', (done) => {
           const graph = createGraph({
-            getDependencies(name) {
-              return Promise.reject(`Error: ${name}`);
+            getDependencies(id) {
+              return Promise.reject(`Error: ${id}`);
             }
           });
 
@@ -594,12 +594,12 @@ describe('cyclic_dependency_graph/graph', () => {
       assert.equal(
         graph.getState(),
         Map({
-          a: Node({name: 'a', isEntryNode: true})
+          a: Node({id: 'a', isEntryNode: true})
         })
       );
     });
-    it('should successfully prune a graph representing a tournament', () => {
-      // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
+    it('should successfully prune a graph representing a touridnt', () => {
+      // https://en.wikipedia.org/wiki/Touridnt_(graph_theory)
 
       const graph = createGraph({
         state: createNodesFromNotation(`
