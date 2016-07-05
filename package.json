@@ -32,7 +32,7 @@
     "chai": "^3.5.0",
     "chai-as-promised": "^5.3.0",
     "chai-immutable": "^1.6.0",
-    "eslint": "^3.0.0",
+    "eslint": "^3.0.1",
     "mocha": "^2.5.3",
     "yargs": "^4.7.1"
   }
