@@ -20,7 +20,7 @@ function babelTransform({pipeline, graph, asset}) {
       });
 
       let count = 0;
-      let knownIdentifiers = Object.create(null);
+      const knownIdentifiers = Object.create(null);
       function resolveModuleSource(identifier) {
         if (!knownIdentifiers[identifier]) {
           knownIdentifiers[identifier] = count.toString();

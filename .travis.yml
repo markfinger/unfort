@@ -7,5 +7,6 @@ install:
 script:
   - "npm test"
   - "npm run lint"
-  - "npm run coverage"
-  - "./node_modules/.bin/codecov"
+  # TODO reimplement
+  #- "npm run coverage"
+  #- "./node_modules/.bin/codecov"

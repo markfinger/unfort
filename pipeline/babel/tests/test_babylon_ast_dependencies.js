@@ -289,7 +289,7 @@ describe('pipeline/babel/babylon_ast_dependencies', () => {
         `);
 
         try {
-          babylonAstDependencies(ast)
+          babylonAstDependencies(ast);
         } catch(err) {
           assert.deepEqual(
             err.loc,

@@ -49,16 +49,12 @@ function createGraph({initialState}) {
     return asset;
   }
 
-  function addDependency(from, to) {
-
-  }
-
   return {
     events,
     getOrCreateAssetByFile,
     getState,
     assetCompleted
-  }
+  };
 }
 
 function createAsset() {
@@ -68,7 +64,6 @@ function createAsset() {
 }
 
 function handleAssetCompleted(state, asset) {
-  const _reference = asset.get('_reference');
   if (!state.pendingAssets.has(asset._reference)) {
     return;
   }
