@@ -195,7 +195,7 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
           db.close(err => {
             if (err) return rej(err);
             return res();
-          })
+          });
         });
       });
   }
