@@ -33,7 +33,7 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
     };
   }
 
-  const getDatabase = createDatabaseConnection();
+  const connection = createDatabaseConnection();
 
   // An in-memory cache that helps avoid some of the overhead involved with
   // the file system. Note that the memory cache only stores the serialized
@@ -143,7 +143,7 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
       return deserializeData(inMemoryValue);
     }
 
-    return getDatabase
+    return connection
       .then(db => {
         return new Promise((res, rej) => {
           db.get(
@@ -188,11 +188,24 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
     schedulePersistentDelete(key);
   }
 
+  function closeDatabaseConnection() {
+    return connection
+      .then(db => {
+        return new Promise((res, rej) => {
+          db.close(err => {
+            if (err) return rej(err);
+            return res();
+          })
+        });
+      });
+  }
+
   return {
     get,
     set,
     remove,
-    persistChanges
+    persistChanges,
+    closeDatabaseConnection
   };
 }
 

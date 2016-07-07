@@ -62,6 +62,7 @@ describe('persistent_cache/persistent_cache', () => {
         cache1.set('test 2', 'some other data');
 
         const testRead = cache1.persistChanges()
+          .then(cache1.closeDatabaseConnection)
           .then(() => {
             const cache2 = createPersistentCache({
               filename: TEST_DB
@@ -77,6 +78,7 @@ describe('persistent_cache/persistent_cache', () => {
 
                 cache2.remove('test 1');
                 cache2.persistChanges()
+                  .then(cache2.closeDatabaseConnection)
                   .then(() => {
                     const cache3 = createPersistentCache({
                       filename: TEST_DB
@@ -89,7 +91,8 @@ describe('persistent_cache/persistent_cache', () => {
                       .then(([data1, data2]) => {
                         assert.equal(data1, null);
                         assert.equal(data2, 'some other data');
-                      });
+                      })
+                      .then(cache3.closeDatabaseConnection);
                   });
               });
           });
