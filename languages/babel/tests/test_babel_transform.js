@@ -1,3 +1,5 @@
+"use strict";
+
 // const EventEmitter = require('events');
 // const {Record, Map, Set, List} = require('immutable');
 // const {assert} = require('../../../utils/assert');

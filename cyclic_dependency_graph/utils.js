@@ -1,3 +1,5 @@
+"use strict";
+
 const {Map} = require('immutable');
 const {addNode, addEdge} = require('./node');
 

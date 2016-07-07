@@ -1,3 +1,5 @@
+"use strict";
+
 const {difference} = require('lodash/array');
 const {Map, OrderedSet} = require('immutable');
 const {assert} = require('../../utils/assert');

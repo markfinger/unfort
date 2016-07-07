@@ -31,13 +31,12 @@
     "one-var-declaration-per-line": 2,
     "operator-linebreak": [2, "after"],
     "prefer-const": 2,
-    "quotes": [2, "single"],
     "semi": [2, "always"],
     "space-before-blocks": 2,
     "space-before-function-paren": [2, "never"],
     "space-in-parens": 2,
     "spaced-comment": [2, "always"],
-    "strict": 0
+    "strict": [2, "safe"]
   },
   "env": {
     "browser": true,

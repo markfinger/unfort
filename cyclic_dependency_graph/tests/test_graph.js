@@ -1,3 +1,5 @@
+"use strict";
+
 const EventEmitter = require('events');
 const {Map} = require('immutable');
 const {assert} = require('../../utils/assert');

@@ -1,3 +1,5 @@
+"use strict";
+
 const {Map, OrderedSet} = require('immutable');
 const {assert} = require('../../utils/assert');
 const {Node} = require('../node');

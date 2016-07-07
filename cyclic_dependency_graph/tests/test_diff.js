@@ -1,3 +1,5 @@
+"use strict";
+
 // const {assert} = require('../../utils/assert');
 // const {Diff, mergeDiffs, getNewNodesFromDiff, getPrunedNodesFromDiff, getChangedNodes} = require('../diff');
 // const {createNodesFromNotation} = require('../utils');

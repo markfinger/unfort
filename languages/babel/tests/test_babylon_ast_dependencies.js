@@ -1,9 +1,11 @@
+"use strict";
+
 const {assert} = require('../../../utils/assert');
 const babylon = require('babylon');
 const {babylonAstDependencies, COMMONJS, ES_MODULE} = require('../babylon_ast_dependencies');
 const babelGenerator = require('babel-generator').default;
 
-describe('pipeline/babel/babylon_ast_dependencies', () => {
+describe('languages/babel/babylon_ast_dependencies', () => {
   describe('#babylonAstDependencies', () => {
     describe('##dependencies', () => {
       it('should accept an AST and provide a list of dependencies specified in `require` calls', () => {

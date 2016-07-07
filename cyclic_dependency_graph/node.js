@@ -1,3 +1,5 @@
+"use strict";
+
 const {Record, OrderedSet} = require('immutable');
 
 const Node = Record({

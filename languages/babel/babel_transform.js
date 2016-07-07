@@ -1,3 +1,5 @@
+"use strict";
+
 const Promise = require('bluebird');
 const {uniq} = require('lodash/array');
 const babel = require('babel-core');
@@ -58,7 +60,7 @@ function babelTransform({pipeline, graph, asset}) {
         asset.sourceUrl = sourceUrl;
         
         const generatedBabelFile = babelGenerator(
-          transformedBabelFile.ast, 
+          transformedBabelFile.ast,
           {
             sourceMaps: true,
             sourceMapTarget: url,

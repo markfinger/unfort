@@ -4,8 +4,8 @@
   "description": "A build tool for the web that prioritises performance during development. Fundamentally, this project is a greenfield reimplementation of a subset of webpack's features.",
   "main": "lib/unfort.js",
   "scripts": {
-    "lint": "eslint cyclic_dependency_graph file_watcher graph pipeline utils",
-    "test": "mocha --reporter spec '**/tests/*.js'"
+    "lint": "eslint cyclic_dependency_graph file_watcher graph languages persistent_cache utils",
+    "test": "mocha --reporter spec '**/tests/test_*.js'"
   },
   "repository": {
     "type": "git",

@@ -1,3 +1,5 @@
+"use strict";
+
 const {Record, is} = require('immutable');
 
 const Diff = Record({

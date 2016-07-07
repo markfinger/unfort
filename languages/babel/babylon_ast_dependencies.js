@@ -1,3 +1,5 @@
+"use strict";
+
 const {isObject} = require('lodash/lang');
 const traverse = require('babel-traverse').default;
 const types = require('babel-types');
