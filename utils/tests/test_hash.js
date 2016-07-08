@@ -1,9 +1,14 @@
 "use strict";
 
-const {assert} = require('../../utils/assert');
-const {generateCacheKey} = require('../cache_key');
+const {assert} = require('../assert');
+const {stringToMurmur, generateCacheKey} = require('../hash');
 
-describe('persistent_cache/cache_key', () => {
+describe('utils/hash', () => {
+  describe('#stringToMurmur', () => {
+    it('should return the expected murmur hash as a string', () => {
+      assert.equal(stringToMurmur('test'), '3127628307');
+    });
+  });
   describe('#generateCacheKey', () => {
     it('should accept a string and produce a hash', () => {
       assert.equal(

@@ -4,7 +4,8 @@ const {isArray, isString} = require('lodash/lang');
 const Murmur = require('imurmurhash');
 
 module.exports = {
-  generateCacheKey
+  generateCacheKey,
+  stringToMurmur
 };
 
 function generateCacheKey(data) {
