@@ -18,7 +18,7 @@ describe('utils/lazy_promise', () => {
           return promise.then(val => {
             assert.isTrue(evaluated);
             assert.equal(val, 'test');
-          })
+          });
         })
       );
     });
