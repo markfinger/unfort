@@ -77,7 +77,7 @@ describe('persistent_cache/persistent_cache', () => {
                 assert.equal(data2, 'some other data');
 
                 cache2.remove('test 1');
-                cache2.persistChanges()
+                return cache2.persistChanges()
                   .then(cache2.closeDatabaseConnection)
                   .then(() => {
                     const cache3 = createPersistentCache({
@@ -92,12 +92,13 @@ describe('persistent_cache/persistent_cache', () => {
                         assert.equal(data1, null);
                         assert.equal(data2, 'some other data');
                       })
-                      .then(cache3.closeDatabaseConnection);
+                      .then(cache3.closeDatabaseConnection)
+                      .then(() => 'test complete');
                   });
               });
           });
 
-        return assert.isFulfilled(testRead);
+        return assert.becomes(testRead, 'test complete');
       });
     });
   });

@@ -99,7 +99,7 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
 
         let deleteStatement;
         if (deleteParams.length) {
-          const deleteTokens = range(deleteParams.length - 1).map(() => 'key = ?');
+          const deleteTokens = range(deleteParams.length).map(() => 'key = ?');
           deleteStatement = `DELETE FROM ${DB_TABLE_NAME} WHERE ${deleteTokens.join(' OR ')};`;
         }
 
@@ -151,6 +151,7 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
             [key],
             (err, data) => {
               if (err) return rej(err);
+              if (!data) return res(null);
               res(data.value);
             }
           );
@@ -158,7 +159,10 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
       })
       .then(data => {
         memoryCache.set(key, data);
-        return deserializeData(data);
+        if (data) {
+          return deserializeData(data);
+        }
+        return null;
       });
   }
 
