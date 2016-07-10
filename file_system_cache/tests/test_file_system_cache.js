@@ -161,6 +161,83 @@ describe('file_system_cache/file_system_cache', () => {
         );
       });
     });
+    it('should describe file dependencies for isFile calls', () => {
+      const fsCache = new FileSystemCache();
+      const context = new FileSystemCacheContext(fsCache);
+      return context.isFile(__filename)
+        .then(() => {
+          assert.deepEqual(
+            context.describeDependencies(),
+            {
+              [__filename]: {
+                isFile: true
+              }
+            }
+          );
+        });
+    });
+    it('should describe file dependencies for stat calls', () => {
+      const fsCache = new FileSystemCache();
+      const context = new FileSystemCacheContext(fsCache);
+      return context.stat(__filename)
+        .then(() => {
+        assert.deepEqual(
+          context.describeDependencies(),
+          {
+            [__filename]: {
+              modifiedTime: fs.statSync(__filename).mtime.getTime()
+            }
+          }
+        );
+      });
+    });
+    it('should describe file dependencies for readModifiedTime calls', () => {
+      const fsCache = new FileSystemCache();
+      const context = new FileSystemCacheContext(fsCache);
+      return context.readModifiedTime(__filename)
+        .then(() => {
+          assert.deepEqual(
+            context.describeDependencies(),
+            {
+              [__filename]: {
+                modifiedTime: fs.statSync(__filename).mtime.getTime()
+              }
+            }
+          );
+        });
+    });
+    it('should describe file dependencies for readText calls', () => {
+      const fsCache = new FileSystemCache();
+      const context = new FileSystemCacheContext(fsCache);
+      return context.readText(__filename)
+        .then(() => {
+          assert.deepEqual(
+            context.describeDependencies(),
+            {
+              [__filename]: {
+                modifiedTime: fs.statSync(__filename).mtime.getTime(),
+                textHash: stringToMurmur(fs.readFileSync(__filename, 'utf8'))
+              }
+            }
+          );
+        });
+    });
+    it('should describe file dependencies for readTextHash calls', () => {
+      const fsCache = new FileSystemCache();
+      const context = new FileSystemCacheContext(fsCache);
+      return context.readTextHash(__filename)
+        .then(() => {
+          assert.deepEqual(
+            context.describeDependencies(),
+            {
+              [__filename]: {
+                modifiedTime: fs.statSync(__filename).mtime.getTime(),
+                textHash: stringToMurmur(fs.readFileSync(__filename, 'utf8'))
+              }
+            }
+          );
+        });
+    });
   });
   describe('validateFileSystemCacheDependencies', () => {
     it('should accept dependencies from a context and indicate if they are still true', () => {

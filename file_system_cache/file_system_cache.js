@@ -76,6 +76,7 @@ class FileSystemCache {
 class FileObject {
   constructor(path, fileSystem) {
     this.path = path;
+
     // Lazily-evaluated interactions with the file system
     this.stat = new LazyPromise(() => fileSystem.stat(path));
     this.text = new LazyPromise(() => fileSystem.readFile(path, 'utf8'));
@@ -112,46 +113,66 @@ class FileSystemCacheContext {
   describeDependencies() {
     return this.dependencies;
   }
-  isFile(path) {
+  addIsFileDependency(path) {
     return this.cache.isFile(path)
       .then(isFile => {
         this.getDependency(path).isFile = isFile;
-        return isFile;
       });
   }
-  stat(path) {
-    return BlueBird.all([
-      this.cache.readModifiedTime(path),
-      this.cache.stat(path)
-    ])
-      .then(data => {
-        this.getDependency(path).modifiedTime = data[0];
-        return data[1];
-      });
-  }
-  readModifiedTime(path) {
+  addModifiedTimeDependency(path) {
     return this.cache.readModifiedTime(path)
       .then(modifiedTime => {
         this.getDependency(path).modifiedTime = modifiedTime;
-        return modifiedTime;
       });
   }
-  readText(path) {
-    return BlueBird.all([
-      this.cache.readTextHash(path),
-      this.cache.readText(path)
-    ])
-      .then(data => {
-        this.getDependency(path).textHash = data[0];
-        return data[1];
-      });
-  }
-  readTextHash(path) {
+  addTextHashDependency(path) {
     return this.cache.readTextHash(path)
       .then(textHash => {
         this.getDependency(path).textHash = textHash;
-        return textHash;
       });
+  }
+  isFile(path) {
+    return BlueBird.all([
+      this.cache.isFile(path),
+      this.addIsFileDependency(path)
+    ])
+      .then(data => data[0]);
+  }
+  stat(path) {
+    return BlueBird.all([
+      this.cache.stat(path),
+      this.addModifiedTimeDependency(path)
+    ])
+      .then(data => data[0]);
+  }
+  readModifiedTime(path) {
+    return BlueBird.all([
+      this.cache.readModifiedTime(path),
+      this.addModifiedTimeDependency(path)
+    ])
+      .then(data => data[0]);
+  }
+  readText(path) {
+    return BlueBird.all([
+      this.cache.readText(path),
+      // We add a dependency for both the modified time and the
+      // text hash as our hashing mechanism (murmur) is designed
+      // for performance, not collision resistance
+      this.addModifiedTimeDependency(path),
+      this.addTextHashDependency(path)
+    ])
+      .then(data => data[0]);
+  }
+  readTextHash(path) {
+    return BlueBird.all([
+      this.cache.readTextHash(path),
+      // We add a dependency for both the modified time and the
+      // text hash as our hashing mechanism (murmur) is designed
+      // for performance, not collision resistance
+      this.addModifiedTimeDependency(path),
+      this.addTextHashDependency(path)
+    ])
+      .then(data => data[0]);
   }
 }
 
