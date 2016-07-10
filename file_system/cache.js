@@ -35,7 +35,7 @@ class FileSystemCache {
     file.setStat(stat);
   }
   hasFile(path) {
-    return !!this.files[path];
+    return Boolean(this.files[path]);
   }
   removeFile(path) {
     if (this.files[path]) {

@@ -1,6 +1,5 @@
 "use strict";
 
-const fs = require('fs');
 const BlueBird = require('bluebird');
 const {generateStringHash} = require('../utils/hash');
 const {LazyPromise} = require('../utils/lazy_promise');

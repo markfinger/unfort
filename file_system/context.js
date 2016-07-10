@@ -1,6 +1,5 @@
 "use strict";
 
-const fs = require('fs');
 const BlueBird = require('bluebird');
 
 class FileSystemCacheContext {
