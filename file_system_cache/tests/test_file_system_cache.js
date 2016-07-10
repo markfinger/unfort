@@ -181,15 +181,15 @@ describe('file_system_cache/file_system_cache', () => {
       const context = new FileSystemCacheContext(fsCache);
       return context.stat(__filename)
         .then(() => {
-        assert.deepEqual(
-          context.describeDependencies(),
-          {
-            [__filename]: {
-              modifiedTime: fs.statSync(__filename).mtime.getTime()
+          assert.deepEqual(
+            context.describeDependencies(),
+            {
+              [__filename]: {
+                modifiedTime: fs.statSync(__filename).mtime.getTime()
+              }
             }
-          }
-        );
-      });
+          );
+        });
     });
     it('should describe file dependencies for readModifiedTime calls', () => {
       const fsCache = new FileSystemCache();

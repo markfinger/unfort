@@ -69,7 +69,9 @@ class FileSystemCache {
     return this.evaluateFileDataProperty('textHash', path);
   }
   invalidateFile(path) {
-    this.files[path] = null;
+    if (this.files[path]) {
+      this.files[path] = null;
+    }
   }
 }
 
