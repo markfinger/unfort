@@ -1,5 +1,15 @@
 "use strict";
 
+class FileWatcher {
+  constructor() {
+
+  }
+}
+
+module.exports = {
+  FileWatcher
+};
+
 /*
 
 Two watchers
