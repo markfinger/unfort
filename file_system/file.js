@@ -15,7 +15,7 @@ class File {
     return this._stat;
   }
   set stat(stat) {
-    this._stat = Promise.resolve(stat);
+    this._stat = BlueBird.resolve(stat);
     // Force re-evaluation of the modified time
     this._modifiedTime = null;
     return stat;
@@ -28,7 +28,7 @@ class File {
     return this._modifiedTime;
   }
   set modifiedTime(modifiedTime) {
-    this._modifiedTime = Promise.resolve(modifiedTime);
+    this._modifiedTime = BlueBird.resolve(modifiedTime);
     return modifiedTime;
   }
   get isFile() {
@@ -45,7 +45,7 @@ class File {
     return this._isFile;
   }
   set isFile(isFile) {
-    this._isFile = Promise.resolve(isFile);
+    this._isFile = BlueBird.resolve(isFile);
     return isFile;
   }
   get text() {
@@ -55,7 +55,7 @@ class File {
     return this._text;
   }
   set text(text) {
-    this._text = Promise.resolve(text);
+    this._text = BlueBird.resolve(text);
     // Force re-evaluation of the text's hash
     this._textHash = null;
     return text;
@@ -67,7 +67,7 @@ class File {
     return this._textHash;
   }
   set textHash(textHash) {
-    this._textHash = Promise.resolve(textHash);
+    this._textHash = BlueBird.resolve(textHash);
     return textHash;
   }
 }
