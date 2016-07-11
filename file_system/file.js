@@ -68,6 +68,7 @@ class File {
   }
   set textHash(textHash) {
     this._textHash = Promise.resolve(textHash);
+    return textHash;
   }
 }
 
