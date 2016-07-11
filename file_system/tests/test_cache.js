@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require('fs');
+const {Buffer} = require('buffer');
 const {assert} = require('../../utils/assert');
 const {generateStringHash} = require('../../utils/hash');
 const {FileSystemCache, StaleFileIntercept} = require('../cache');
@@ -13,14 +14,18 @@ describe('file_system/cache', () => {
         fsCache.stat(__filename),
         fsCache.readModifiedTime(__filename),
         fsCache.isFile(__filename),
+        fsCache.readBuffer(__filename),
         fsCache.readText(__filename),
         fsCache.readTextHash(__filename)
-      ]).then(([stat, modifiedTime, isFile, text, textHash]) => {
+      ]).then(([stat, modifiedTime, isFile, buffer, text, textHash]) => {
+        const actualBuffer = fs.readFileSync(__filename);
         const actualText = fs.readFileSync(__filename, 'utf8');
         const actualStat = fs.statSync(__filename);
         assert.equal(stat.mtime.getTime(), actualStat.mtime.getTime());
         assert.equal(modifiedTime, actualStat.mtime.getTime());
         assert.equal(isFile, true);
+        assert.instanceOf(buffer, Buffer);
+        assert.equal(buffer.toString(), actualBuffer.toString());
         assert.equal(text, actualText);
         assert.equal(textHash, generateStringHash(actualText));
       });

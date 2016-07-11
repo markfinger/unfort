@@ -48,6 +48,16 @@ class File {
     this._isFile = BlueBird.resolve(isFile);
     return isFile;
   }
+  get buffer() {
+    if (!this._buffer) {
+      this._buffer = this.fileSystem.readFile(this.path);
+    }
+    return this._buffer;
+  }
+  set buffer(buffer) {
+    this._buffer = BlueBird.resolve(buffer);
+    return _buffer;
+  }
   get text() {
     if (!this._text) {
       this._text = this.fileSystem.readFile(this.path, 'utf8');

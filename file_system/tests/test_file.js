@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require('fs');
+const {Buffer} = require('buffer');
 const BlueBird = require('bluebird');
 const {assert} = require('../../utils/assert');
 const {generateStringHash} = require('../../utils/hash');
@@ -20,15 +21,19 @@ describe('file_system/file', () => {
         file.stat,
         file.modifiedTime,
         file.isFile,
+        file.buffer,
         file.text,
         file.textHash
       ])
-        .then(([stat, modifiedTime, isFile, text, textHash]) => {
+        .then(([stat, modifiedTime, isFile, buffer, text, textHash]) => {
+          const actualBuffer = fs.readFileSync(__filename);
           const actualText = fs.readFileSync(__filename, 'utf8');
           const actualStat = fs.statSync(__filename);
           assert.equal(stat.mtime.getTime(), actualStat.mtime.getTime());
           assert.equal(modifiedTime, actualStat.mtime.getTime());
           assert.equal(isFile, true);
+          assert.instanceOf(buffer, Buffer);
+          assert.equal(buffer.toString(), actualBuffer.toString());
           assert.equal(text, actualText);
           assert.equal(textHash, generateStringHash(actualText));
         });
@@ -73,6 +78,29 @@ describe('file_system/file', () => {
               return file.text
                 .then(text => {
                   assert.equal(text, 'text');
+                });
+            })
+        );
+      });
+      it('should create an object that lazily evaluates buffers and preserves the value', () => {
+        let called = false;
+        function readFile(path, encoding) {
+          if (called) {
+            throw new Error('should not be called twice');
+          }
+          called = true;
+          assert.equal(path, '/some/file');
+          assert.equal(encoding, undefined);
+          return Promise.resolve(new Buffer('buffer'));
+        }
+        const file = new File('/some/file', {readFile});
+        return assert.isFulfilled(
+          file.buffer
+            .then(buffer => {
+              assert.equal(buffer.toString(), 'buffer');
+              return file.buffer
+                .then(_buffer => {
+                  assert.strictEqual(buffer, _buffer);
                 });
             })
         );

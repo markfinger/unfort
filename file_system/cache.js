@@ -63,6 +63,9 @@ class FileSystemCache {
   readModifiedTime(path) {
     return this.evaluateFileDataProperty('modifiedTime', path);
   }
+  readBuffer(path) {
+    return this.evaluateFileDataProperty('buffer', path);
+  }
   readText(path) {
     return this.evaluateFileDataProperty('text', path);
   }
