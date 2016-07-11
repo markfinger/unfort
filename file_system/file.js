@@ -60,6 +60,10 @@ class File {
   }
   get text() {
     if (!this._text) {
+      // Rather than read this file's buffer, we invoke the file system
+      // directly. This does suggest that in certain edge-cases a file
+      // may be read twice, but in most cases this will help to reduce
+      // memory as we only store one copy of the file's contents
       this._text = this.fileSystem.readFile(this.path, 'utf8');
     }
     return this._text;
