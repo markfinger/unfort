@@ -43,7 +43,7 @@ describe('file_system/file', () => {
     it('should allow stat objects to be manually set', () => {
       const file = new File('___NON_EXISTENT_FILE__', fileSystem);
       const stat = fs.statSync(__filename);
-      file.setStat(stat);
+      file.stat = stat;
       return file.stat
         .then(_stat => {
           assert.strictEqual(_stat, stat);

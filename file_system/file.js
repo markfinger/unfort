@@ -2,20 +2,38 @@
 
 const BlueBird = require('bluebird');
 const {generateStringHash} = require('../utils/hash');
-const {LazyPromise} = require('../utils/lazy_promise');
 
 class File {
   constructor(path, fileSystem) {
     this.path = path;
-
-    // Lazily-evaluated interactions with the file system
-    this.stat = new LazyPromise(() => fileSystem.stat(path));
-    this.text = new LazyPromise(() => fileSystem.readFile(path, 'utf8'));
-
-    // Data derived from the file system interactions
-    this.modifiedTime = new LazyPromise(() => this.stat.then(stat => stat.mtime.getTime()));
-    this.isFile = new LazyPromise(() => {
-      return this.stat
+    this.fileSystem = fileSystem;
+  }
+  get stat() {
+    if (!this._stat) {
+      this._stat = this.fileSystem.stat(this.path);
+    }
+    return this._stat;
+  }
+  set stat(stat) {
+    this._stat = Promise.resolve(stat);
+    // Force re-evaluation of the modified time
+    this._modifiedTime = null;
+    return stat;
+  }
+  get modifiedTime() {
+    if (!this._modifiedTime) {
+      this._modifiedTime = this.stat
+        .then(stat => stat.mtime.getTime());
+    }
+    return this._modifiedTime;
+  }
+  set modifiedTime(modifiedTime) {
+    this._modifiedTime = Promise.resolve(modifiedTime);
+    return modifiedTime;
+  }
+  get isFile() {
+    if (!this._isFile) {
+      this._isFile = this.stat
         .then(stat => stat.isFile())
         .catch(err => {
           if (err.code === 'ENOENT') {
@@ -23,12 +41,33 @@ class File {
           }
           return BlueBird.reject(err);
         });
-    });
-    this.textHash = new LazyPromise(() => this.text.then(generateStringHash));
+    }
+    return this._isFile;
   }
-  setStat(stat) {
-    this.stat = Promise.resolve(stat);
-    this.modifiedTime = Promise.resolve(stat.mtime.getTime());
+  set isFile(isFile) {
+    this._isFile = Promise.resolve(isFile);
+    return isFile;
+  }
+  get text() {
+    if (!this._text) {
+      this._text = this.fileSystem.readFile(this.path, 'utf8');
+    }
+    return this._text;
+  }
+  set text(text) {
+    this._text = Promise.resolve(text);
+    // Force re-evaluation of the text's hash
+    this._textHash = null;
+    return text;
+  }
+  get textHash() {
+    if (!this._textHash) {
+      this._textHash = this.text.then(generateStringHash)
+    }
+    return this._textHash;
+  }
+  set textHash(textHash) {
+    this._textHash = Promise.resolve(textHash);
   }
 }
 

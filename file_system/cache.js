@@ -32,7 +32,7 @@ class FileSystemCache {
    */
   addFileStat(path, stat) {
     const file = this._getOrCreateFile(path);
-    file.setStat(stat);
+    file.stat = stat;
   }
   hasFile(path) {
     return Boolean(this.files[path]);
