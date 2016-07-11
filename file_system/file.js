@@ -62,7 +62,7 @@ class File {
   }
   get textHash() {
     if (!this._textHash) {
-      this._textHash = this.text.then(generateStringHash)
+      this._textHash = this.text.then(generateStringHash);
     }
     return this._textHash;
   }
