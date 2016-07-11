@@ -64,6 +64,12 @@ describe('file_system/file', () => {
       return file.getModifiedTime()
         .then(modifiedTime => assert.equal(modifiedTime, 'test'));
     });
+    it('should allow buffer to be manually set', () => {
+      const file = new File('___NON_EXISTENT_FILE__');
+      file.setBuffer('test');
+      return file.getBuffer()
+        .then(buffer => assert.equal(buffer, 'test'));
+    });
     it('should allow text to be manually set', () => {
       const file = new File('___NON_EXISTENT_FILE__');
       file.setText('test');
