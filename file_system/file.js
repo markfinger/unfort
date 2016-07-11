@@ -56,7 +56,7 @@ class File {
   }
   set buffer(buffer) {
     this._buffer = BlueBird.resolve(buffer);
-    return _buffer;
+    return buffer;
   }
   get text() {
     if (!this._text) {
