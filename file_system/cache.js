@@ -32,7 +32,7 @@ class FileSystemCache {
    */
   addFileStat(path, stat) {
     const file = this._getOrCreateFile(path);
-    file.stat = stat;
+    file.setStat(stat);
   }
   hasFile(path) {
     return Boolean(this.files[path]);
@@ -42,35 +42,35 @@ class FileSystemCache {
       this.files[path] = null;
     }
   }
-  evaluateFileDataProperty(property, path) {
+  evaluateFileMethod(methodName, path) {
     const file = this._getOrCreateFile(path);
-    return file[property]
+    return file[methodName]()
       .catch(err => {
-        this._ensureFileIsValid(file, property);
+        this._ensureFileIsValid(file, methodName);
         return BlueBird.reject(err);
       })
       .then(data => {
-        this._ensureFileIsValid(file, property);
+        this._ensureFileIsValid(file, methodName);
         return data;
       });
   }
   isFile(path) {
-    return this.evaluateFileDataProperty('isFile', path);
+    return this.evaluateFileMethod('getIsFile', path);
   }
   stat(path) {
-    return this.evaluateFileDataProperty('stat', path);
+    return this.evaluateFileMethod('getStat', path);
   }
   readModifiedTime(path) {
-    return this.evaluateFileDataProperty('modifiedTime', path);
+    return this.evaluateFileMethod('getModifiedTime', path);
   }
   readBuffer(path) {
-    return this.evaluateFileDataProperty('buffer', path);
+    return this.evaluateFileMethod('getBuffer', path);
   }
   readText(path) {
-    return this.evaluateFileDataProperty('text', path);
+    return this.evaluateFileMethod('getText', path);
   }
   readTextHash(path) {
-    return this.evaluateFileDataProperty('textHash', path);
+    return this.evaluateFileMethod('getTextHash', path);
   }
   _getOrCreateFile(path) {
     let file = this.files[path];

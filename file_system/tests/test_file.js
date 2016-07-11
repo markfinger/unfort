@@ -18,12 +18,12 @@ describe('file_system/file', () => {
       const file = new File(__filename, fileSystem);
       assert.equal(file.path, __filename);
       return Promise.all([
-        file.stat,
-        file.modifiedTime,
-        file.isFile,
-        file.buffer,
-        file.text,
-        file.textHash
+        file.getStat(),
+        file.getModifiedTime(),
+        file.getIsFile(),
+        file.getBuffer(),
+        file.getText(),
+        file.getTextHash()
       ])
         .then(([stat, modifiedTime, isFile, buffer, text, textHash]) => {
           const actualBuffer = fs.readFileSync(__filename);
@@ -40,7 +40,7 @@ describe('file_system/file', () => {
     });
     it('should indicate if a file does not exist', () => {
       const file = new File('___NON_EXISTENT_FILE__', fileSystem);
-      return file.isFile
+      return file.getIsFile()
         .then(isFile => {
           assert.equal(isFile, false);
         });
@@ -48,11 +48,11 @@ describe('file_system/file', () => {
     it('should allow stat objects to be manually set', () => {
       const file = new File('___NON_EXISTENT_FILE__', fileSystem);
       const stat = fs.statSync(__filename);
-      file.stat = stat;
-      return file.stat
+      file.setStat(stat);
+      return file.getStat()
         .then(_stat => {
           assert.strictEqual(_stat, stat);
-          return file.modifiedTime
+          return file.getModifiedTime()
             .then(modifiedTime => {
               assert.equal(modifiedTime, stat.mtime.getTime());
             });
@@ -72,10 +72,10 @@ describe('file_system/file', () => {
         }
         const file = new File('/some/file', {readFile});
         return assert.isFulfilled(
-          file.text
+          file.getText()
             .then(text => {
               assert.equal(text, 'text');
-              return file.text
+              return file.getText()
                 .then(text => {
                   assert.equal(text, 'text');
                 });
@@ -95,10 +95,10 @@ describe('file_system/file', () => {
         }
         const file = new File('/some/file', {readFile});
         return assert.isFulfilled(
-          file.buffer
+          file.getBuffer()
             .then(buffer => {
               assert.equal(buffer.toString(), 'buffer');
-              return file.buffer
+              return file.getBuffer()
                 .then(_buffer => {
                   assert.strictEqual(buffer, _buffer);
                 });
@@ -117,10 +117,10 @@ describe('file_system/file', () => {
         }
         const file = new File('/some/file', {stat});
         return assert.isFulfilled(
-          file.stat
+          file.getStat()
             .then(text => {
               assert.equal(text, 'stat');
-              return file.stat
+              return file.getStat()
                 .then(text => {
                   assert.equal(text, 'stat');
                 });

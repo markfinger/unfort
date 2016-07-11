@@ -8,32 +8,32 @@ class File {
     this.path = path;
     this.fileSystem = fileSystem;
   }
-  get stat() {
+  getStat() {
     if (!this._stat) {
       this._stat = this.fileSystem.stat(this.path);
     }
     return this._stat;
   }
-  set stat(stat) {
+  setStat(stat) {
     this._stat = BlueBird.resolve(stat);
     // Force re-evaluation of the modified time
     this._modifiedTime = null;
     return stat;
   }
-  get modifiedTime() {
+  getModifiedTime() {
     if (!this._modifiedTime) {
-      this._modifiedTime = this.stat
+      this._modifiedTime = this.getStat()
         .then(stat => stat.mtime.getTime());
     }
     return this._modifiedTime;
   }
-  set modifiedTime(modifiedTime) {
+  setModifiedTime(modifiedTime) {
     this._modifiedTime = BlueBird.resolve(modifiedTime);
     return modifiedTime;
   }
-  get isFile() {
+  getIsFile() {
     if (!this._isFile) {
-      this._isFile = this.stat
+      this._isFile = this.getStat()
         .then(stat => stat.isFile())
         .catch(err => {
           if (err.code === 'ENOENT') {
@@ -44,21 +44,21 @@ class File {
     }
     return this._isFile;
   }
-  set isFile(isFile) {
+  setIsFile(isFile) {
     this._isFile = BlueBird.resolve(isFile);
     return isFile;
   }
-  get buffer() {
+  getBuffer() {
     if (!this._buffer) {
       this._buffer = this.fileSystem.readFile(this.path);
     }
     return this._buffer;
   }
-  set buffer(buffer) {
+  setBuffer(buffer) {
     this._buffer = BlueBird.resolve(buffer);
     return buffer;
   }
-  get text() {
+  getText() {
     if (!this._text) {
       // Rather than read this file's buffer, we invoke the file system
       // directly. This does suggest that in certain edge-cases a file
@@ -68,19 +68,19 @@ class File {
     }
     return this._text;
   }
-  set text(text) {
+  setText(text) {
     this._text = BlueBird.resolve(text);
     // Force re-evaluation of the text's hash
     this._textHash = null;
     return text;
   }
-  get textHash() {
+  getTextHash() {
     if (!this._textHash) {
-      this._textHash = this.text.then(generateStringHash);
+      this._textHash = this.getText().then(generateStringHash);
     }
     return this._textHash;
   }
-  set textHash(textHash) {
+  setTextHash(textHash) {
     this._textHash = BlueBird.resolve(textHash);
     return textHash;
   }
