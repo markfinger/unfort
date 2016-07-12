@@ -1,3 +1,5 @@
+This project's currently midway through an exploratory rewrite. The last stable and functional release is https://github.com/markfinger/unfort/tree/v1.3.0
+
 # unfort
 
 A build tool for the web that prioritises performance during development. Fundamentally,
