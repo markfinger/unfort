@@ -46,6 +46,7 @@ class FileSystemCacheContext {
   stat(path) {
     return BlueBird.all([
       this.cache.stat(path),
+      this.addIsFileDependency(path),
       this.addModifiedTimeDependency(path)
     ])
       .then(data => data[0]);
@@ -53,6 +54,15 @@ class FileSystemCacheContext {
   readModifiedTime(path) {
     return BlueBird.all([
       this.cache.readModifiedTime(path),
+      this.addIsFileDependency(path),
+      this.addModifiedTimeDependency(path)
+    ])
+      .then(data => data[0]);
+  }
+  readBuffer(path) {
+    return BlueBird.all([
+      this.cache.readBuffer(path),
+      this.addIsFileDependency(path),
       this.addModifiedTimeDependency(path)
     ])
       .then(data => data[0]);
@@ -60,6 +70,7 @@ class FileSystemCacheContext {
   readText(path) {
     return BlueBird.all([
       this.cache.readText(path),
+      this.addIsFileDependency(path),
       // We add a dependency for both the modified time and the
       // text hash as our hashing mechanism (murmur) is designed
       // for performance, not collision resistance
@@ -71,6 +82,7 @@ class FileSystemCacheContext {
   readTextHash(path) {
     return BlueBird.all([
       this.cache.readTextHash(path),
+      this.addIsFileDependency(path),
       // We add a dependency for both the modified time and the
       // text hash as our hashing mechanism (murmur) is designed
       // for performance, not collision resistance

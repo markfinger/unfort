@@ -1,6 +1,7 @@
 "use strict";
 
 const fs = require('fs');
+const {Buffer} = require('buffer');
 const {assert} = require('../../utils/assert');
 const {generateStringHash} = require('../../utils/hash');
 const {FileSystemCache} = require('../cache');
@@ -15,14 +16,18 @@ describe('file_system/context', () => {
         context.stat(__filename),
         context.readModifiedTime(__filename),
         context.isFile(__filename),
+        context.readBuffer(__filename),
         context.readText(__filename),
         context.readTextHash(__filename)
-      ]).then(([stat, modifiedTime, isFile, text, textHash]) => {
+      ]).then(([stat, modifiedTime, isFile, buffer, text, textHash]) => {
+        const actualBuffer = fs.readFileSync(__filename);
         const actualText = fs.readFileSync(__filename, 'utf8');
         const actualStat = fs.statSync(__filename);
         assert.equal(stat.mtime.getTime(), actualStat.mtime.getTime());
         assert.equal(modifiedTime, actualStat.mtime.getTime());
         assert.equal(isFile, true);
+        assert.instanceOf(buffer, Buffer);
+        assert.equal(buffer.toString(), actualBuffer.toString());
         assert.equal(text, actualText);
         assert.equal(textHash, generateStringHash(actualText));
 
@@ -90,6 +95,7 @@ describe('file_system/context', () => {
             context.describeDependencies(),
             {
               [__filename]: {
+                isFile: true,
                 modifiedTime: fs.statSync(__filename).mtime.getTime()
               }
             }
@@ -105,6 +111,23 @@ describe('file_system/context', () => {
             context.describeDependencies(),
             {
               [__filename]: {
+                isFile: true,
+                modifiedTime: fs.statSync(__filename).mtime.getTime()
+              }
+            }
+          );
+        });
+    });
+    it('should describe file dependencies for readBuffer calls', () => {
+      const fsCache = new FileSystemCache();
+      const context = new FileSystemCacheContext(fsCache);
+      return context.readBuffer(__filename)
+        .then(() => {
+          assert.deepEqual(
+            context.describeDependencies(),
+            {
+              [__filename]: {
+                isFile: true,
                 modifiedTime: fs.statSync(__filename).mtime.getTime()
               }
             }
@@ -120,6 +143,7 @@ describe('file_system/context', () => {
             context.describeDependencies(),
             {
               [__filename]: {
+                isFile: true,
                 modifiedTime: fs.statSync(__filename).mtime.getTime(),
                 textHash: generateStringHash(fs.readFileSync(__filename, 'utf8'))
               }
@@ -136,6 +160,7 @@ describe('file_system/context', () => {
             context.describeDependencies(),
             {
               [__filename]: {
+                isFile: true,
                 modifiedTime: fs.statSync(__filename).mtime.getTime(),
                 textHash: generateStringHash(fs.readFileSync(__filename, 'utf8'))
               }
