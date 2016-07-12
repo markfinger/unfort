@@ -14,22 +14,12 @@ class File {
     }
     return this._stat;
   }
-  setStat(stat) {
-    this._stat = BlueBird.resolve(stat);
-    // Force re-evaluation of the modified time
-    this._modifiedTime = null;
-    return stat;
-  }
   getModifiedTime() {
     if (!this._modifiedTime) {
       this._modifiedTime = this.getStat()
         .then(stat => stat.mtime.getTime());
     }
     return this._modifiedTime;
-  }
-  setModifiedTime(modifiedTime) {
-    this._modifiedTime = BlueBird.resolve(modifiedTime);
-    return modifiedTime;
   }
   getIsFile() {
     if (!this._isFile) {
@@ -44,19 +34,11 @@ class File {
     }
     return this._isFile;
   }
-  setIsFile(isFile) {
-    this._isFile = BlueBird.resolve(isFile);
-    return isFile;
-  }
   getBuffer() {
     if (!this._buffer) {
       this._buffer = this.fileSystem.readFile(this.path);
     }
     return this._buffer;
-  }
-  setBuffer(buffer) {
-    this._buffer = BlueBird.resolve(buffer);
-    return buffer;
   }
   getText() {
     if (!this._text) {
@@ -68,21 +50,11 @@ class File {
     }
     return this._text;
   }
-  setText(text) {
-    this._text = BlueBird.resolve(text);
-    // Force re-evaluation of the text's hash
-    this._textHash = null;
-    return text;
-  }
   getTextHash() {
     if (!this._textHash) {
       this._textHash = this.getText().then(generateStringHash);
     }
     return this._textHash;
-  }
-  setTextHash(textHash) {
-    this._textHash = BlueBird.resolve(textHash);
-    return textHash;
   }
 }
 

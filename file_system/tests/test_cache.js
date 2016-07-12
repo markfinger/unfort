@@ -99,28 +99,8 @@ describe('file_system/cache', () => {
           assert.instanceOf(err, StaleFileIntercept);
           return 'done';
         });
-      fsCache.removeFile(__filename);
+      fsCache.invalidateFile(__filename);
       return assert.becomes(job, 'done');
-    });
-    it('should allow file stats to be set manually', () => {
-      const fsCache = new FileSystemCache();
-      const stat = fs.statSync(__filename);
-      fsCache.addFileStat('___NON_EXISTENT_FILE__', stat);
-      return fsCache.stat('___NON_EXISTENT_FILE__')
-        .then(_stat => {
-          assert.strictEqual(_stat, stat);
-        });
-    });
-    it('should allow file objects to be populated', () => {
-      const fsCache = new FileSystemCache();
-      fsCache.addFile('test');
-      assert.isTrue(fsCache.hasFile('test'));
-    });
-    it('should allow file objects to be removed', () => {
-      const fsCache = new FileSystemCache();
-      fsCache.addFile('test');
-      fsCache.removeFile('test');
-      assert.isFalse(fsCache.hasFile('test'));
     });
   });
 });

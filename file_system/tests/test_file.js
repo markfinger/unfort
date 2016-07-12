@@ -45,43 +45,6 @@ describe('file_system/file', () => {
           assert.equal(isFile, false);
         });
     });
-    it('should allow stat objects to be manually set', () => {
-      const file = new File('___NON_EXISTENT_FILE__', fileSystem);
-      const stat = fs.statSync(__filename);
-      file.setStat(stat);
-      return file.getStat()
-        .then(_stat => assert.strictEqual(_stat, stat));
-    });
-    it('should allow isFile to be manually set', () => {
-      const file = new File('___NON_EXISTENT_FILE__');
-      file.setIsFile('test');
-      return file.getIsFile()
-        .then(isFile => assert.equal(isFile, 'test'));
-    });
-    it('should allow modifiedTime to be manually set', () => {
-      const file = new File('___NON_EXISTENT_FILE__');
-      file.setModifiedTime('test');
-      return file.getModifiedTime()
-        .then(modifiedTime => assert.equal(modifiedTime, 'test'));
-    });
-    it('should allow buffer to be manually set', () => {
-      const file = new File('___NON_EXISTENT_FILE__');
-      file.setBuffer('test');
-      return file.getBuffer()
-        .then(buffer => assert.equal(buffer, 'test'));
-    });
-    it('should allow text to be manually set', () => {
-      const file = new File('___NON_EXISTENT_FILE__');
-      file.setText('test');
-      return file.getText()
-        .then(text => assert.equal(text, 'test'));
-    });
-    it('should allow text hash to be manually set', () => {
-      const file = new File('___NON_EXISTENT_FILE__');
-      file.setTextHash('test');
-      return file.getTextHash()
-        .then(textHash => assert.equal(textHash, 'test'));
-    });
     describe('file system interactions', () => {
       it('should create an object that lazily evaluates text files and preserves the value', () => {
         let called = false;

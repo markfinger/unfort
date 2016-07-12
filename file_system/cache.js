@@ -21,23 +21,9 @@ class FileSystemCache {
       readFile: fileSystem.readFile || defaultReadFile,
       stat: fileSystem.stat || defaultStat
     };
+    // TODO expose event buses for exposing incoming data
   }
-  addFile(path) {
-    this._getOrCreateFile(path);
-  }
-  /**
-   * Sets a file's `stat` property. This enables the cache to be
-   * pre-populated with data from another system, such as a file
-   * crawler or watcher
-   */
-  addFileStat(path, stat) {
-    const file = this._getOrCreateFile(path);
-    file.setStat(stat);
-  }
-  hasFile(path) {
-    return Boolean(this.files[path]);
-  }
-  removeFile(path) {
+  invalidateFile(path) {
     if (this.files[path]) {
       this.files[path] = null;
     }
