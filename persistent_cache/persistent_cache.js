@@ -7,12 +7,6 @@ const mkdirp = require('mkdirp');
 const {forEach} = require('lodash/collection');
 const {range} = require('lodash/util');
 
-module.exports = {
-  createPersistentCache,
-  createMemoryCache,
-  createSqlite3Database
-};
-
 const DB_TABLE_NAME = 'CACHE';
 
 /**
@@ -59,12 +53,12 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
     return pendingDeletes[key] = true;
   }
 
-  // Flush the changes to the db
+  /**
+   * Any writes to SQLite will block concurrent reads, so we defer
+   * all write and delete operations until this method is called
+   */
   function persistChanges() {
-    // TODO: cleanup
-    // We're opening another connection, so we can use a transaction on
-    // the insert/deletes, but I'm not sure if it's needed...?
-    return createDatabaseConnection()
+    return connection
       .then(db => {
         const _pendingInserts = pendingInserts;
         pendingInserts = Object.create(null);
@@ -242,10 +236,18 @@ function createSqlite3Database(filename) {
       const db = new sqlite3.Database(filename, (err) => {
         if (err) return rej(err);
 
+        /*
+         TODO: textual keys allegedly have poor selection performance
+
+         Possible solutions:
+         - A more contextual method with multiple fields: path, mtime, etc?
+         - Use int ids for more performant selections?
+           Would require a key => id map to be maintained, which means more moving parts
+         */
         db.run(
           `
             CREATE TABLE IF NOT EXISTS ${DB_TABLE_NAME} (
-              key CHAR(255) PRIMARY KEY NOT NULL,
+              key TEXT PRIMARY KEY NOT NULL,
               value TEXT
             );
           `,
@@ -269,3 +271,9 @@ function deserializeData(json) {
   }
   return Promise.resolve(data);
 }
+
+module.exports = {
+  createPersistentCache,
+  createMemoryCache,
+  createSqlite3Database
+};
