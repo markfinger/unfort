@@ -12,6 +12,8 @@ class EventBus {
   unsubscribe(func) {
     pull(this.subscribers, func);
   }
+  // Not sure what optimizations exists for arg rest/spread,
+  // so `push` just uses a hard-coded number of args
   push(arg1, arg2, arg3, arg4, arg5) {
     const subscribers = this.subscribers;
     let index = subscribers.length;
