@@ -23,8 +23,8 @@ FileTreeWatcher:
   - detect readFile + isFile signals
   - start watching the directory containing the file
   - walk up the dir tree and watch every new directory until the root is hit
-  - accept `shouldWatchFile(path) { return Promise.resolve(true | false); }`
-  - accept `shouldWatchDirectory(path) { return Promise.resolve(true | false); }`
+  - accept `shouldWatchFile(path) { return BlueBird.resolve(true | false); }`
+  - accept `shouldWatchDirectory(path) { return BlueBird.resolve(true | false); }`
   - when a file is encountered, signal the fs cache that it exists
   - when a directory is encountered, signal the fs cache that it exists
   - when a file is read, stat it and push it to the fs cache (how? maybe a signal with payload)

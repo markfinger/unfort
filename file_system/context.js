@@ -68,7 +68,7 @@ class FileSystemCacheContext {
       .then(data => data[0]);
   }
   readText(path) {
-    return BlueBird.all([
+    return Promise.all([
       this.cache.readText(path),
       this.addIsFileDependency(path),
       // We add a dependency for both the modified time and the

@@ -1,6 +1,5 @@
 "use strict";
 
-// const BlueBird = require('bluebird');
 // const Chokidar = require('chokidar');
 // const {assert} = require('../../utils/assert');
 // const {FileWatcher} = require('../watcher');

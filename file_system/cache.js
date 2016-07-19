@@ -28,7 +28,33 @@ class FileSystemCache {
       this.files[path] = null;
     }
   }
-  evaluateFileMethod(methodName, path) {
+  isFile(path) {
+    return this._evaluateFileMethod('getIsFile', path);
+  }
+  stat(path) {
+    return this._evaluateFileMethod('getStat', path);
+  }
+  readModifiedTime(path) {
+    return this._evaluateFileMethod('getModifiedTime', path);
+  }
+  readBuffer(path) {
+    return this._evaluateFileMethod('getBuffer', path);
+  }
+  readText(path) {
+    return this._evaluateFileMethod('getText', path);
+  }
+  readTextHash(path) {
+    return this._evaluateFileMethod('getTextHash', path);
+  }
+  _getOrCreateFile(path) {
+    let file = this.files[path];
+    if (!file) {
+      file = new File(path, this.fileSystem);
+      this.files[path] = file;
+    }
+    return file;
+  }
+  _evaluateFileMethod(methodName, path) {
     const file = this._getOrCreateFile(path);
     return file[methodName]()
       .catch(err => {
@@ -39,32 +65,6 @@ class FileSystemCache {
         this._ensureFileIsValid(file, methodName);
         return data;
       });
-  }
-  isFile(path) {
-    return this.evaluateFileMethod('getIsFile', path);
-  }
-  stat(path) {
-    return this.evaluateFileMethod('getStat', path);
-  }
-  readModifiedTime(path) {
-    return this.evaluateFileMethod('getModifiedTime', path);
-  }
-  readBuffer(path) {
-    return this.evaluateFileMethod('getBuffer', path);
-  }
-  readText(path) {
-    return this.evaluateFileMethod('getText', path);
-  }
-  readTextHash(path) {
-    return this.evaluateFileMethod('getTextHash', path);
-  }
-  _getOrCreateFile(path) {
-    let file = this.files[path];
-    if (!file) {
-      file = new File(path, this.fileSystem);
-      this.files[path] = file;
-    }
-    return file;
   }
   /**
    * If a file is invalidated while jobs are being performed on it,
