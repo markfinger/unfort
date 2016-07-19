@@ -14,14 +14,11 @@ class EventBus {
     // we create a new array without the subscriber
     this.subscribers = without(this.subscribers, func);
   }
-  // Not sure what optimizations js engines make for arg rest/spread,
-  // so we just use an arbitrary number of args.
-  // TODO profile/research
-  push(arg1, arg2, arg3, arg4, arg5) {
+  push(...args) {
     const subscribers = this.subscribers;
     let index = subscribers.length;
     while(--index !== -1) {
-      subscribers[index](arg1, arg2, arg3, arg4, arg5);
+      subscribers[index](...args);
     }
   }
 }
