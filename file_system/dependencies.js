@@ -1,3 +1,5 @@
+"use strict";
+
 function validateFileSystemDependencies(cache, dependencies) {
   const files = Object.keys(dependencies)
     .map(path => {

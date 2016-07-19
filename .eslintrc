@@ -12,7 +12,6 @@
     "computed-property-spacing": 2,
     "dot-notation": 2,
     "eqeqeq": 2,
-    "guard-for-in": 2,
     "indent": [2, 2],
     "key-spacing": [2, {"beforeColon": false, "afterColon": true}],
     "no-console": 0,

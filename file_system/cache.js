@@ -1,3 +1,5 @@
+"use strict";
+
 const fs = require('fs');
 const {promisify} = require('bluebird');
 const {EventBus} = require('../utils/event_bus');
@@ -57,7 +59,7 @@ class FileSystemCache {
           return trap;
         }
         return null;
-      })
+      });
   }
   _bindTrapToFile(trap, path) {
     let traps = this.trapsByFile[path];
@@ -87,7 +89,7 @@ class FileSystemCache {
     const traps = this.trapsByFile[path];
     if (traps && traps.size) {
       const trapsToTrigger = [];
-      for (let trap of traps) {
+      for (const trap of traps) {
         if (trap.files[path].isFile === false) {
           trapsToTrigger.push(trap);
         }
@@ -102,7 +104,7 @@ class FileSystemCache {
     const traps = this.trapsByFile[path];
     if (traps && traps.size) {
       const trapsToTrigger = [];
-      for (let trap of traps) {
+      for (const trap of traps) {
         const file = trap.files[path];
         if (file.modifiedTime !== undefined || file.textHash !== undefined) {
           trapsToTrigger.push(trap);
@@ -117,7 +119,7 @@ class FileSystemCache {
     const traps = this.trapsByFile[path];
     if (traps && traps.size) {
       const trapsToTrigger = [];
-      for (let trap of traps) {
+      for (const trap of traps) {
         if (trap.files[path].isFile === true) {
           trapsToTrigger.push(trap);
         }
@@ -173,7 +175,7 @@ class FileSystemCache {
     // any subscribers
     while(--i !== -1) {
       const trap = traps[i];
-      for (let path in trap.files) {
+      for (const path in trap.files) {
         this.trapsByFile[path].delete(trap);
       }
     }
@@ -253,7 +255,7 @@ class FileSystemTrap {
               bindings.textHash = textHash;
             }
             return textHash;
-          })
+          });
       });
   }
   describeDependencies() {
@@ -265,7 +267,7 @@ class FileSystemTrap {
   applyBindingsToCache() {
     if (!this._shouldBindToCache) {
       this._shouldBindToCache = true;
-      for (let path in this.files) {
+      for (const path in this.files) {
         this.cache._bindTrapToFile(this, path);
       }
     }
