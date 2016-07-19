@@ -185,7 +185,7 @@ describe('file_system/cache', () => {
           );
         });
     });
-    it('it should trigger traps for file creation', () => {
+    it('should trigger traps for file creation', () => {
       const cache = new FileSystemCache({
         stat() {
           return Promise.resolve({
@@ -216,7 +216,7 @@ describe('file_system/cache', () => {
           assert.strictEqual(triggered[0], trap1);
         });
     });
-    it('it should not re-trigger traps for file creation', () => {
+    it('should not re-trigger traps for file creation', () => {
       const cache = new FileSystemCache({
         stat: () => Promise.resolve({isFile: () => false})
       });
@@ -240,7 +240,7 @@ describe('file_system/cache', () => {
           assert.strictEqual(triggered[0], trap1);
         });
     });
-    it('it should trigger traps for file deletion', () => {
+    it('should trigger traps for file deletion', () => {
       const cache = new FileSystemCache({
         stat: () => Promise.resolve({isFile: () => true})
       });
@@ -265,7 +265,7 @@ describe('file_system/cache', () => {
           assert.strictEqual(triggered[0], trap1);
         });
     });
-    it('it should not re-trigger traps for file deletion', () => {
+    it('should not re-trigger traps for file deletion', () => {
       const cache = new FileSystemCache({
         stat: () => Promise.resolve({isFile: () => true})
       });
@@ -289,7 +289,7 @@ describe('file_system/cache', () => {
           assert.strictEqual(triggered[0], trap);
         });
     });
-    it('it should trigger traps for file changes', () => {
+    it('should trigger traps for file changes', () => {
       const cache = new FileSystemCache({
         readFile: () => Promise.resolve('text'),
         stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -315,7 +315,7 @@ describe('file_system/cache', () => {
           assert.strictEqual(triggered[0], trap1);
         });
     });
-    it('it should not re-trigger traps for file changes', () => {
+    it('should not re-trigger traps for file changes', () => {
       const cache = new FileSystemCache({
         readFile: () => Promise.resolve('text'),
         stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -341,7 +341,7 @@ describe('file_system/cache', () => {
         });
     });
     describe('file added trigger conditions', () => {
-      it('it should trigger if isFile evaluated to False', () => {
+      it('should trigger if isFile evaluated to False', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => false})
         });
@@ -358,7 +358,7 @@ describe('file_system/cache', () => {
       });
     });
     describe('file removed trigger conditions', () => {
-      it('it should trigger if isFile evaluated to true', () => {
+      it('should trigger if isFile evaluated to true', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true})
         });
@@ -373,7 +373,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if stat evaluated', () => {
+      it('should trigger if stat evaluated', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
         });
@@ -388,7 +388,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if modifiedTime evaluated', () => {
+      it('should trigger if modifiedTime evaluated', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
         });
@@ -403,7 +403,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if readBuffer evaluated', () => {
+      it('should trigger if readBuffer evaluated', () => {
         const cache = new FileSystemCache({
           readFile: () => Promise.resolve('test'),
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -419,7 +419,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if readText evaluated', () => {
+      it('should trigger if readText evaluated', () => {
         const cache = new FileSystemCache({
           readFile: () => Promise.resolve('test'),
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -435,7 +435,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if readTextHash evaluated', () => {
+      it('should trigger if readTextHash evaluated', () => {
         const cache = new FileSystemCache({
           readFile: () => Promise.resolve('test'),
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -453,7 +453,7 @@ describe('file_system/cache', () => {
       });
     });
     describe('file changed trigger conditions', () => {
-      it('it should trigger if stat evaluated', () => {
+      it('should trigger if stat evaluated', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
         });
@@ -468,7 +468,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if modifiedTime evaluated', () => {
+      it('should trigger if modifiedTime evaluated', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
         });
@@ -483,7 +483,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if readBuffer evaluated', () => {
+      it('should trigger if readBuffer evaluated', () => {
         const cache = new FileSystemCache({
           readFile: () => Promise.resolve('test'),
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -499,7 +499,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if readText evaluated', () => {
+      it('should trigger if readText evaluated', () => {
         const cache = new FileSystemCache({
           readFile: () => Promise.resolve('test'),
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
@@ -515,7 +515,7 @@ describe('file_system/cache', () => {
             assert.strictEqual(triggered, trap);
           });
       });
-      it('it should trigger if readTextHash evaluated', () => {
+      it('should trigger if readTextHash evaluated', () => {
         const cache = new FileSystemCache({
           readFile: () => Promise.resolve('test'),
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})
