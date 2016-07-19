@@ -1,16 +1,20 @@
 "use strict";
 
-const BlueBird = require('bluebird');
 const {generateStringHash} = require('../utils/hash');
 
 class File {
   constructor(path, fileSystem) {
     this.path = path;
     this.fileSystem = fileSystem;
+    this._resolvedStat = null;
   }
   getStat() {
     if (!this._stat) {
-      this._stat = this.fileSystem.stat(this.path);
+      this._stat = this.fileSystem.stat(this.path)
+        .then(stat => {
+          this._resolvedStat = stat;
+          return stat;
+        });
     }
     return this._stat;
   }
@@ -29,7 +33,7 @@ class File {
           if (err.code === 'ENOENT') {
             return false;
           }
-          return BlueBird.reject(err);
+          return Promise.reject(err);
         });
     }
     return this._isFile;
@@ -52,7 +56,8 @@ class File {
   }
   getTextHash() {
     if (!this._textHash) {
-      this._textHash = this.getText().then(generateStringHash);
+      this._textHash = this.getText()
+        .then(generateStringHash);
     }
     return this._textHash;
   }

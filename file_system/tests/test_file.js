@@ -45,6 +45,16 @@ describe('file_system/file', () => {
           assert.equal(isFile, false);
         });
     });
+    it('should expose resolved stats as an `_resolvedStat` property', () => {
+      function stat() {
+        return Promise.resolve({});
+      }
+      const file = new File('/some/file', {stat});
+      return file.getStat()
+        .then(stat => {
+          assert.strictEqual(file._resolvedStat, stat);
+        });
+    });
     describe('file system interactions', () => {
       it('should create an object that lazily evaluates text files and preserves the value', () => {
         let called = false;
