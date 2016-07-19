@@ -1,6 +1,6 @@
 "use strict";
 
-const {pull} = require('lodash');
+const {without} = require('lodash');
 
 class EventBus {
   constructor() {
@@ -10,10 +10,13 @@ class EventBus {
     this.subscribers.push(func);
   }
   unsubscribe(func) {
-    pull(this.subscribers, func);
+    // To avoid issues with mutating an array during iteration,
+    // we create a new array without the subscriber
+    this.subscribers = without(this.subscribers, func);
   }
-  // Not sure what optimizations exists for arg rest/spread,
-  // so `push` just uses a hard-coded number of args
+  // Not sure what optimizations js engines make for arg rest/spread,
+  // so we just use an arbitrary number of args.
+  // TODO profile/research
   push(arg1, arg2, arg3, arg4, arg5) {
     const subscribers = this.subscribers;
     let index = subscribers.length;
