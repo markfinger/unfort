@@ -74,7 +74,7 @@ class FileSystemCache {
     traps.add(trap);
   }
   _handleFileAdded(path, stat) {
-    let file = this.files[path];
+    const file = this.files[path];
     if (!file) {
       this._createFile(path, stat);
     }
