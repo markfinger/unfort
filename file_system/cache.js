@@ -50,12 +50,16 @@ class FileSystemCache {
     return new FileSystemTrap(this);
   }
   rehydrateTrap(dependencies) {
-    const trap = this.createTrap();
-    trap.preventBindingsToCache();
-    return validateFileSystemDependencies(trap, dependencies)
+    return validateFileSystemDependencies(this, dependencies)
       .then(isValid => {
         if (isValid) {
-          trap.applyBindingsToCache();
+          const trap = this.createTrap();
+          for (var path in dependencies) {
+            if (dependencies.hasOwnProperty(path)) {
+              trap.bindings[path] = dependencies[path];
+              this._bindTrapToFile(trap, path);
+            }
+          }
           return trap;
         }
         return null;
@@ -70,19 +74,8 @@ class FileSystemCache {
     traps.add(trap);
   }
   _handleFileAdded(path, stat) {
-    const file = this.files[path];
-
+    let file = this.files[path];
     if (!file) {
-      this._createFile(path, stat);
-      return;
-    }
-
-    if (
-      stat &&
-      file._resolvedStat &&
-      file._resolvedStat.mtime.getTime() < stat.mtime.getTime()
-    ) {
-      this._removeFile(path);
       this._createFile(path, stat);
     }
 
@@ -90,7 +83,8 @@ class FileSystemCache {
     if (traps && traps.size) {
       const trapsToTrigger = [];
       for (const trap of traps) {
-        if (trap.files[path].isFile === false) {
+        const bindings = trap.bindings[path];
+        if (bindings && bindings.isFile === false) {
           trapsToTrigger.push(trap);
         }
       }
@@ -105,9 +99,13 @@ class FileSystemCache {
     if (traps && traps.size) {
       const trapsToTrigger = [];
       for (const trap of traps) {
-        const file = trap.files[path];
-        if (file.modifiedTime !== undefined || file.textHash !== undefined) {
+        if (trap.triggerOnChange[path]) {
           trapsToTrigger.push(trap);
+        } else {
+          const bindings = trap.bindings[path];
+          if (bindings && (bindings.modifiedTime !== undefined || bindings.textHash !== undefined)) {
+            trapsToTrigger.push(trap);
+          }
         }
       }
       this._triggerTraps(trapsToTrigger, path, 'changed');
@@ -115,12 +113,15 @@ class FileSystemCache {
   }
   _handleFileRemoved(path) {
     this._removeFile(path);
+    const file = this._createFile(path);
+    // Pre-populate the file's data
+    file.setIsFile(false);
 
     const traps = this.trapsByFile[path];
     if (traps && traps.size) {
       const trapsToTrigger = [];
       for (const trap of traps) {
-        if (trap.files[path].isFile === true) {
+        if (trap.bindings[path].isFile === true) {
           trapsToTrigger.push(trap);
         }
       }
@@ -130,7 +131,9 @@ class FileSystemCache {
   _createFile(path, stat) {
     const file = new File(path, this.fileSystem);
     if (stat) {
+      // Prepopulate the file's data
       file.setStat(stat);
+      file.setIsFile(stat.isFile());
       file.setModifiedTime(stat.mtime.getTime());
     }
     this.files[path] = file;
@@ -146,23 +149,21 @@ class FileSystemCache {
     }
     return file[methodName]()
       .catch(err => {
-        this._ensureFileIsValid(file, methodName);
-        return Promise.reject(err);
+        const block = this._blockStaleFilesFromResolving(file);
+        return block || Promise.reject(err);
       })
       .then(data => {
-        this._ensureFileIsValid(file, methodName);
-        return data;
+        const block = this._blockStaleFilesFromResolving(file);
+        return block || data;
       });
   }
-  /**
-   * If a file is invalidated while jobs are being performed on it,
-   * this method enables promise chains to be unrolled, so that the
-   * jobs can restarted with valid data
-   */
-  _ensureFileIsValid(file, job) {
-    if (this.files[file.path] !== file) {
-      throw new StaleFileIntercept(file.path, job);
+  _blockStaleFilesFromResolving(file) {
+    // If the file was removed during processing, we prevent the promise
+    // chain from continuing and rely on the traps to signal the change
+    if (file !== this.files[file.path]) {
+      return new Promise(() => {});
     }
+    return null;
   }
   _triggerTraps(traps, path, cause) {
     const length = traps.length;
@@ -170,12 +171,12 @@ class FileSystemCache {
       return;
     }
     let i = length;
-    // To avoid any inexplicable behaviour due to synchronous code evaluating
+    // To avoid any inexplicable behaviour due to synchronous code evaluation
     // feeding back into the cache, we disengage every trap before signalling
     // any subscribers
     while(--i !== -1) {
       const trap = traps[i];
-      for (const path in trap.files) {
+      for (const path in trap.bindings) {
         this.trapsByFile[path].delete(trap);
       }
     }
@@ -193,11 +194,10 @@ class FileSystemCache {
 class FileSystemTrap {
   constructor(cache) {
     this.cache = cache;
-    this.files = Object.create(null);
-    this._shouldBindToCache = true;
+    this.bindings = Object.create(null);
+    this.boundFiles = Object.create(null);
+    this.triggerOnChange = Object.create(null);
   }
-  // TODO prevent clobbering previous data
-  // TODO concurrent requests
   isFile(path) {
     return this.cache.isFile(path)
       .then(isFile => {
@@ -209,6 +209,8 @@ class FileSystemTrap {
       });
   }
   stat(path) {
+    this._ensureBindingToFile(path);
+    this.triggerOnChange[path] = true;
     return this.cache.stat(path)
       .then(stat => {
         const bindings = this._getFileBindings(path);
@@ -220,6 +222,8 @@ class FileSystemTrap {
       });
   }
   readModifiedTime(path) {
+    this._ensureBindingToFile(path);
+    this.triggerOnChange[path] = true;
     return this.cache.readModifiedTime(path)
       .then(modifiedTime => {
         const bindings = this._getFileBindings(path);
@@ -229,25 +233,31 @@ class FileSystemTrap {
       });
   }
   readBuffer(path) {
+    this._ensureBindingToFile(path);
+    this.triggerOnChange[path] = true;
     return this.cache.readBuffer(path)
       .then(buffer => {
-        // Rely on `readModifiedTime` to bind the dependency
+        // Rely on `readModifiedTime` to bind its dependencies
         return this.readModifiedTime(path)
           .then(() => buffer);
       });
   }
   readText(path) {
+    this._ensureBindingToFile(path);
+    this.triggerOnChange[path] = true;
     return this.cache.readText(path)
       .then(text => {
-        // Rely on `readModifiedTime` and `readTextHash` to
-        // bind their dependencies
+        // Rely on `readTextHash` to bind its dependencies
         return this.readTextHash(path)
           .then(() => text);
       });
   }
   readTextHash(path) {
+    this._ensureBindingToFile(path);
+    this.triggerOnChange[path] = true;
     return this.cache.readTextHash(path)
       .then(textHash => {
+        // Rely on `readModifiedTime` to bind its dependencies
         return this.readModifiedTime(path)
           .then(() => {
             const bindings = this._getFileBindings(path);
@@ -259,41 +269,26 @@ class FileSystemTrap {
       });
   }
   describeDependencies() {
-    return this.files;
+    return this.bindings;
   }
-  preventBindingsToCache() {
-    this._shouldBindToCache = false;
-  }
-  applyBindingsToCache() {
-    if (!this._shouldBindToCache) {
-      this._shouldBindToCache = true;
-      for (const path in this.files) {
-        this.cache._bindTrapToFile(this, path);
-      }
+  _ensureBindingToFile(path) {
+    if (this.boundFiles[path] === undefined) {
+      this.boundFiles[path] = true;
+      this.cache._bindTrapToFile(this, path);
     }
   }
   _getFileBindings(path) {
-    let bindings = this.files[path];
+    let bindings = this.bindings[path];
     if (!bindings) {
       bindings = {};
-      if (this._shouldBindToCache) {
-        this.cache._bindTrapToFile(this, path);
-      }
-      this.files[path] = bindings;
+      this.bindings[path] = bindings;
+      this._ensureBindingToFile(path);
     }
     return bindings;
   }
 }
 
-class StaleFileIntercept extends Error {
-  constructor(path, job) {
-    super();
-    this.message = `File "${path}" was intercepted for job "${job}" as it had been changed or removed during processing`;
-  }
-}
-
 module.exports = {
   FileSystemCache,
-  StaleFileIntercept,
   FileSystemTrap
 };

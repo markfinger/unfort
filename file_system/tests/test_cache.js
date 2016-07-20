@@ -4,7 +4,7 @@ const fs = require('fs');
 const {Buffer} = require('buffer');
 const {assert} = require('../../utils/assert');
 const {generateStringHash} = require('../../utils/hash');
-const {FileSystemCache, StaleFileIntercept, FileSystemTrap} = require('../cache');
+const {FileSystemCache, FileSystemTrap} = require('../cache');
 
 describe('file_system/cache', () => {
   describe('#FileSystemCache', () => {
@@ -90,17 +90,19 @@ describe('file_system/cache', () => {
         });
     });
     it('should intercept jobs for files that are removed during processing', () => {
-      const cache = new FileSystemCache();
-      const job = cache.stat(__filename)
-        .then(() => {
-          throw new Error('should not be reached');
-        })
-        .catch(err => {
-          assert.instanceOf(err, StaleFileIntercept);
-          return 'done';
+      const cache = new FileSystemCache({
+        readFile: () => Promise.resolve('test')
+      });
+      let completed = false;
+      cache.readText('/some/file')
+        .then(() => completed = true);
+      cache.fileRemoved.push('/some/file');
+      return new Promise(res => {
+        process.nextTick(() => {
+          assert.isFalse(completed);
+          res();
         });
-      cache.fileRemoved.push(__filename);
-      return assert.becomes(job, 'done');
+      });
     });
     it('should provide fs access for traps', () => {
       const cache = new FileSystemCache({
@@ -133,15 +135,15 @@ describe('file_system/cache', () => {
       const trap2 = cache.createTrap();
       const trap3 = cache.createTrap();
       assert.deepEqual(
-        trap1.files,
+        trap1.describeDependencies(),
         {}
       );
       assert.deepEqual(
-        trap1.files,
+        trap1.describeDependencies(),
         {}
       );
       assert.deepEqual(
-        trap1.files,
+        trap1.describeDependencies(),
         {}
       );
       return Promise.all([
@@ -154,7 +156,7 @@ describe('file_system/cache', () => {
       ])
         .then(() => {
           assert.deepEqual(
-            trap1.files,
+            trap1.describeDependencies(),
             {
               '/some/test/file': {
                 isFile: true,
@@ -164,7 +166,7 @@ describe('file_system/cache', () => {
             }
           );
           assert.deepEqual(
-            trap2.files,
+            trap2.describeDependencies(),
             {
               '/some/test/file': {
                 isFile: true,
@@ -174,7 +176,7 @@ describe('file_system/cache', () => {
             }
           );
           assert.deepEqual(
-            trap3.files,
+            trap3.describeDependencies(),
             {
               '/some/other/test/file': {
                 isFile: true,
@@ -340,7 +342,17 @@ describe('file_system/cache', () => {
           assert.strictEqual(triggered[0], trap);
         });
     });
-    describe('file added trigger conditions', () => {
+    describe('file added handling', () => {
+      it('should prepopulate file stats when possible', () => {
+        const stat = {mtime: new Date(2000, 1, 1), isFile: () => true};
+        const cache = new FileSystemCache();
+        const trap = cache.createTrap();
+        cache.fileAdded.push('/some/file', stat);
+        return trap.stat('/some/file')
+          .then(_stat => {
+            assert.strictEqual(_stat, stat);
+          });
+      });
       it('should trigger if isFile evaluated to False', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => false})
@@ -357,7 +369,7 @@ describe('file_system/cache', () => {
           });
       });
     });
-    describe('file removed trigger conditions', () => {
+    describe('file removed handling', () => {
       it('should trigger if isFile evaluated to true', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true})
@@ -452,7 +464,7 @@ describe('file_system/cache', () => {
           });
       });
     });
-    describe('file changed trigger conditions', () => {
+    describe('file changed handling', () => {
       it('should trigger if stat evaluated', () => {
         const cache = new FileSystemCache({
           stat: () => Promise.resolve({isFile: () => true, mtime: new Date()})

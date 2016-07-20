@@ -45,14 +45,32 @@ describe('file_system/file', () => {
           assert.equal(isFile, false);
         });
     });
-    it('should expose resolved stats as an `_resolvedStat` property', () => {
-      function stat() {
-        return Promise.resolve({});
-      }
-      const file = new File('/some/file', {stat});
-      return file.getStat()
-        .then(stat => {
-          assert.strictEqual(file._resolvedStat, stat);
+    it('should allow a stat to be set manually', () => {
+      const file = new File('/some/file');
+      const stat = {mtime: new Date(2000, 1, 1)};
+      file.setStat(stat);
+      return Promise.all([
+        file.getStat(),
+        file.getModifiedTime()
+      ])
+        .then(data => {
+          assert.deepEqual(data, [stat, (new Date(2000, 1, 1)).getTime()]);
+        });
+    });
+    it('should allow a modified time to be set manually', () => {
+      const file = new File('/some/file');
+      file.setModifiedTime('test');
+      return file.getModifiedTime()
+        .then(modifiedTime => {
+          assert.equal(modifiedTime, 'test');
+        });
+    });
+    it('should allow isFile to be set manually', () => {
+      const file = new File('/some/file');
+      file.setIsFile('test');
+      return file.getIsFile()
+        .then(isFile => {
+          assert.equal(isFile, 'test');
         });
     });
     describe('file system interactions', () => {

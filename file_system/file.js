@@ -6,17 +6,16 @@ class File {
   constructor(path, fileSystem) {
     this.path = path;
     this.fileSystem = fileSystem;
-    this._resolvedStat = null;
   }
   getStat() {
     if (!this._stat) {
-      this._stat = this.fileSystem.stat(this.path)
-        .then(stat => {
-          this._resolvedStat = stat;
-          return stat;
-        });
+      this._stat = this.fileSystem.stat(this.path);
     }
     return this._stat;
+  }
+  setStat(stat) {
+    this._stat = Promise.resolve(stat);
+    this._modifiedTime = null;
   }
   getModifiedTime() {
     if (!this._modifiedTime) {
@@ -24,6 +23,9 @@ class File {
         .then(stat => stat.mtime.getTime());
     }
     return this._modifiedTime;
+  }
+  setModifiedTime(modifiedTime) {
+    this._modifiedTime = Promise.resolve(modifiedTime);
   }
   getIsFile() {
     if (!this._isFile) {
@@ -37,6 +39,9 @@ class File {
         });
     }
     return this._isFile;
+  }
+  setIsFile(isFile) {
+    this._isFile = Promise.resolve(isFile);
   }
   getBuffer() {
     if (!this._buffer) {
