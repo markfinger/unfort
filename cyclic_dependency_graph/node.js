@@ -132,7 +132,7 @@ function pruneNodeAndUniqueDependencies(nodes, id, entryPoints, entryPointLookup
   if (!entryPointLookup) {
     entryPointLookup = Object.create(null);
     for (const id of entryPoints) {
-      entryPointLookup[id] = true
+      entryPointLookup[id] = true;
     }
   }
 

@@ -4,7 +4,7 @@ const {EOL} = require('os');
 const imm = require('immutable');
 const {transform} = require('lodash');
 const {
-  addNode, addEdge, removeEdge, removeNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
+  addNode, addEdge, removeEdge, removeNode, findNodesDisconnectedFromEntryNodes
 } = require('../cyclic_dependency_graph/node');
 
 class Compiler {
@@ -74,7 +74,7 @@ class Compiler {
   }
   addEntryPoint(path) {
     this.entryPoints = this.entryPoints.add(path);
-    const unit = this._createUnitFromPath(path);
+    this._createUnitFromPath(path);
   }
   start() {
     this.entryPoints.forEach(path => {

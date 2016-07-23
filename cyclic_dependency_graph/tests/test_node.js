@@ -141,7 +141,7 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
     it('should list all dependents of an entry node that are not indirect dependencies of the entry', () => {
-      let nodes = createNodesFromNotation(`
+      const nodes = createNodesFromNotation(`
         a -> b -> c
         d -> c
       `);
@@ -155,7 +155,7 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
     it('should list all nodes which are disconnected from the entry nodes', () => {
-      let nodes = createNodesFromNotation(`
+      const nodes = createNodesFromNotation(`
         a
         b
         c -> d
@@ -170,7 +170,7 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
     it('should return an empty list if all nodes are connected to an entry', () => {
-      let nodes = createNodesFromNotation(`
+      const nodes = createNodesFromNotation(`
         a -> b -> c
       `);
 
@@ -236,7 +236,7 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
     it('should not prune entry nodes when pruning unique dependencies 1', () => {
-      let nodes = createNodesFromNotation(`
+      const nodes = createNodesFromNotation(`
         a -> b -> c
       `);
       assert.deepEqual(
@@ -245,7 +245,7 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
     it('should not prune entry nodes when pruning unique dependencies 2', () => {
-      let nodes = createNodesFromNotation(`
+      const nodes = createNodesFromNotation(`
         a -> b -> c
       `);
 
@@ -255,7 +255,7 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
     it('should prune from an entry node if has been explicitly specified', () => {
-      let nodes = createNodesFromNotation(`
+      const nodes = createNodesFromNotation(`
         a -> b -> c
       `);
 

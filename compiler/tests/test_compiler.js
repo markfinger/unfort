@@ -253,31 +253,31 @@ describe('compiler/compiler', () => {
         return compiler.completed()
           .then(build => {
             assert.isFalse(compiler.buildHasErrors(build));
-            const unit1_v1 = build.unitsByPath.get('file 1');
-            const unit2_v1 = build.unitsByPath.get('file 2');
-            assert.equal(unit1_v1.pathDependencies, imm.OrderedSet(['file 2', 'file 3']));
-            assert.equal(unit2_v1.pathDependencies, imm.OrderedSet(['file 4']));
-            compiler.invalidateUnit(unit1_v1, '1');
+            const unit1Ver1 = build.unitsByPath.get('file 1');
+            const unit2Ver1 = build.unitsByPath.get('file 2');
+            assert.equal(unit1Ver1.pathDependencies, imm.OrderedSet(['file 2', 'file 3']));
+            assert.equal(unit2Ver1.pathDependencies, imm.OrderedSet(['file 4']));
+            compiler.invalidateUnit(unit1Ver1, '1');
             return compiler.completed()
               .then(build => {
                 assert.isFalse(compiler.buildHasErrors(build));
-                const unit1_v2 = build.unitsByPath.get('file 1');
-                assert.equal(unit1_v2.pathDependencies, imm.OrderedSet(['file 5', 'file 6']));
+                const unit1Ver2 = build.unitsByPath.get('file 1');
+                assert.equal(unit1Ver2.pathDependencies, imm.OrderedSet(['file 5', 'file 6']));
                 assert.equal(
-                  unit1_v2.pathDependenciesByPhase,
+                  unit1Ver2.pathDependenciesByPhase,
                   imm.Map({
                     '1': imm.OrderedSet(['file 5']),
                     '2': imm.OrderedSet(['file 6'])
                   })
                 );
-                compiler.invalidateUnit(unit1_v2, '2');
+                compiler.invalidateUnit(unit1Ver2, '2');
                 return compiler.completed()
                   .then(build => {
                     assert.isFalse(compiler.buildHasErrors(build));
-                    const unit1_v3 = build.unitsByPath.get('file 1');
-                    assert.equal(unit1_v3.pathDependencies, imm.OrderedSet(['file 5', 'file 7']));
+                    const unit1Ver3 = build.unitsByPath.get('file 1');
+                    assert.equal(unit1Ver3.pathDependencies, imm.OrderedSet(['file 5', 'file 7']));
                     assert.equal(
-                      unit1_v3.pathDependenciesByPhase,
+                      unit1Ver3.pathDependenciesByPhase,
                       imm.Map({
                         '1': imm.OrderedSet(['file 5']),
                         '2': imm.OrderedSet(['file 7'])
@@ -310,16 +310,16 @@ describe('compiler/compiler', () => {
           .then(build => {
             assert.isFalse(compiler.buildHasErrors(build));
             assert.equal(build.unitsByPath.size, 3);
-            const unit1_v1 = build.unitsByPath.get('file 1');
-            const unit2_v1 = build.unitsByPath.get('file 2');
-            assert.equal(unit1_v1.pathDependencies, imm.OrderedSet(['file 2', 'file 3']));
-            compiler.invalidateUnit(unit2_v1);
+            const unit1Ver1 = build.unitsByPath.get('file 1');
+            const unit2Ver1 = build.unitsByPath.get('file 2');
+            assert.equal(unit1Ver1.pathDependencies, imm.OrderedSet(['file 2', 'file 3']));
+            compiler.invalidateUnit(unit2Ver1);
             return compiler.completed()
               .then(build => {
                 assert.isFalse(compiler.buildHasErrors(build));
                 assert.isFalse(build.unitsByPath.has('file 2'));
-                const unit1_v2 = build.unitsByPath.get('file 1');
-                assert.equal(unit1_v2.pathDependencies, imm.OrderedSet(['file 4', 'file 5']));
+                const unit1Ver2 = build.unitsByPath.get('file 1');
+                assert.equal(unit1Ver2.pathDependencies, imm.OrderedSet(['file 4', 'file 5']));
                 assert.equal(
                   build.graph,
                   createNodesFromNotation(`
@@ -393,7 +393,6 @@ describe('compiler/compiler', () => {
 
         return compiler.completed()
           .then(build => {
-            console.log(compiler.describeBuildErrors(build))
             assert.isFalse(compiler.buildHasErrors(build));
             assert.equal(
               build.unitsByPath.get('file 1').data.get('content'),
