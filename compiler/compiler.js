@@ -80,7 +80,7 @@ class Compiler {
     return buildOutput.status === this.HAS_ERRORS;
   }
   describeBuildErrors(buildOutput) {
-    let descriptions = [];
+    const descriptions = [];
     for (const unit of buildOutput.unitsWithErrors) {
       for (const buildError of unit.errors) {
         descriptions.push([
@@ -100,7 +100,7 @@ class Compiler {
   onceCompleted(func) {
     if (this._latestBuildOutput) {
       if (this._pendingUnitIds.size) { // Sanity check
-        throw new Error('Build output stored, but pending units exist. This indicates that invalidation code is missing from within the compiler')
+        throw new Error('Build output stored, but pending units exist. This indicates that invalidation code is missing from within the compiler');
       }
       return func(this._latestBuildOutput);
     }
