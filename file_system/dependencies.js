@@ -24,10 +24,18 @@ function validateFileSystemDependencies(cache, dependencies) {
         );
       }
       return Promise.all(jobs)
-        .then(checks => checks.every(value => value === true));
+        .then(validateChecks);
     });
   return Promise.all(files)
-    .then(valid => valid.every(value => value === true));
+    .then(validateChecks);
+}
+
+function validateChecks(arr) {
+  return arr.every(validateCheck);
+}
+
+function validateCheck(value) {
+  return value === true;
 }
 
 module.exports = {
