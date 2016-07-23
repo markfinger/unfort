@@ -1,12 +1,7 @@
 "use strict";
 
-const {Map} = require('immutable');
+const imm = require('immutable');
 const {addNode, addEdge} = require('./node');
-
-module.exports = {
-  createNodesFromNotation,
-  resolveExecutionOrder
-};
 
 /**
  * Constructs a map of nodes from a variant of DOT notation.
@@ -24,7 +19,7 @@ module.exports = {
  * @returns {Map} an immutable.Map instance
  */
 function createNodesFromNotation(text) {
-  let nodes = Map();
+  let nodes = imm.Map();
 
   const lines = text
     .split('\n')
@@ -91,3 +86,8 @@ function resolveExecutionOrder(nodes, entryNodes) {
 
   return order;
 }
+
+module.exports = {
+  createNodesFromNotation,
+  resolveExecutionOrder
+};

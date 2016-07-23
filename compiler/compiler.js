@@ -2,7 +2,10 @@
 
 const {EOL} = require('os');
 const imm = require('immutable');
-const {isObject, transform} = require('lodash');
+const {transform} = require('lodash');
+const {
+  addNode, addEdge, removeEdge, removeNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
+} = require('../cyclic_dependency_graph/node');
 
 class Compiler {
   constructor({phases, createPipeline}={}) {
@@ -37,7 +40,8 @@ class Compiler {
       entryPoints: null,
       unitsById: null,
       unitsByPath: null,
-      unitsWithErrors: imm.List()
+      unitsWithErrors: imm.List(),
+      graph: null
     });
     this.Unit = imm.Record({
       id: null,
@@ -45,6 +49,8 @@ class Compiler {
       buildReference: null,
       data: imm.Map(),
       dataByPhases: imm.Map(),
+      pathDependencies: imm.OrderedSet(),
+      pathDependenciesByPhase: imm.Map(),
       errors: imm.List()
     });
     this.UnitError = imm.Record({
@@ -58,6 +64,7 @@ class Compiler {
     this.unitsById = imm.Map();
     this.unitsByPath = imm.Map();
     this.unitsWithErrors = imm.List();
+    this.graph = imm.Map();
 
     // Internal state
     this._nextAvailableId = 0;
@@ -68,7 +75,6 @@ class Compiler {
   addEntryPoint(path) {
     this.entryPoints = this.entryPoints.add(path);
     const unit = this._createUnitFromPath(path);
-    this._storeUnitState(unit);
   }
   start() {
     this.entryPoints.forEach(path => {
@@ -128,7 +134,7 @@ class Compiler {
       );
     }
 
-    this._removeUnit(currentUnit);
+    this._removeUnit(currentUnit, true);
 
     let phase;
     if (phaseId) {
@@ -137,6 +143,8 @@ class Compiler {
         throw new Error(`Unknown phase "${phaseId}", available phases: ${Object.keys(this.phasesById)}`);
       }
     } else if (this.entryPoints.has(currentUnit.path)) {
+      // To preserve the dependency graph, we immediately start
+      // rebuilds for entry points
       phase = this.phases[0];
     } else {
       return;
@@ -145,32 +153,67 @@ class Compiler {
     const phasesToPreserve = this.phases.slice(0, phase.index);
     const patches = transform(phasesToPreserve, (acc, phase) => {
       const phaseData = currentUnit.dataByPhases.get(phase.id);
+      const phasePathDependencies = currentUnit.pathDependenciesByPhase.get(phase.id);
       if (phaseData) {
         acc.data = acc.data.merge(phaseData);
         acc.dataByPhases = acc.dataByPhases.set(phase.id, phaseData);
       }
-    }, {data: imm.Map(), dataByPhases: imm.Map()});
+      if (phasePathDependencies) {
+        acc.pathDependencies = acc.pathDependencies.concat(phasePathDependencies);
+        acc.pathDependenciesByPhase = acc.pathDependenciesByPhase.set(phase.id, phasePathDependencies);
+      }
+    }, {
+      data: imm.Map(),
+      dataByPhases: imm.Map(),
+      pathDependencies: imm.OrderedSet(),
+      pathDependenciesByPhase: imm.Map()
+    });
     const newUnit = this._createUnitFromPath(path).merge(patches);
-
-    this._pendingUnitIds.add(newUnit.id);
-    this._storeUnitState(newUnit);
     this._compileUnitFromPhase(newUnit, phase);
   }
-  _removeUnit(unit) {
+  _removeUnit(unit, invalidateDependents=false) {
+    const {id, path} = unit;
     this._latestBuildOutput = null;
-    this.unitsById = this.unitsById.remove(unit.id);
-    this.unitsByPath = this.unitsByPath.remove(unit.path);
-    this.unitsWithErrors = this.unitsWithErrors.filter(_unit => _unit.id !== unit.id);
+    this._pendingUnitIds.delete(id);
+    this.unitsById = this.unitsById.remove(id);
+    this.unitsByPath = this.unitsByPath.remove(path);
+    this.unitsWithErrors = this.unitsWithErrors.filter(_unit => _unit.id !== id);
+
+    const node = this.graph.get(path);
+    for (const dependentPath of node.dependents) {
+      this.graph = removeEdge(this.graph, dependentPath, path);
+      if (invalidateDependents) {
+        // Force dependents to re-evaluate the phases where they added dependencies
+        const dependentUnit = this.unitsByPath.get(dependentPath);
+        for (const phase of this.phases) {
+          const phaseId = phase.id;
+          const pathDependencies = dependentUnit.pathDependenciesByPhase.get(phaseId);
+          if (pathDependencies.has(path)) {
+            this.invalidateUnit(dependentUnit, phaseId);
+          }
+        }
+      }
+    }
+    for (const dependencyPath of node.dependencies) {
+      this.graph = removeEdge(this.graph, path, dependencyPath);
+    }
+    this.graph = removeNode(this.graph, path);
   }
   _signalCompleted() {
+    const disconnectedNodes = findNodesDisconnectedFromEntryNodes(this.graph, this.entryPoints);
+    for (const path of disconnectedNodes) {
+      const disconnectedUnit = this.unitsByPath.get(path);
+      this._removeUnit(disconnectedUnit);
+    }
+
     this._latestBuildOutput = new this.BuildOutput({
       status: this.unitsWithErrors.size > 0 ?
-        this.HAS_ERRORS :
-        this.COMPLETED,
+        this.HAS_ERRORS : this.COMPLETED,
       entryPoints: this.entryPoints,
       unitsById: this.unitsById,
       unitsByPath: this.unitsByPath,
-      unitsWithErrors: this.unitsWithErrors
+      unitsWithErrors: this.unitsWithErrors,
+      graph: this.graph
     });
 
     const onceCompleted = this._onceCompleted;
@@ -187,6 +230,8 @@ class Compiler {
       buildReference: {}
     });
     this._pendingUnitIds.add(id);
+    this.graph = addNode(this.graph, path);
+    this._storeUnitState(unit);
     return unit;
   }
   _createUniqueUnitId() {
@@ -203,22 +248,33 @@ class Compiler {
     this._compileUnitFromPhase(unit, initialPhase);
   }
   _compileUnitFromPhase(unit, phase) {
-    const compilation = {
-      unit,
-    };
+    const context = new PhaseContext(unit);
     const pipeline = this.createPipeline(unit, phase);
     Promise.resolve()
-      .then(() => phase.processor(compilation, pipeline))
-      .then(data => {
-        if (!isObject(data)) {
-          throw new Error(`Phase ${phase.id} returned ${data}`);
+      .then(() => {
+        if (!this._isUnitValid(unit)) {
+          return;
         }
-        data = imm.Map(data);
-        const updatedUnit = unit.merge({
-          data: unit.data.merge(data),
-          dataByPhases: unit.dataByPhases.set(phase.id, data)
-        });
+        return phase.processor(context, pipeline);
+      })
+      .then(data => {
+        if (!this._isUnitValid(unit)) {
+          return;
+        }
+
+        const patches = {};
+
+        const dataToMerge = imm.Map(data);
+        patches.data = unit.data.merge(dataToMerge);
+        patches.dataByPhases = unit.dataByPhases.set(phase.id, dataToMerge);
+
+        const pathDependencies = imm.OrderedSet(context.pathDependencies);
+        patches.pathDependencies = unit.pathDependencies.concat(pathDependencies);
+        patches.pathDependenciesByPhase = unit.pathDependenciesByPhase.set(phase.id, pathDependencies);
+
+        const updatedUnit = unit.merge(patches);
         this._storeUnitState(updatedUnit);
+
         const nextPhase = this.phases[phase.index + 1];
         if (nextPhase) {
           this._compileUnitFromPhase(updatedUnit, nextPhase);
@@ -227,6 +283,10 @@ class Compiler {
         }
       })
       .catch(err => {
+        if (!this._isUnitValid(unit)) {
+          return;
+        }
+
         const buildError = this.UnitError({
           error: err,
           phase,
@@ -236,7 +296,19 @@ class Compiler {
         this._unitFailed(updatedUnit);
       });
   }
+  _isUnitValid(unit) {
+    const currentUnit = this.unitsByPath.get(unit.path);
+    return currentUnit && currentUnit.buildReference === unit.buildReference;
+  }
   _unitCompleted(unit) {
+    for (const path of unit.pathDependencies) {
+      let depUnit = this.unitsByPath.get(path);
+      if (!depUnit) {
+        depUnit = this._createUnitFromPath(path);
+        this._compileUnitFromInitialPhase(depUnit);
+      }
+      this.graph = addEdge(this.graph, unit.path, depUnit.path);
+    }
     this._pendingUnitIds.delete(unit.id);
     if (!this._pendingUnitIds.size) {
       this._signalCompleted();
@@ -245,6 +317,20 @@ class Compiler {
   _unitFailed(unit) {
     this.unitsWithErrors = this.unitsWithErrors.push(unit);
     this._unitCompleted(unit);
+  }
+}
+
+class PhaseContext {
+  constructor(unit) {
+    this.unit = unit;
+    this.unitPath = unit.path;
+    this.pathDependencies = new Set();
+  }
+  addDependencyByPath(path) {
+    if (path === this.unitPath) {
+      throw new Error(`Unit "${this.unitPath}" declared a dependency on itself`);
+    }
+    this.pathDependencies.add(path);
   }
 }
 

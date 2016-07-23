@@ -1,6 +1,6 @@
 "use strict";
 
-const {Map, OrderedSet} = require('immutable');
+const {Map, Set} = require('immutable');
 const {assert} = require('../../utils/assert');
 const {Node} = require('../node');
 const {createNodesFromNotation, resolveExecutionOrder} = require('../utils');
@@ -17,8 +17,8 @@ describe('cyclic_dependency_graph/utils', () => {
       assert.equal(
         createNodesFromNotation('a -> b'),
         Map({
-          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a'])})
+          a: Node({id: 'a', dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a'])})
         })
       );
     });
@@ -26,9 +26,9 @@ describe('cyclic_dependency_graph/utils', () => {
       assert.equal(
         createNodesFromNotation('a -> b -> c'),
         Map({
-          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['c'])}),
-          c: Node({id: 'c', dependents: OrderedSet(['b'])})
+          a: Node({id: 'a', dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a']), dependencies: Set(['c'])}),
+          c: Node({id: 'c', dependents: Set(['b'])})
         })
       );
     });
@@ -40,9 +40,9 @@ describe('cyclic_dependency_graph/utils', () => {
           c -> a
         `),
         Map({
-          a: Node({id: 'a', dependents: OrderedSet(['c']), dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['c'])}),
-          c: Node({id: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['a'])})
+          a: Node({id: 'a', dependents: Set(['c']), dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a']), dependencies: Set(['c'])}),
+          c: Node({id: 'c', dependents: Set(['b']), dependencies: Set(['a'])})
         })
       );
     });
@@ -55,8 +55,8 @@ describe('cyclic_dependency_graph/utils', () => {
           b -> a
         `),
         Map({
-          a: Node({id: 'a', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['a'])})
+          a: Node({id: 'a', dependents: Set(['b']), dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a']), dependencies: Set(['a'])})
         })
       );
     });
@@ -66,8 +66,8 @@ describe('cyclic_dependency_graph/utils', () => {
           a -> b -> a
         `),
         Map({
-          a: Node({id: 'a', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a']), dependencies: OrderedSet(['a'])})
+          a: Node({id: 'a', dependents: Set(['b']), dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a']), dependencies: Set(['a'])})
         })
       );
     });
@@ -79,9 +79,9 @@ describe('cyclic_dependency_graph/utils', () => {
           c -> b
         `),
         Map({
-          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a', 'c']), dependencies: OrderedSet(['c'])}),
-          c: Node({id: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])})
+          a: Node({id: 'a', dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a', 'c']), dependencies: Set(['c'])}),
+          c: Node({id: 'c', dependents: Set(['b']), dependencies: Set(['b'])})
         })
       );
     });
@@ -91,9 +91,9 @@ describe('cyclic_dependency_graph/utils', () => {
           a -> b -> c -> b
         `),
         Map({
-          a: Node({id: 'a', dependencies: OrderedSet(['b'])}),
-          b: Node({id: 'b', dependents: OrderedSet(['a', 'c']), dependencies: OrderedSet(['c'])}),
-          c: Node({id: 'c', dependents: OrderedSet(['b']), dependencies: OrderedSet(['b'])})
+          a: Node({id: 'a', dependencies: Set(['b'])}),
+          b: Node({id: 'b', dependents: Set(['a', 'c']), dependencies: Set(['c'])}),
+          c: Node({id: 'c', dependents: Set(['b']), dependencies: Set(['b'])})
         })
       );
     });

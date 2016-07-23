@@ -1,24 +1,12 @@
 "use strict";
 
-const {Record, OrderedSet} = require('immutable');
+const imm = require('immutable');
 
-const Node = Record({
+const Node = imm.Record({
   id: '',
-  dependencies: OrderedSet(),
-  dependents: OrderedSet(),
-  isEntryNode: false
+  dependencies: imm.Set(),
+  dependents: imm.Set()
 });
-
-module.exports = {
-  Node,
-  addNode,
-  removeNode,
-  addEdge,
-  removeEdge,
-  defineEntryNode,
-  findNodesDisconnectedFromEntryNodes,
-  pruneNodeAndUniqueDependencies
-};
 
 function addNode(nodes, id) {
   const node = nodes.get(id);
@@ -108,26 +96,15 @@ function removeEdge(nodes, head, tail) {
   return nodes;
 }
 
-function defineEntryNode(nodes, id) {
-  const node = nodes.get(id);
-
-  if (!node) {
-    throw new Error(`Cannot define entry node "${id}" as it does not exist`);
-  }
-
-  return nodes.set(id, node.set('isEntryNode', true));
-}
-
 /**
  * Given a Map containing nodes, returns an array of node ids
  * where each node is disconnected from the defined entry nodes
- *
- * @param {Map} nodes
- * @returns {Array}
  */
-function findNodesDisconnectedFromEntryNodes(nodes) {
-  const entries = nodes.filter(node => node.isEntryNode);
-
+function findNodesDisconnectedFromEntryNodes(nodes, entryPoints) {
+  const entries = [];
+  for (const id of entryPoints) {
+    entries.push(nodes.get(id));
+  }
   const disconnected = Object.create(null);
   nodes.keySeq().forEach(id => {
     disconnected[id] = true;
@@ -149,8 +126,15 @@ function findNodesDisconnectedFromEntryNodes(nodes) {
   return keys.filter(id => disconnected[id]);
 }
 
-function pruneNodeAndUniqueDependencies(nodes, id) {
+function pruneNodeAndUniqueDependencies(nodes, id, entryPoints, entryPointLookup) {
   const node = nodes.get(id);
+
+  if (!entryPointLookup) {
+    entryPointLookup = Object.create(null);
+    for (const id of entryPoints) {
+      entryPointLookup[id] = true
+    }
+  }
 
   if (!node) {
     throw new Error(`Cannot prune from node "${id}" as it has not been defined`);
@@ -171,9 +155,9 @@ function pruneNodeAndUniqueDependencies(nodes, id) {
 
       if (
         dependency.dependents.size === 0 &&
-        !dependency.isEntryNode
+        !entryPointLookup[dependency.id]
       ) {
-        const data = pruneNodeAndUniqueDependencies(nodes, dependencyName);
+        const data = pruneNodeAndUniqueDependencies(nodes, dependencyName, entryPoints, entryPointLookup);
         pruned.push.apply(pruned, data.pruned);
         nodes = data.nodes;
       }
@@ -189,3 +173,13 @@ function pruneNodeAndUniqueDependencies(nodes, id) {
     pruned
   };
 }
+
+module.exports = {
+  Node,
+  addNode,
+  removeNode,
+  addEdge,
+  removeEdge,
+  findNodesDisconnectedFromEntryNodes,
+  pruneNodeAndUniqueDependencies
+};

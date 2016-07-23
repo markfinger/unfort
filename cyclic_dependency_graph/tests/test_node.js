@@ -1,10 +1,10 @@
 "use strict";
 
 const {difference} = require('lodash/array');
-const {Map, OrderedSet} = require('immutable');
+const {Map, Set} = require('immutable');
 const {assert} = require('../../utils/assert');
 const {
-  Node, addNode, removeNode, addEdge, removeEdge, defineEntryNode, findNodesDisconnectedFromEntryNodes, 
+  Node, addNode, removeNode, addEdge, removeEdge, findNodesDisconnectedFromEntryNodes,
   pruneNodeAndUniqueDependencies
 } = require('../node');
 const {createNodesFromNotation} = require('../utils');
@@ -16,9 +16,8 @@ describe('cyclic_dependency_graph/node', () => {
         id: 'test'
       });
       assert.equal(node.id, 'test');
-      assert.instanceOf(node.dependencies, OrderedSet);
-      assert.instanceOf(node.dependents, OrderedSet);
-      assert.isFalse(node.isEntryNode);
+      assert.instanceOf(node.dependencies, Set);
+      assert.instanceOf(node.dependents, Set);
     });
   });
   describe('#addNode', () => {
@@ -126,30 +125,6 @@ describe('cyclic_dependency_graph/node', () => {
       );
     });
   });
-  describe('#defineEntryNode', () => {
-    it('should set the node\'s isEntryNode property to true', () => {
-      let nodes = createNodesFromNotation('a');
-      nodes = defineEntryNode(nodes, 'a');
-      assert.isTrue(
-        nodes.get('a').isEntryNode
-      );
-    });
-    it('should preserve the node\'s other values', () => {
-      let nodes = createNodesFromNotation('a -> b');
-
-      nodes = defineEntryNode(nodes, 'a');
-      assert.equal(nodes.get('a').dependencies, OrderedSet(['b']));
-
-      nodes = defineEntryNode(nodes, 'b');
-      assert.equal(nodes.get('b').dependents, OrderedSet(['a']));
-    });
-    it('should throw if the node has not been defined', () => {
-      assert.throw(
-        () => defineEntryNode(Map(), 'a'),
-        'Cannot define entry node "a" as it does not exist'
-      );
-    });
-  });
   describe('#findNodesDisconnectedFromEntryNodes', () => {
     it('should return all nodes if there no entry nodes', () => {
       const nodes = createNodesFromNotation(`
@@ -157,7 +132,7 @@ describe('cyclic_dependency_graph/node', () => {
         d -> c
       `);
 
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, []);
       const expected = ['a', 'b', 'c', 'd'];
 
       assert.deepEqual(
@@ -171,9 +146,7 @@ describe('cyclic_dependency_graph/node', () => {
         d -> c
       `);
 
-      nodes = defineEntryNode(nodes, 'd');
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['d']);
       const expected = ['a', 'b'];
 
       assert.deepEqual(
@@ -188,10 +161,7 @@ describe('cyclic_dependency_graph/node', () => {
         c -> d
       `);
 
-      nodes = defineEntryNode(nodes, 'a');
-      nodes = defineEntryNode(nodes, 'b');
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['a', 'b']);
       const expected = ['c', 'd'];
 
       assert.deepEqual(
@@ -204,9 +174,7 @@ describe('cyclic_dependency_graph/node', () => {
         a -> b -> c
       `);
 
-      nodes = defineEntryNode(nodes, 'a');
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes);
+      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['a']);
 
       assert.deepEqual(disconnectedNodes, []);
     });
@@ -219,7 +187,7 @@ describe('cyclic_dependency_graph/node', () => {
       `);
 
       assert.equal(
-        pruneNodeAndUniqueDependencies(nodes, 'b').nodes,
+        pruneNodeAndUniqueDependencies(nodes, 'b', []).nodes,
         createNodesFromNotation('a')
       );
     });
@@ -227,7 +195,7 @@ describe('cyclic_dependency_graph/node', () => {
       const nodes = createNodesFromNotation('a');
 
       assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a', []).pruned,
         ['a']
       );
     });
@@ -237,7 +205,7 @@ describe('cyclic_dependency_graph/node', () => {
         a -> d
       `);
 
-      const data = pruneNodeAndUniqueDependencies(nodes, 'a');
+      const data = pruneNodeAndUniqueDependencies(nodes, 'a', []);
 
       assert.equal(data.nodes, Map());
 
@@ -252,7 +220,7 @@ describe('cyclic_dependency_graph/node', () => {
         b -> c
       `);
 
-      const data = pruneNodeAndUniqueDependencies(nodes, 'c');
+      const data = pruneNodeAndUniqueDependencies(nodes, 'c', []);
 
       assert.equal(
         data.nodes,
@@ -271,10 +239,8 @@ describe('cyclic_dependency_graph/node', () => {
       let nodes = createNodesFromNotation(`
         a -> b -> c
       `);
-      nodes = defineEntryNode(nodes, 'b');
-
       assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a', ['b']).pruned,
         ['a']
       );
     });
@@ -282,10 +248,9 @@ describe('cyclic_dependency_graph/node', () => {
       let nodes = createNodesFromNotation(`
         a -> b -> c
       `);
-      nodes = defineEntryNode(nodes, 'c');
 
       assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a', ['c']).pruned,
         ['a', 'b']
       );
     });
@@ -293,10 +258,9 @@ describe('cyclic_dependency_graph/node', () => {
       let nodes = createNodesFromNotation(`
         a -> b -> c
       `);
-      nodes = defineEntryNode(nodes, 'a');
 
       assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a').pruned,
+        pruneNodeAndUniqueDependencies(nodes, 'a', ['a']).pruned,
         ['a', 'b', 'c']
       );
     });
@@ -308,7 +272,7 @@ describe('cyclic_dependency_graph/node', () => {
         c -> f -> g -> d
       `);
 
-      const data = pruneNodeAndUniqueDependencies(nodes, 'c');
+      const data = pruneNodeAndUniqueDependencies(nodes, 'c', []);
       assert.deepEqual(
         data.pruned,
         ['c', 'f', 'g']
@@ -323,7 +287,7 @@ describe('cyclic_dependency_graph/node', () => {
     });
     it('should throw if the node has not been defined', () => {
       assert.throw(
-        () => pruneNodeAndUniqueDependencies(Map(), 'a'),
+        () => pruneNodeAndUniqueDependencies(Map(), 'a', []),
         'Cannot prune from node "a" as it has not been defined'
       );
     });
