@@ -93,7 +93,7 @@ describe('compiler/compiler', () => {
           assert.equal(unit.errors.first().error.message, 'Phase 1 returned null');
         });
     });
-    it('should allow files to be invalidated and rebuilt', () => {
+    it('should allow files to be removed and rebuilt', () => {
       let count = 0;
       const compiler = new Compiler({
         phases: [
@@ -105,13 +105,145 @@ describe('compiler/compiler', () => {
 
       return compiler.completed()
         .then(build => {
-          assert.equal(build.unitsByPath.get('test').data.get('content'), 1);
-          compiler.invalidateUnitByPath('test');
+          assert.isFalse(compiler.buildHasErrors(build));
+          const unit = build.unitsByPath.get('test');
+          assert.equal(unit.data.get('content'), 1);
+          compiler.invalidateUnit(unit);
           return compiler.completed()
             .then(build => {
-              assert.equal(build.unitsByPath.get('test').data.get('content'), 2);
+              assert.isFalse(compiler.buildHasErrors(build));
+              const rebuiltUnit = build.unitsByPath.get('test');
+              assert.equal(rebuiltUnit.data.get('content'), 2);
+              assert.notEqual(unit.id, rebuiltUnit.id);
+              assert.notEqual(unit.buildReference, rebuiltUnit.buildReference);
             });
         });
+    });
+    it('should provide a textual description of build errors', () => {
+      let err;
+      const compiler = new Compiler({
+        phases: [
+          {id: '1', processor() {
+            err = new Error('test error');
+            throw err;
+          }}
+        ]
+      });
+      compiler.addEntryPoint('test');
+      compiler.start();
+      return compiler.completed()
+        .then(build => {
+          assert.isTrue(compiler.buildHasErrors(build));
+          const description = compiler.describeBuildErrors(build);
+          assert.include(description, 'Unit: ' + build.unitsWithErrors.get(0).path);
+          assert.include(description, 'Phase: 1');
+          assert.include(description, err.stack);
+        });
+    });
+    describe('phase invalidation', () => {
+      it('should allow phases to be invalidated, such that the file is partially rebuilt', () => {
+        let count = 0;
+        const compiler = new Compiler({
+          phases: [
+            {id: '1', processor({unit}) {
+              return {content: unit.path + ' phase1 ' + ++count};
+            }},
+            {id: '2', processor({unit}) {
+              return {content: unit.data.get('content') + ' phase2 ' + ++count};
+            }},
+            {id: '3', processor({unit}) {
+              return {content: unit.data.get('content') + ' phase3 ' + ++count};
+            }}
+          ]
+        });
+        compiler.addEntryPoint('test');
+        compiler.start();
+
+        return compiler.completed()
+          .then(build => {
+            assert.isFalse(compiler.buildHasErrors(build));
+            const unit = build.unitsByPath.get('test');
+            assert.equal(unit.data.get('content'), 'test phase1 1 phase2 2 phase3 3');
+            compiler.invalidateUnit(unit, '2');
+            return compiler.completed()
+              .then(build => {
+                assert.isFalse(compiler.buildHasErrors(build));
+                const rebuiltUnit = build.unitsByPath.get('test');
+                assert.equal(rebuiltUnit.data.get('content'), 'test phase1 1 phase2 4 phase3 5');
+                assert.notEqual(unit.id, rebuiltUnit.id);
+                assert.notEqual(unit.buildReference, rebuiltUnit.buildReference);
+              });
+          });
+      });
+      it('should allow failed phases to be invalidated', () => {
+        let count = 0;
+        const compiler = new Compiler({
+          phases: [
+            {id: '1', processor({unit}) {
+              return {content: unit.path + ' phase1 ' + ++count};
+            }},
+            {id: '2', processor({unit}) {
+              if (count === 1) {
+                count++;
+                throw new Error('test error');
+              }
+              return {content: unit.data.get('content') + ' phase2 ' + ++count};
+            }},
+            {id: '3', processor({unit}) {
+              return {content: unit.data.get('content') + ' phase3 ' + ++count};
+            }}
+          ]
+        });
+        compiler.addEntryPoint('test');
+        compiler.start();
+
+        return compiler.completed()
+          .then(build => {
+            assert.isTrue(compiler.buildHasErrors(build));
+            const unit = build.unitsByPath.get('test');
+            compiler.invalidateUnit(unit, '2');
+            return compiler.completed()
+              .then(build => {
+                assert.isFalse(compiler.buildHasErrors(build));
+                const rebuiltUnit = build.unitsByPath.get('test');
+                assert.equal(rebuiltUnit.data.get('content'), 'test phase1 1 phase2 3 phase3 4');
+                assert.notEqual(unit.id, rebuiltUnit.id);
+                assert.notEqual(unit.buildReference, rebuiltUnit.buildReference);
+              });
+          });
+      });
+      it('should handle the initial phase being invalidated', () => {
+        let count = 0;
+        const compiler = new Compiler({
+          phases: [
+            {id: '1', processor({unit}) {
+              return {content: unit.path + ' phase1 ' + ++count};
+            }},
+            {id: '2', processor({unit}) {
+              return {content: unit.data.get('content') + ' phase2 ' + ++count};
+            }},
+            {id: '3', processor({unit}) {
+              return {content: unit.data.get('content') + ' phase3 ' + ++count};
+            }}
+          ]
+        });
+        compiler.addEntryPoint('test');
+        compiler.start();
+
+        return compiler.completed()
+          .then(build => {
+            assert.isFalse(compiler.buildHasErrors(build));
+            const unit = build.unitsByPath.get('test');
+            assert.equal(unit.data.get('content'), 'test phase1 1 phase2 2 phase3 3');
+            compiler.invalidateUnit(unit, '1');
+            return compiler.completed()
+              .then(build => {
+                assert.isFalse(compiler.buildHasErrors(build));
+                const rebuiltUnit = build.unitsByPath.get('test');
+                assert.equal(rebuiltUnit.data.get('content'), 'test phase1 4 phase2 5 phase3 6');
+              });
+          });
+      });
     });
   });
 });

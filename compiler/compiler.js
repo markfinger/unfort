@@ -1,7 +1,8 @@
 "use strict";
 
+const {EOL} = require('os');
 const imm = require('immutable');
-const {isObject} = require('lodash');
+const {isObject, transform} = require('lodash');
 
 class Compiler {
   constructor({phases, createPipeline}={}) {
@@ -15,6 +16,16 @@ class Compiler {
         index: i
       };
     });
+    this.phasesById = transform(
+      this.phases,
+      (acc, phase) => {
+        if (acc[phase.id]) {
+          throw new Error(`Phase id collision on "${phase.id}"`);
+        }
+        acc[phase.id] = phase;
+      },
+      Object.create(null)
+    );
 
     // Build states
     this.COMPLETED = 'completed';
@@ -31,6 +42,7 @@ class Compiler {
     this.Unit = imm.Record({
       id: null,
       path: null,
+      buildReference: null,
       data: imm.Map(),
       dataByPhases: imm.Map(),
       errors: imm.List()
@@ -67,6 +79,19 @@ class Compiler {
   buildHasErrors(buildOutput) {
     return buildOutput.status === this.HAS_ERRORS;
   }
+  describeBuildErrors(buildOutput) {
+    let descriptions = [];
+    for (const unit of buildOutput.unitsWithErrors) {
+      for (const buildError of unit.errors) {
+        descriptions.push([
+          'Unit: ' + unit.path,
+          'Phase: ' + buildError.phase.id,
+          buildError.error.stack
+        ].join(EOL));
+      }
+    }
+    return descriptions.join(EOL);
+  }
   completed() {
     return new Promise(res => {
       this.onceCompleted(res);
@@ -74,26 +99,68 @@ class Compiler {
   }
   onceCompleted(func) {
     if (this._latestBuildOutput) {
+      if (this._pendingUnitIds.size) { // Sanity check
+        throw new Error('Build output stored, but pending units exist. This indicates that invalidation code is missing from within the compiler')
+      }
       return func(this._latestBuildOutput);
     }
     this._onceCompleted.push(func);
   }
-  invalidateUnitByPath(path) {
-    const unit = this.unitsByPath.get(path);
-    if (unit) {
-      this._latestBuildOutput = null;
-      this._removeUnit(unit);
-      if (this.entryPoints.has(path)) {
-        const unit = this._createUnitFromPath(path);
-        this._storeUnitState(unit);
-        this._compileUnitFromInitialPhase(unit);
-      }
+  invalidateUnit(unitToInvalidate, phaseId) {
+    // Sanity check
+    if (!(unitToInvalidate instanceof this.Unit)) {
+      throw new TypeError(`Unit not provided: ${unitToInvalidate}`);
     }
+
+    const {path, buildReference} = unitToInvalidate;
+    const currentUnit = this.unitsByPath.get(path);
+
+    // These are mostly sanity checks as it's quite likely that stale references
+    // are going to pop up with any reasonably complicated async system. We could
+    // fail silently, but this approach will hopefully indicate any holes in our
+    // invalidation logic
+    if (!currentUnit) {
+      throw new Error(`Unknown unit provided.\nUnit to invalidate: ${unitToInvalidate}.`);
+    }
+    if (currentUnit.buildReference !== buildReference) {
+      throw new Error(
+        `Stale build reference to unit provided.\nUnit to invalidate: ${unitToInvalidate}.\nCurrent unit: ${currentUnit}`
+      );
+    }
+
+    this._removeUnit(currentUnit);
+
+    let phase;
+    if (phaseId) {
+      phase = this.phasesById[phaseId];
+      if (!phase) {
+        throw new Error(`Unknown phase "${phaseId}", available phases: ${Object.keys(this.phasesById)}`);
+      }
+    } else if (this.entryPoints.has(currentUnit.path)) {
+      phase = this.phases[0];
+    } else {
+      return;
+    }
+
+    const phasesToPreserve = this.phases.slice(0, phase.index);
+    const patches = transform(phasesToPreserve, (acc, phase) => {
+      const phaseData = currentUnit.dataByPhases.get(phase.id);
+      if (phaseData) {
+        acc.data = acc.data.merge(phaseData);
+        acc.dataByPhases = acc.dataByPhases.set(phase.id, phaseData);
+      }
+    }, {data: imm.Map(), dataByPhases: imm.Map()});
+    const newUnit = this._createUnitFromPath(path).merge(patches);
+
+    this._pendingUnitIds.add(newUnit.id);
+    this._storeUnitState(newUnit);
+    this._compileUnitFromPhase(newUnit, phase);
   }
   _removeUnit(unit) {
+    this._latestBuildOutput = null;
     this.unitsById = this.unitsById.remove(unit.id);
     this.unitsByPath = this.unitsByPath.remove(unit.path);
-    this.unitsWithErrors = this.unitsWithErrors.remove(unit);
+    this.unitsWithErrors = this.unitsWithErrors.filter(_unit => _unit.id !== unit.id);
   }
   _signalCompleted() {
     this._latestBuildOutput = new this.BuildOutput({
@@ -116,7 +183,8 @@ class Compiler {
     const id = this._createUniqueUnitId();
     const unit = new this.Unit({
       id,
-      path
+      path,
+      buildReference: {}
     });
     this._pendingUnitIds.add(id);
     return unit;
@@ -132,9 +200,9 @@ class Compiler {
   }
   _compileUnitFromInitialPhase(unit) {
     const initialPhase = this.phases[0];
-    this._compileUnitInPhase(unit, initialPhase);
+    this._compileUnitFromPhase(unit, initialPhase);
   }
-  _compileUnitInPhase(unit, phase) {
+  _compileUnitFromPhase(unit, phase) {
     const compilation = {
       unit,
     };
@@ -153,7 +221,7 @@ class Compiler {
         this._storeUnitState(updatedUnit);
         const nextPhase = this.phases[phase.index + 1];
         if (nextPhase) {
-          this._compileUnitInPhase(updatedUnit, nextPhase);
+          this._compileUnitFromPhase(updatedUnit, nextPhase);
         } else {
           this._unitCompleted(updatedUnit);
         }
