@@ -1,9 +1,9 @@
+"use strict";
+
 const rx = require('rxjs');
 const imm = require('immutable');
 const {pull} = require('lodash/array');
-const {
-  addNode, addEdge, removeEdge, removeNode, findNodesDisconnectedFromEntryNodes, pruneNodeAndUniqueDependencies
-} = require('./node');
+const {addNode, addEdge, removeEdge, removeNode, findNodesDisconnectedFromEntryNodes} = require('./node');
 
 class CyclicDependencyGraph {
   constructor(resolver, {initialState}={}) {

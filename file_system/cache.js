@@ -2,9 +2,10 @@
 
 const fs = require('fs');
 const {promisify} = require('bluebird');
-const {EventBus} = require('../utils/event_bus');
+const rx = require('rxjs');
 const {File} = require('./file');
 const {validateFileSystemDependencies} = require('./dependencies');
+const {FileSystemTrap} = require('./trap');
 
 class FileSystemCache {
   constructor(fileSystem={}) {
@@ -16,17 +17,17 @@ class FileSystemCache {
     this.trapsByFile = Object.create(null);
 
     // Incoming data
-    this.fileAdded = new EventBus();
-    this.fileChanged = new EventBus();
-    this.fileRemoved = new EventBus();
+    this.fileAdded = new rx.Subject();
+    this.fileChanged = new rx.Subject();
+    this.fileRemoved = new rx.Subject();
 
     // Outgoing data
-    this.trapTriggered = new EventBus();
+    this.trapTriggered = new rx.Subject();
 
     // Handle incoming data
-    this.fileAdded.subscribe((path, stat) => this._handleFileAdded(path, stat));
-    this.fileChanged.subscribe((path, stat) => this._handleFileChanged(path, stat));
-    this.fileRemoved.subscribe(path => this._handleFileRemoved(path));
+    this.fileAdded.subscribe((data) => this._handleFileAdded(data.path, data.stat));
+    this.fileChanged.subscribe((data) => this._handleFileChanged(data.path, data.stat));
+    this.fileRemoved.subscribe((data) => this._handleFileRemoved(data.path));
   }
   isFile(path) {
     return this._evaluateFileMethod('getIsFile', path);
@@ -182,7 +183,7 @@ class FileSystemCache {
     }
     i = length;
     while(--i !== -1) {
-      this.trapTriggered.push({
+      this.trapTriggered.next({
         trap: traps[i],
         path,
         cause
@@ -191,104 +192,6 @@ class FileSystemCache {
   }
 }
 
-class FileSystemTrap {
-  constructor(cache) {
-    this.cache = cache;
-    this.bindings = Object.create(null);
-    this.boundFiles = Object.create(null);
-    this.triggerOnChange = Object.create(null);
-  }
-  isFile(path) {
-    return this.cache.isFile(path)
-      .then(isFile => {
-        const bindings = this._getFileBindings(path);
-        if (bindings.isFile === undefined) {
-          bindings.isFile = isFile;
-        }
-        return isFile;
-      });
-  }
-  stat(path) {
-    this._ensureBindingToFile(path);
-    this.triggerOnChange[path] = true;
-    return this.cache.stat(path)
-      .then(stat => {
-        const bindings = this._getFileBindings(path);
-        bindings.isFile = true;
-        if (bindings.modifiedTime === undefined) {
-          bindings.modifiedTime = stat.mtime.getTime();
-        }
-        return stat;
-      });
-  }
-  readModifiedTime(path) {
-    this._ensureBindingToFile(path);
-    this.triggerOnChange[path] = true;
-    return this.cache.readModifiedTime(path)
-      .then(modifiedTime => {
-        const bindings = this._getFileBindings(path);
-        bindings.isFile = true;
-        bindings.modifiedTime = modifiedTime;
-        return modifiedTime;
-      });
-  }
-  readBuffer(path) {
-    this._ensureBindingToFile(path);
-    this.triggerOnChange[path] = true;
-    return this.cache.readBuffer(path)
-      .then(buffer => {
-        // Rely on `readModifiedTime` to bind its dependencies
-        return this.readModifiedTime(path)
-          .then(() => buffer);
-      });
-  }
-  readText(path) {
-    this._ensureBindingToFile(path);
-    this.triggerOnChange[path] = true;
-    return this.cache.readText(path)
-      .then(text => {
-        // Rely on `readTextHash` to bind its dependencies
-        return this.readTextHash(path)
-          .then(() => text);
-      });
-  }
-  readTextHash(path) {
-    this._ensureBindingToFile(path);
-    this.triggerOnChange[path] = true;
-    return this.cache.readTextHash(path)
-      .then(textHash => {
-        // Rely on `readModifiedTime` to bind its dependencies
-        return this.readModifiedTime(path)
-          .then(() => {
-            const bindings = this._getFileBindings(path);
-            if (bindings.textHash === undefined) {
-              bindings.textHash = textHash;
-            }
-            return textHash;
-          });
-      });
-  }
-  describeDependencies() {
-    return this.bindings;
-  }
-  _ensureBindingToFile(path) {
-    if (this.boundFiles[path] === undefined) {
-      this.boundFiles[path] = true;
-      this.cache._bindTrapToFile(this, path);
-    }
-  }
-  _getFileBindings(path) {
-    let bindings = this.bindings[path];
-    if (!bindings) {
-      bindings = {};
-      this.bindings[path] = bindings;
-      this._ensureBindingToFile(path);
-    }
-    return bindings;
-  }
-}
-
 module.exports = {
-  FileSystemCache,
-  FileSystemTrap
+  FileSystemCache
 };

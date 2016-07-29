@@ -1,7 +1,6 @@
 "use strict";
 
 const imm = require('immutable');
-const {once} = require('lodash');
 const test = require('ava');
 const {CyclicDependencyGraph} = require('../cyclic_dependency_graph');
 const {Node} = require('../node');
@@ -20,7 +19,7 @@ test.cb('.start should emit only once per run', (t) => {
   const graph = new CyclicDependencyGraph(() => Promise.resolve([]));
 
   graph.error.subscribe(obj => {
-    throw obj.error
+    throw obj.error;
   });
 
   let called = 0;
@@ -71,7 +70,9 @@ test.cb('.error should emit if the resolver rejects', (t) => {
 });
 
 test.cb('.error should emit if the resolver throws', (t) => {
-  const graph = new CyclicDependencyGraph(() => {throw 'expected error'});
+  const graph = new CyclicDependencyGraph(() => {
+    throw 'expected error';
+  });
 
   graph.trace('test');
 
