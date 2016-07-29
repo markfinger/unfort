@@ -1,295 +1,155 @@
 "use strict";
 
 const {difference} = require('lodash/array');
-const {Map, Set} = require('immutable');
-const {assert} = require('../../utils/assert');
-const {
-  Node, addNode, removeNode, addEdge, removeEdge, findNodesDisconnectedFromEntryNodes,
-  pruneNodeAndUniqueDependencies
-} = require('../node');
+const imm = require('immutable');
+const test = require('ava');
+const {Node, addNode, removeNode, addEdge, removeEdge, findNodesDisconnectedFromEntryNodes} = require('../node');
 const {createNodesFromNotation} = require('../utils');
 
-describe('cyclic_dependency_graph/node', () => {
-  describe('#Node', () => {
-    it('should have id, dependencies and dependents properties', () => {
-      const node = Node({
-        id: 'test'
-      });
-      assert.equal(node.id, 'test');
-      assert.instanceOf(node.dependencies, Set);
-      assert.instanceOf(node.dependents, Set);
-    });
+test('Node should have id, dependencies and dependents properties', (t) => {
+  const node = Node({
+    id: 'test'
   });
-  describe('#addNode', () => {
-    it('should return a Map containing the specified key and a Node instance', () => {
-      let nodes = Map();
+  t.is(node.id, 'test');
+  t.truthy(node.dependencies instanceof imm.Set);
+  t.truthy(node.dependents instanceof imm.Set);
+});
 
-      nodes = addNode(nodes, 'test');
+test('addNode should return a immutable Map containing the specified key and a Node instance', (t) => {
+  let nodes = imm.Map();
+  nodes = addNode(nodes, 'test');
+  t.truthy(
+    imm.is(nodes, imm.Map({test: Node({id: 'test'})}))
+  );
+});
 
-      assert.deepEqual(
-        nodes,
-        Map({
-          test: Node({id: 'test'})
-        })
-      );
-    });
-    it('should throw if a node already exists', () => {
-      const nodes = Map({test: Node()});
+test('addNode should throw if a node already exists', (t) => {
+  const nodes = imm.Map({test: Node()});
+  t.throws(
+    () => addNode(nodes, 'test'),
+    'Node "test" already exists'
+  );
+});
 
-      assert.throws(
-        () => addNode(nodes, 'test'),
-        'Node "test" already exists'
-      );
-    });
-  });
-  describe('#removeNode', () => {
-    it('should return a Map without the specified key', () => {
-      let nodes = Map({test: Node()});
+test('removeNode should return a imm.Map without the specified key', (t) => {
+  let nodes = imm.Map({test: Node()});
+  nodes = removeNode(nodes, 'test');
+  t.truthy(imm.is(
+    nodes,
+    imm.Map()
+  ));
+});
 
-      nodes = removeNode(nodes, 'test');
+test('removeNode should throw if a node does not already exist', (t) => {
+  const nodes = imm.Map();
+  t.throws(
+    () => removeNode(nodes, 'test'),
+    'Node "test" does not exist'
+  );
+});
 
-      assert.equal(nodes, Map());
-    });
-    it('should throw if a node does not already exist', () => {
-      const nodes = Map();
+test('should return a map with the respective nodes updated', (t) => {
+  const nodes = createNodesFromNotation(`
+    a
+    b
+  `);
+  const withEdge = addEdge(nodes, 'a', 'b');
+  t.truthy(imm.is(
+    withEdge,
+    createNodesFromNotation('a -> b')
+  ));
+});
 
-      assert.throws(
-        () => removeNode(nodes, 'test'),
-        'Node "test" does not exist'
-      );
-    });
-  });
-  describe('#addEdge', () => {
-    it('should return a map with the respective nodes updated', () => {
-      const nodes = createNodesFromNotation(`
-        a
-        b
-      `);
+test('should throw if the node ids are the same', (t) => {
+  t.throws(
+    () => addEdge(imm.Map(), 'foo', 'foo'),
+    'Edges must point to two different nodes. Cannot add an edge from "foo" to itself'
+  );
+});
 
-      const withEdge = addEdge(nodes, 'a', 'b');
+test('should throw if either node does not already exist', (t) => {
+  let nodes = imm.Map();
 
-      assert.deepEqual(
-        withEdge,
-        createNodesFromNotation('a -> b')
-      );
-    });
-    it('should throw if the node ids are the same', () => {
-      assert.throws(
-        () => addEdge(Map(), 'foo', 'foo'),
-        'Edges must point to two different nodes. Cannot add an edge from "foo" to itself'
-      );
-    });
-    it('should throw if either node does not already exist', () => {
-      let nodes = Map();
+  t.throws(
+    () => addEdge(nodes, 'foo', 'bar'),
+    'Cannot add edge from "foo" -> "bar" as "foo" has not been defined'
+  );
+  nodes = imm.Map({foo: Node()});
+  t.throws(
+    () => addEdge(nodes, 'foo', 'bar'),
+    'Cannot add edge from "foo" -> "bar" as "bar" has not been defined'
+  );
+});
 
-      assert.throws(
-        () => addEdge(nodes, 'foo', 'bar'),
-        'Cannot add edge from "foo" -> "bar" as "foo" has not been defined'
-      );
+test('removeEdge should return a map without the specified edge', (t) => {
+  let nodes = createNodesFromNotation('a -> b');
+  nodes = removeEdge(nodes, 'a', 'b');
+  t.truthy(imm.is(
+    nodes,
+    createNodesFromNotation(`
+      a
+      b
+    `)
+  ));
+});
 
-      nodes = Map({foo: Node()});
+test('removeEdge should throw if either node does not already exist', (t) => {
+  let nodes = imm.Map();
+  t.throws(
+    () => removeEdge(nodes, 'foo', 'bar'),
+    'Cannot remove edge from "foo" -> "bar" as "foo" has not been defined'
+  );
+  nodes = imm.Map({foo: Node({id: 'foo'})});
+  t.throws(
+    () => removeEdge(nodes, 'foo', 'bar'),
+    'Cannot remove edge from "foo" -> "bar" as "bar" has not been defined'
+  );
+});
 
-      assert.throws(
-        () => addEdge(nodes, 'foo', 'bar'),
-        'Cannot add edge from "foo" -> "bar" as "bar" has not been defined'
-      );
-    });
-  });
-  describe('#removeEdge', () => {
-    it('should return a map without the specified edge', () => {
-      let nodes = createNodesFromNotation('a -> b');
+test('findNodesDisconnectedFromEntryNodes should return all nodes if there no entry nodes', (t) => {
+  const nodes = createNodesFromNotation(`
+    a -> b -> c
+    d -> c
+  `);
+  const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, []);
+  const expected = ['a', 'b', 'c', 'd'];
+  t.deepEqual(
+    difference(disconnectedNodes, expected),
+    []
+  );
+});
 
-      nodes = removeEdge(nodes, 'a', 'b');
+test('findNodesDisconnectedFromEntryNodes should list all dependents of an entry node that are not indirect dependencies of the entry', (t) => {
+  const nodes = createNodesFromNotation(`
+    a -> b -> c
+    d -> c
+  `);
+  const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['d']);
+  const expected = ['a', 'b'];
+  t.deepEqual(
+    difference(disconnectedNodes, expected),
+    []
+  );
+});
 
-      assert.deepEqual(
-        nodes,
-        createNodesFromNotation(`
-          a
-          b
-        `)
-      );
-    });
-    it('should throw if either node does not already exist', () => {
-      let nodes = Map();
+test('findNodesDisconnectedFromEntryNodes should list all nodes which are disconnected from the entry nodes', (t) => {
+  const nodes = createNodesFromNotation(`
+    a
+    b
+    c -> d
+  `);
+  const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['a', 'b']);
+  const expected = ['c', 'd'];
+  t.deepEqual(
+    difference(disconnectedNodes, expected),
+    []
+  );
+});
 
-      assert.throws(
-        () => removeEdge(nodes, 'foo', 'bar'),
-        'Cannot remove edge from "foo" -> "bar" as "foo" has not been defined'
-      );
-
-      nodes = Map({foo: Node({id: 'foo'})});
-
-      assert.throws(
-        () => removeEdge(nodes, 'foo', 'bar'),
-        'Cannot remove edge from "foo" -> "bar" as "bar" has not been defined'
-      );
-    });
-  });
-  describe('#findNodesDisconnectedFromEntryNodes', () => {
-    it('should return all nodes if there no entry nodes', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-        d -> c
-      `);
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, []);
-      const expected = ['a', 'b', 'c', 'd'];
-
-      assert.deepEqual(
-        difference(disconnectedNodes, expected),
-        []
-      );
-    });
-    it('should list all dependents of an entry node that are not indirect dependencies of the entry', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-        d -> c
-      `);
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['d']);
-      const expected = ['a', 'b'];
-
-      assert.deepEqual(
-        difference(disconnectedNodes, expected),
-        []
-      );
-    });
-    it('should list all nodes which are disconnected from the entry nodes', () => {
-      const nodes = createNodesFromNotation(`
-        a
-        b
-        c -> d
-      `);
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['a', 'b']);
-      const expected = ['c', 'd'];
-
-      assert.deepEqual(
-        difference(disconnectedNodes, expected),
-        []
-      );
-    });
-    it('should return an empty list if all nodes are connected to an entry', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-      `);
-
-      const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['a']);
-
-      assert.deepEqual(disconnectedNodes, []);
-    });
-  });
-  describe('#pruneNodeAndUniqueDependencies', () => {
-    it('should prune the specified node', () => {
-      const nodes = createNodesFromNotation(`
-        a
-        b
-      `);
-
-      assert.equal(
-        pruneNodeAndUniqueDependencies(nodes, 'b', []).nodes,
-        createNodesFromNotation('a')
-      );
-    });
-    it('should indicate the nodes pruned', () => {
-      const nodes = createNodesFromNotation('a');
-
-      assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a', []).pruned,
-        ['a']
-      );
-    });
-    it('should follow dependents and prune them as well', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-        a -> d
-      `);
-
-      const data = pruneNodeAndUniqueDependencies(nodes, 'a', []);
-
-      assert.equal(data.nodes, Map());
-
-      assert.deepEqual(
-        data.pruned,
-        ['a', 'b', 'c', 'd']
-      );
-    });
-    it('should update dependents when pruning a node', () => {
-      const nodes = createNodesFromNotation(`
-        a -> c
-        b -> c
-      `);
-
-      const data = pruneNodeAndUniqueDependencies(nodes, 'c', []);
-
-      assert.equal(
-        data.nodes,
-        createNodesFromNotation(`
-          a
-          b
-        `)
-      );
-
-      assert.deepEqual(
-        data.pruned,
-        ['c']
-      );
-    });
-    it('should not prune entry nodes when pruning unique dependencies 1', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-      `);
-      assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a', ['b']).pruned,
-        ['a']
-      );
-    });
-    it('should not prune entry nodes when pruning unique dependencies 2', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-      `);
-
-      assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a', ['c']).pruned,
-        ['a', 'b']
-      );
-    });
-    it('should prune from an entry node if has been explicitly specified', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c
-      `);
-
-      assert.deepEqual(
-        pruneNodeAndUniqueDependencies(nodes, 'a', ['a']).pruned,
-        ['a', 'b', 'c']
-      );
-    });
-    it('should remove the node and recursively remove all dependency nodes that lack other dependents', () => {
-      const nodes = createNodesFromNotation(`
-        a -> b -> c -> d
-        b -> d -> e
-        c -> e
-        c -> f -> g -> d
-      `);
-
-      const data = pruneNodeAndUniqueDependencies(nodes, 'c', []);
-      assert.deepEqual(
-        data.pruned,
-        ['c', 'f', 'g']
-      );
-
-      assert.deepEqual(
-        data.nodes,
-        createNodesFromNotation(`
-          a -> b -> d -> e
-        `)
-      );
-    });
-    it('should throw if the node has not been defined', () => {
-      assert.throw(
-        () => pruneNodeAndUniqueDependencies(Map(), 'a', []),
-        'Cannot prune from node "a" as it has not been defined'
-      );
-    });
-  });
+test('findNodesDisconnectedFromEntryNodes should return an empty list if all nodes are connected to an entry', (t) => {
+  const nodes = createNodesFromNotation(`
+    a -> b -> c
+  `);
+  const disconnectedNodes = findNodesDisconnectedFromEntryNodes(nodes, ['a']);
+  t.deepEqual(disconnectedNodes, []);
 });
