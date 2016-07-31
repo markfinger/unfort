@@ -1,5 +1,6 @@
 "use strict";
 
+const Promise = require('bluebird');
 const rx = require('rxjs');
 const imm = require('immutable');
 const {pull} = require('lodash/array');
@@ -141,6 +142,12 @@ class CyclicDependencyGraph {
 
         // Indicate that this job is no longer blocking the `completed` stage
         pull(this._pendingJobs, job);
+
+        if (!dependencies) {
+          return Promise.reject(
+            new Error(`Failed to return a truthy value for dependencies. Received: ${dependencies}`)
+          );
+        }
 
         const toTrace = [];
         const pendingNodesByName = Object.create(null);

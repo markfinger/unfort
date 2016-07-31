@@ -1,5 +1,6 @@
 "use strict";
 
+const Promise = require('bluebird');
 const {generateStringHash} = require('../utils/hash');
 
 class File {

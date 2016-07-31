@@ -2,14 +2,14 @@
 
 const fs = require('fs');
 const {Buffer} = require('buffer');
-const BlueBird = require('bluebird');
 const test = require('ava');
 const {generateStringHash} = require('../../utils/hash');
 const {File} = require('../file');
+const {readFile, stat} = require('../utils');
 
 const fileSystem = {
-  readFile: BlueBird.promisify(fs.readFile),
-  stat: BlueBird.promisify(fs.stat)
+  readFile,
+  stat
 };
 
 test('File should produce the expected dataset of a file', (t) => {

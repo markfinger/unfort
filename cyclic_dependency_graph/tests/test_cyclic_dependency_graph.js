@@ -2,7 +2,7 @@
 
 const imm = require('immutable');
 const test = require('ava');
-const {CyclicDependencyGraph} = require('../cyclic_dependency_graph');
+const {CyclicDependencyGraph} = require('../graph');
 const {Node} = require('../node');
 const {createNodesFromNotation} = require('../utils');
 

@@ -1,17 +1,17 @@
 "use strict";
 
-const fs = require('fs');
-const {promisify} = require('bluebird');
+const Promise = require('bluebird');
 const rx = require('rxjs');
 const {File} = require('./file');
 const {validateFileSystemDependencies} = require('./dependencies');
 const {FileSystemTrap} = require('./trap');
+const {readFile, stat} = require('./utils');
 
 class FileSystemCache {
   constructor(fileSystem={}) {
     this.fileSystem = {
-      readFile: fileSystem.readFile || promisify(fs.readFile),
-      stat: fileSystem.stat || promisify(fs.stat)
+      readFile: fileSystem.readFile || readFile,
+      stat: fileSystem.stat || stat
     };
     this.files = Object.create(null);
     this.trapsByFile = Object.create(null);
@@ -149,14 +149,16 @@ class FileSystemCache {
       file = this._createFile(path);
     }
     return file[methodName]()
-      .catch(err => {
-        const block = this._blockStaleFilesFromResolving(file);
-        return block || Promise.reject(err);
-      })
-      .then(data => {
-        const block = this._blockStaleFilesFromResolving(file);
-        return block || data;
-      });
+      .then(
+        (data) => {
+          const block = this._blockStaleFilesFromResolving(file);
+          return block || data;
+        },
+        (err) => {
+          const block = this._blockStaleFilesFromResolving(file);
+          return block || Promise.reject(err);
+        }
+      );
   }
   _blockStaleFilesFromResolving(file) {
     // If the file was removed during processing, we prevent the promise
