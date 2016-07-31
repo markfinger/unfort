@@ -18,7 +18,7 @@ const DB_TABLE_NAME = 'CACHE';
  * from occurring until the write has finished
  */
 class PersistentCache {
-  constructor({createDatabaseConnection, filename}={}) {
+  constructor(filename, {createDatabaseConnection}={}) {
     if (createDatabaseConnection) {
       this.createDatabaseConnection = createDatabaseConnection;
     } else {

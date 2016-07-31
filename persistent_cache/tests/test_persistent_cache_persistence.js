@@ -11,9 +11,7 @@ const {PersistentCache} = require('../persistent_cache');
 const TEST_DB = tmp.fileSync().name;
 
 test('should accept a path and create a sqlite db that can read/write data that persists across connections', (t) => {
-  const cache1 = new PersistentCache({
-    filename: TEST_DB
-  });
+  const cache1 = new PersistentCache(TEST_DB);
 
   cache1.set('test 1', 'some data');
   cache1.set('test 2', 'some other data');
@@ -21,9 +19,7 @@ test('should accept a path and create a sqlite db that can read/write data that 
   const testRead = cache1.persistChanges()
     .then(() => cache1.closeDatabaseConnection)
     .then(() => {
-      const cache2 = new PersistentCache({
-        filename: TEST_DB
-      });
+      const cache2 = new PersistentCache(TEST_DB);
 
       return Promise.all([
         cache2.get('test 1'),
@@ -37,9 +33,7 @@ test('should accept a path and create a sqlite db that can read/write data that 
           return cache2.persistChanges()
             .then(() => cache2.closeDatabaseConnection)
             .then(() => {
-              const cache3 = new PersistentCache({
-                filename: TEST_DB
-              });
+              const cache3 = new PersistentCache(TEST_DB);
 
               return Promise.all([
                 cache3.get('test 1'),

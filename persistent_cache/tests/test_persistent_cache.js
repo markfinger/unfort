@@ -4,15 +4,18 @@ const test = require('ava');
 const {PersistentCache} = require('../persistent_cache');
 
 test('should fetch from the memory store, before hitting the db', (t) => {
-  const cache = new PersistentCache({
-    createDatabaseConnection() {
-      return Promise.resolve({
-        get() {
-          throw new Error('should not be called');
-        }
-      });
+  const cache = new PersistentCache(
+    null,
+    {
+      createDatabaseConnection() {
+        return Promise.resolve({
+          get() {
+            throw new Error('should not be called');
+          }
+        });
+      }
     }
-  });
+  );
 
   cache.set('test', 'some data');
 
@@ -21,15 +24,18 @@ test('should fetch from the memory store, before hitting the db', (t) => {
 });
 
 test('should fetch from db, if the memory store is missing data', (t) => {
-  const cache = new PersistentCache({
-    createDatabaseConnection() {
-      return Promise.resolve({
-        get(sql, params, cb) {
-          cb(null, {value: JSON.stringify('from the db')});
-        }
-      });
+  const cache = new PersistentCache(
+    null,
+    {
+      createDatabaseConnection() {
+        return Promise.resolve({
+          get(sql, params, cb) {
+            cb(null, {value: JSON.stringify('from the db')});
+          }
+        });
+      }
     }
-  });
+  );
 
   return cache.get('test')
     .then(data => t.is(data, 'from the db'));
