@@ -17,51 +17,40 @@ const DB_TABLE_NAME = 'CACHE';
  * is a workaround for sqlite's blocking writes, which prevent any reads
  * from occurring until the write has finished
  */
-function createPersistentCache({createDatabaseConnection, filename, memoryCache}={}) {
-  if (!createDatabaseConnection) {
-    if (!filename) {
-      throw new Error('A `filename` option must be provided');
+class PersistentCache {
+  constructor({createDatabaseConnection, filename}={}) {
+    if (createDatabaseConnection) {
+      this.createDatabaseConnection = createDatabaseConnection;
+    } else {
+      if (!filename) {
+        throw new Error('A `filename` option must be provided');
+      }
+      this.createDatabaseConnection = () => {
+        return createSqlite3Database(filename);
+      };
     }
-    createDatabaseConnection = () => {
-      return createSqlite3Database(filename);
-    };
+
+    this.connection = this.createDatabaseConnection();
+
+    // An in-memory cache that helps avoid some of the overhead involved with
+    // the file system. Note that the memory cache only stores the serialized
+    // state of the entries, so there is still a deserialization cost incurred
+    // for gets
+    this.memoryCache = new MemoryCache();
+
+    // Mutable maps (k => v) of the changes that should be persisted
+    this.pendingInserts = Object.create(null);
+    this.pendingDeletes = Object.create(null);
   }
-
-  const connection = createDatabaseConnection();
-
-  // An in-memory cache that helps avoid some of the overhead involved with
-  // the file system. Note that the memory cache only stores the serialized
-  // state of the entries, so there is still a deserialization cost incurred
-  // for gets
-  memoryCache = createMemoryCache();
-
-  // Mutable maps (k => v) of the changes that should be persisted
-  let pendingInserts = Object.create(null);
-  let pendingDeletes = Object.create(null);
-
-  function schedulePersistentWrite(key, value) {
-    if (pendingDeletes[key]) {
-      pendingDeletes[key] = undefined;
-    }
-    return pendingInserts[key] = value;
-  }
-
-  function schedulePersistentDelete(key) {
-    if (pendingInserts[key]) {
-      pendingInserts[key] = undefined;
-    }
-    return pendingDeletes[key] = true;
-  }
-
   /**
    * Any writes to SQLite will block concurrent reads, so we defer
    * all write and delete operations until this method is called
    */
-  function persistChanges() {
-    return connection
+  persistChanges() {
+    return this.connection
       .then(db => {
-        const _pendingInserts = pendingInserts;
-        pendingInserts = Object.create(null);
+        const _pendingInserts = this.pendingInserts;
+        this.pendingInserts = Object.create(null);
         const insertParams = [];
         forEach(_pendingInserts, (value, key) => {
           if (value !== undefined) {
@@ -69,8 +58,8 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
           }
         });
 
-        const _pendingDeletes = pendingDeletes;
-        pendingDeletes = Object.create(null);
+        const _pendingDeletes = this.pendingDeletes;
+        this.pendingDeletes = Object.create(null);
         const deleteParams = [];
         forEach(_pendingDeletes, (value, key) => {
           if (value !== undefined) {
@@ -123,21 +112,17 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
         });
       });
   }
-
   /**
    * Given a key, returns a promise resolving to either an associated value
    * or null.
-   *
-   * @param {String} key
-   * @returns {Promise}
    */
-  function get(key) {
-    const inMemoryValue = memoryCache.get(key);
+  get(key) {
+    const inMemoryValue = this.memoryCache.get(key);
     if (inMemoryValue) {
-      return deserializeData(inMemoryValue);
+      return this._deserializeData(inMemoryValue);
     }
 
-    return connection
+    return this.connection
       .then(db => {
         return new Promise((res, rej) => {
           db.get(
@@ -152,42 +137,33 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
         });
       })
       .then(data => {
-        memoryCache.set(key, data);
+        this.memoryCache.set(key, data);
         if (data) {
-          return deserializeData(data);
+          return this._deserializeData(data);
         }
         return null;
       });
   }
-
   /**
    * Associates a key/value combination in both memory and persistent stores.
-   *
-   * @param {String} key
-   * @param {*} value
-   * @returns {Promise}
    */
-  function set(key, value) {
+  set(key, value) {
     // Note: serializing large JSON structures can block the event loop. We could defer,
     // in an attempt to avoid blocking the event loop, but that opens up a potential
     // world of pain if the objects were ever mutated
     const json = JSON.stringify(value);
-    memoryCache.set(key, json);
-    schedulePersistentWrite(key, json);
+    this.memoryCache.set(key, json);
+    this._schedulePersistentWrite(key, json);
   }
-
   /**
    * Removes any value associated with the provided key.
-   *
-   * @param {String} key
    */
-  function remove(key) {
-    memoryCache.remove(key);
-    schedulePersistentDelete(key);
+  remove(key) {
+    this.memoryCache.remove(key);
+    this._schedulePersistentDelete(key);
   }
-
-  function closeDatabaseConnection() {
-    return connection
+  closeDatabaseConnection() {
+    return this.connection
       .then(db => {
         return new Promise((res, rej) => {
           db.close(err => {
@@ -197,14 +173,28 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
         });
       });
   }
-
-  return {
-    get,
-    set,
-    remove,
-    persistChanges,
-    closeDatabaseConnection
-  };
+  _schedulePersistentWrite(key, value) {
+    if (this.pendingDeletes[key]) {
+      this.pendingDeletes[key] = undefined;
+    }
+    return this.pendingInserts[key] = value;
+  }
+  _schedulePersistentDelete(key) {
+    if (this.pendingInserts[key]) {
+      this.pendingInserts[key] = undefined;
+    }
+    return this.pendingDeletes[key] = true;
+  }
+  _deserializeData(json) {
+    let data;
+    try {
+      data = JSON.parse(json);
+    } catch(err) {
+      err.message = `Error deserializing cached data - ${err.message}`;
+      return Promise.reject(err);
+    }
+    return Promise.resolve(data);
+  }
 }
 
 /**
@@ -212,19 +202,19 @@ function createPersistentCache({createDatabaseConnection, filename, memoryCache}
  *
  * @returns {Object}
  */
-function createMemoryCache() {
-  const cache = Object.create(null);
-  return {
-    get(key) {
-      return cache[key] || null;
-    },
-    set(key, value) {
-      cache[key] = value;
-    },
-    remove(key) {
-      cache[key] = null;
-    }
-  };
+class MemoryCache {
+  constructor() {
+    this.cache = Object.create(null);
+  }
+  get(key) {
+    return this.cache[key] || null;
+  }
+  set(key, value) {
+    this.cache[key] = value;
+  }
+  remove(key) {
+    this.cache[key] = null;
+  }
 }
 
 function createSqlite3Database(filename) {
@@ -261,19 +251,8 @@ function createSqlite3Database(filename) {
   });
 }
 
-function deserializeData(json) {
-  let data;
-  try {
-    data = JSON.parse(json);
-  } catch(err) {
-    err.message = `Error deserializing cached data - ${err.message}`;
-    return Promise.reject(err);
-  }
-  return Promise.resolve(data);
-}
-
 module.exports = {
-  createPersistentCache,
-  createMemoryCache,
+  PersistentCache,
+  MemoryCache,
   createSqlite3Database
 };

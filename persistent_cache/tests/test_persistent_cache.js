@@ -1,10 +1,10 @@
 "use strict";
 
 const test = require('ava');
-const {createPersistentCache} = require('../persistent_cache');
+const {PersistentCache} = require('../persistent_cache');
 
 test('should fetch from the memory store, before hitting the db', (t) => {
-  const cache = createPersistentCache({
+  const cache = new PersistentCache({
     createDatabaseConnection() {
       return Promise.resolve({
         get() {
@@ -21,7 +21,7 @@ test('should fetch from the memory store, before hitting the db', (t) => {
 });
 
 test('should fetch from db, if the memory store is missing data', (t) => {
-  const cache = createPersistentCache({
+  const cache = new PersistentCache({
     createDatabaseConnection() {
       return Promise.resolve({
         get(sql, params, cb) {

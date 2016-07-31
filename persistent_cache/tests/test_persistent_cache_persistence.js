@@ -2,7 +2,7 @@
 
 const test = require('ava');
 const tmp = require('tmp');
-const {createPersistentCache} = require('../persistent_cache');
+const {PersistentCache} = require('../persistent_cache');
 
 // Be aware that persistence slows down the test suite, due to the IO
 // overhead of sqlite's initialization. Whenever possible, consolidate
@@ -11,7 +11,7 @@ const {createPersistentCache} = require('../persistent_cache');
 const TEST_DB = tmp.fileSync().name;
 
 test('should accept a path and create a sqlite db that can read/write data that persists across connections', (t) => {
-  const cache1 = createPersistentCache({
+  const cache1 = new PersistentCache({
     filename: TEST_DB
   });
 
@@ -19,9 +19,9 @@ test('should accept a path and create a sqlite db that can read/write data that 
   cache1.set('test 2', 'some other data');
 
   const testRead = cache1.persistChanges()
-    .then(cache1.closeDatabaseConnection)
+    .then(() => cache1.closeDatabaseConnection)
     .then(() => {
-      const cache2 = createPersistentCache({
+      const cache2 = new PersistentCache({
         filename: TEST_DB
       });
 
@@ -35,9 +35,9 @@ test('should accept a path and create a sqlite db that can read/write data that 
 
           cache2.remove('test 1');
           return cache2.persistChanges()
-            .then(cache2.closeDatabaseConnection)
+            .then(() => cache2.closeDatabaseConnection)
             .then(() => {
-              const cache3 = createPersistentCache({
+              const cache3 = new PersistentCache({
                 filename: TEST_DB
               });
 
@@ -49,7 +49,7 @@ test('should accept a path and create a sqlite db that can read/write data that 
                   t.is(data1, null);
                   t.is(data2, 'some other data');
                 })
-                .then(cache3.closeDatabaseConnection)
+                .then(() => cache3.closeDatabaseConnection)
                 .then(() => 'test complete');
             });
         });
