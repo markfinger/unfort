@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const bluebird = require('bluebird');
+const Promise = require('bluebird');
 const chokidar = require('chokidar');
 const rx = require('rxjs');
 const babylon = require('babylon');
@@ -13,7 +13,9 @@ const {CyclicDependencyGraph} = require('../cyclic_dependency_graph');
 const {FileSystemCache} = require('../file_system');
 const v8Profiler = require('v8-profiler');
 
-process.on('unhandledRejection', err => { throw err; });
+process.on('unhandledRejection', err => {
+  throw err;
+});
 
 const ready = new rx.Subject();
 
@@ -30,24 +32,7 @@ fsWatcher.on('ready', () => {
   ready.complete();
 });
 
-const browserResolve = bluebird.promisify(_browserResolve);
-
-const readFile = bluebird.promisify(fs.readFile);
-const stat = bluebird.promisify(fs.stat);
-
-const realFS = {
-  readText: (path) => readFile(path, 'utf8'),
-  isFile: (path) => stat(path)
-    .then(
-      stat => stat.isFile(),
-      err => {
-        if (err.code === 'ENOENT') {
-          return false;
-        }
-        return Promise.reject(err);
-      }
-    )
-};
+const browserResolve = Promise.promisify(_browserResolve);
 
 function resolveIdentifier(id, origin, fs) {
   const options = {
@@ -73,7 +58,6 @@ function resolve(name) {
   const pipeline = {
     fs: trap,
     // fs: fsCache,
-    // fs: realFS,
     resolveIdentifier: (id, origin) => resolveIdentifier(id, origin, pipeline.fs)
   };
   return pipeline.fs.readText(name)

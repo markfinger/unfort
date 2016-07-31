@@ -19,7 +19,6 @@
     "no-eq-null": 2,
     "no-floating-decimal": 2,
     "no-implicit-coercion": 2,
-    "no-loop-func": 2,
     "no-mixed-spaces-and-tabs": 2,
     "no-multiple-empty-lines": 2,
     "no-negated-condition": 2,

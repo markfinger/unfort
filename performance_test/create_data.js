@@ -4,10 +4,11 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
-const bluebird = require('bluebird');
 const {range, sample, sampleSize, random} = require('lodash');
 
-process.on('unhandledRejection', err => { throw err; });
+process.on('unhandledRejection', err => {
+  throw err;
+});
 
 const ROOT = __dirname;
 const CHARACTERS = 'abcdefghijklmnopqrstuvwxyz';
@@ -86,17 +87,17 @@ for (const file of nodeModulesFiles) {
 }
 
 const RANDOM_CONTENT_POOL = [
-`
+  `\
 const foo = "bar";
 for (const char of foo) {
   console.log(char);
 }
 `,
-`
+  `\
 const bar = [1, 2, 3];
 bar.forEach(i => console.log(i));
 `,
-`
+  `\
 const woz = {foo: 'foo', bar: 'bar'};
 for (var key in woz) {
   if (woz.hasOwnProperty(key)) {
@@ -151,7 +152,7 @@ range(DIRECTORY_WIDTH).forEach(i => {
   });
   const main = path.join(NODE_MODULES_DIR, CHARACTERS[i], `${CHARACTERS[FILE_COUNT]}.js`);
   data.files.push(main);
-  data.contentByFile[main] = `module.exports = require("./${CHARACTERS[random(0, FILE_COUNT-1)]}");`
+  data.contentByFile[main] = `module.exports = require("./${CHARACTERS[random(0, FILE_COUNT-1)]}");`;
 });
 
 const phases = [[]];

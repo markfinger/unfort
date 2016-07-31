@@ -1,3 +1,5 @@
+"use strict";
+
 const {FileSystemCache} = require('./cache');
 const {readFile, stat} = require('./utils');
 
