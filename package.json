@@ -24,6 +24,8 @@
     "babel-types": "^6.11.1",
     "babylon": "^6.8.4",
     "bluebird": "^3.4.1",
+    "browser-resolve": "^1.11.2",
+    "browserify": "^13.1.0",
     "immutable": "^3.8.1",
     "imurmurhash": "^0.1.4",
     "lodash": "^4.13.1",

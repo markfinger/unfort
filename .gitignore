@@ -29,6 +29,7 @@ node_modules
 # Build artifacts
 lib
 .unfort
+*.cpuprofile
 
 # Editor cruft
 .idea
