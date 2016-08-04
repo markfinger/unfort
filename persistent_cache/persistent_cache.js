@@ -117,9 +117,14 @@ class PersistentCache {
    * or null.
    */
   get(key) {
-    const inMemoryValue = this.memoryCache.get(key);
-    if (inMemoryValue) {
-      return this._deserializeData(inMemoryValue);
+    if (this.memoryCache.has(key)) {
+      const inMemoryValue = this.memoryCache.get(key);
+      if (inMemoryValue) {
+        return this._deserializeData(inMemoryValue);
+      }
+      // Handle cases where we've already hit the file system and there
+      // is no data available
+      return Promise.resolve(inMemoryValue);
     }
 
     return this.connection
@@ -205,6 +210,9 @@ class PersistentCache {
 class MemoryCache {
   constructor() {
     this.cache = Object.create(null);
+  }
+  has(key) {
+    return this.cache[key] !== undefined;
   }
   get(key) {
     return this.cache[key] || null;
