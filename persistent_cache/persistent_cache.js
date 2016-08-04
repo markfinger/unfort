@@ -124,7 +124,7 @@ class PersistentCache {
       }
       // Handle cases where we've already hit the file system and there
       // is no data available
-      return Promise.resolve(inMemoryValue);
+      return Promise.resolve(null);
     }
 
     return this.connection
