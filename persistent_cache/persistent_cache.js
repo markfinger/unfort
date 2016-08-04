@@ -36,7 +36,7 @@ class PersistentCache {
     // the file system. Note that the memory cache only stores the serialized
     // state of the entries, so there is still a deserialization cost incurred
     // for gets
-    this.memoryCache = new MemoryCache();
+    this.memoryCache = Object.create(null);
 
     // Mutable maps (k => v) of the changes that should be persisted
     this.pendingInserts = Object.create(null);
@@ -117,8 +117,8 @@ class PersistentCache {
    * or null.
    */
   get(key) {
-    if (this.memoryCache.has(key)) {
-      const inMemoryValue = this.memoryCache.get(key);
+    if (key in this.memoryCache) {
+      const inMemoryValue = this.memoryCache[key];
       if (inMemoryValue) {
         return this._deserializeData(inMemoryValue);
       }
@@ -142,7 +142,7 @@ class PersistentCache {
         });
       })
       .then(data => {
-        this.memoryCache.set(key, data);
+        this.memoryCache[key] = data;
         if (data) {
           return this._deserializeData(data);
         }
@@ -157,14 +157,14 @@ class PersistentCache {
     // in an attempt to avoid blocking the event loop, but that opens up a potential
     // world of pain if the objects were ever mutated
     const json = JSON.stringify(value);
-    this.memoryCache.set(key, json);
+    this.memoryCache[key] = json;
     this._schedulePersistentWrite(key, json);
   }
   /**
    * Removes any value associated with the provided key.
    */
   remove(key) {
-    this.memoryCache.remove(key);
+    this.memoryCache[key] = null;
     this._schedulePersistentDelete(key);
   }
   closeDatabaseConnection() {
@@ -199,29 +199,6 @@ class PersistentCache {
       return Promise.reject(err);
     }
     return Promise.resolve(data);
-  }
-}
-
-/**
- * Simple k/v store that operates in memory
- *
- * @returns {Object}
- */
-class MemoryCache {
-  constructor() {
-    this.cache = Object.create(null);
-  }
-  has(key) {
-    return this.cache[key] !== undefined;
-  }
-  get(key) {
-    return this.cache[key] || null;
-  }
-  set(key, value) {
-    this.cache[key] = value;
-  }
-  remove(key) {
-    this.cache[key] = null;
   }
 }
 
@@ -261,6 +238,5 @@ function createSqlite3Database(filename) {
 
 module.exports = {
   PersistentCache,
-  MemoryCache,
   createSqlite3Database
 };
