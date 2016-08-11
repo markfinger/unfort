@@ -50,6 +50,9 @@ class File {
     }
     return this._buffer;
   }
+  setBuffer(buffer) {
+    this._buffer = Promise.resolve(buffer);
+  }
   getText() {
     if (!this._text) {
       // Rather than read this file's buffer, we invoke the file system
@@ -60,12 +63,18 @@ class File {
     }
     return this._text;
   }
+  setText(text) {
+    this._text = Promise.resolve(text);
+  }
   getTextHash() {
     if (!this._textHash) {
       this._textHash = this.getText()
         .then(generateStringHash);
     }
     return this._textHash;
+  }
+  setTextHash(textHash) {
+    this._textHash = Promise.resolve(textHash);
   }
 }
 

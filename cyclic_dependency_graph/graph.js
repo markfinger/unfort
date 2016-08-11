@@ -186,7 +186,7 @@ class CyclicDependencyGraph {
 
         const data = {
           error: err,
-          name,
+          fileName: name,
         };
 
         this.error.next(data);

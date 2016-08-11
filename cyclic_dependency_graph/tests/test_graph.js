@@ -62,9 +62,9 @@ test.cb('.error should emit if the resolver rejects', (t) => {
 
   graph.trace('test');
 
-  graph.error.subscribe(({error, name}) => {
+  graph.error.subscribe(({error, fileName}) => {
     t.is(error, 'expected error');
-    t.is(name, 'test');
+    t.is(fileName, 'test');
     t.end();
   });
 });
@@ -76,9 +76,9 @@ test.cb('.error should emit if the resolver throws', (t) => {
 
   graph.trace('test');
 
-  graph.error.subscribe(({error, name}) => {
+  graph.error.subscribe(({error, fileName}) => {
     t.is(error, 'expected error');
-    t.is(name, 'test');
+    t.is(fileName, 'test');
     t.end();
   });
 });

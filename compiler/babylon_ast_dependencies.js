@@ -7,12 +7,6 @@ const types = require('babel-types');
 const COMMONJS = 'COMMONJS';
 const ES_MODULE = 'ES_MODULE';
 
-module.exports = {
-  COMMONJS,
-  ES_MODULE,
-  babylonAstDependencies
-};
-
 const REQUIRE = /require/;
 const IMPORT = /import/;
 const EXPORT = /export/;
@@ -26,12 +20,13 @@ const EXPORT = /export/;
  */
 function babylonAstDependencies(ast, options={}) {
   if (!isObject(ast)) {
-    throw new Error('An `ast` must be provided');
+    throw new Error('An abstract syntax tree must be provided as the first argument');
   }
 
-  const resolveModuleIdentifier = options.resolveModuleIdentifier || null;
-
-  const text = options.text;
+  const {
+    resolveModuleIdentifier=null,
+    text=null,
+  } = options;
 
   const outcome = {
     dependencies: [],
@@ -174,3 +169,9 @@ function appendIdentifierCommentBlock(node, identifier) {
     value: ` ${identifier} `
   });
 }
+
+module.exports = {
+  COMMONJS,
+  ES_MODULE,
+  babylonAstDependencies
+};

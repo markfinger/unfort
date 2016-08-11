@@ -1,3 +1,9 @@
 "use strict";
 
-module.exports = require('./graph');
+const {CyclicDependencyGraph} = require('./graph');
+const {createNodesFromNotation} = require('./utils');
+
+module.exports = {
+  CyclicDependencyGraph,
+  createNodesFromNotation
+};

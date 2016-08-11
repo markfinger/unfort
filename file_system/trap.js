@@ -17,6 +17,13 @@ class FileSystemTrap {
         return isFile;
       });
   }
+  isFileCallBack(path, cb) {
+    return this.isFile(path)
+      .then(
+        isFile => cb(null, isFile),
+        err => cb(err)
+      );
+  }
   stat(path) {
     this._ensureBindingToFile(path);
     this.triggerOnChange[path] = true;
@@ -60,6 +67,13 @@ class FileSystemTrap {
         return this.readTextHash(path)
           .then(() => text);
       });
+  }
+  readTextCallBack(path, cb) {
+    return this.readText(path)
+      .then(
+        text => cb(null, text),
+        err => cb(err)
+      );
   }
   readTextHash(path) {
     this._ensureBindingToFile(path);
