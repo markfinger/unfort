@@ -8,7 +8,6 @@
     "brace-style": 2,
     "camelcase": 2,
     "comma-style": 2,
-    "complexity": [2, 10],
     "computed-property-spacing": 2,
     "dot-notation": 2,
     "eqeqeq": 2,

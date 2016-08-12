@@ -1,3 +1,5 @@
+"use strict";
+
 const cssSelectorTokenizer = require('css-selector-tokenizer');
 
 const URL_REGEX = /url\(/;
@@ -45,26 +47,25 @@ function findUrlsInNode(node, accum) {
   }
 
   if (node.nodes) {
-    const len = node.nodes.length;
-    for (let i=0; i<len; i++) {
-      findUrlsInNode(node.nodes[i], accum);
+    for (const child of node.nodes) {
+      findUrlsInNode(child, accum);
     }
   }
+}
+
+function throwMalformedImport(rule) {
+  throw rule.error('Malformed @import cannot resolve identifier');
 }
 
 function getDependencyIdentifierFromImportRule(rule) {
   const params = rule.params.trim();
 
-  function throwMalformedImport() {
-    throw rule.error('Malformed @import cannot resolve identifier');
-  }
-
   if (
     !params.startsWith('url(') &&
-    !params[0] === '\'' &&
-    !params[0] === '"'
+    params[0] !== '\'' &&
+    params[0] !== '"'
   ) {
-    throwMalformedImport();
+    throwMalformedImport(rule);
   }
 
   let text;
@@ -80,7 +81,7 @@ function getDependencyIdentifierFromImportRule(rule) {
   } else if (text[0] === '"') {
     closingToken = '"';
   } else {
-    throwMalformedImport();
+    throwMalformedImport(rule);
   }
 
   const identifierWithTrailing = text.slice(1);
@@ -89,7 +90,7 @@ function getDependencyIdentifierFromImportRule(rule) {
 
   // Empty identifiers are a pain to debug
   if (identifier.trim() === '') {
-    throwMalformedImport();
+    throwMalformedImport(rule);
   }
 
   return identifier;

@@ -19,7 +19,7 @@ const {scanHtmlText} = require('./compile_html');
 const File = imm.Record({
   fileName: null,
   baseDirectory: null,
-  scanMethod: null,
+  ext: null,
   reference: null,
   trap: null,
   scan: null,
@@ -42,7 +42,10 @@ class Compiler {
     this.graph.error.subscribe((obj) => this._handleErrorObject(obj));
     this.graph.complete.subscribe((obj) => {
       // TODO
-      const {nodes, pruned} = obj;
+      const {
+        nodes,
+        // pruned
+      } = obj;
       this.build(nodes);
     });
   }
@@ -50,11 +53,16 @@ class Compiler {
     this.graph.traceFromEntryPoints();
   }
   scan(file) {
-    const {scanMethod} = file;
-    if (this[scanMethod]) {
-      return this[scanMethod](file);
+    const {ext} = file;
+    switch(ext) {
+    case '.js':
+      return this.scanJsFile(file);
+    case '.css':
+      return this.scanCssFile(file);
+    case '.html':
+      return this.scanHtmlFile(file);
     }
-    return this.scanUnknown(file);
+    return this.scanUnknownFile(file);
   }
   scanHtmlFile(file) {
     const {fileName, trap} = file;
@@ -91,14 +99,14 @@ class Compiler {
         });
       });
   }
-  scanUnknown(file) {
+  scanUnknownFile(file) {
     const {fileName, trap} = file;
     return trap.readBuffer(fileName)
       .then(buffer => {
         return imm.Map({
           buffer,
           identifiers: []
-        })
+        });
       });
   }
   addEntryPoint(file) {
@@ -168,7 +176,7 @@ class Compiler {
     let text = Promise.resolve(null);
     if (error.loc) {
       text = this.fileSystemCache.readText(fileName)
-        .catch(err => null); // Ignore any errors
+        .catch(_ => null); // Ignore any errors
     }
     text
       .then((text) => {
@@ -204,12 +212,10 @@ class Compiler {
   _createFile(fileName) {
     const trap = this.fileSystemCache.createTrap();
     const ext = path.extname(fileName);
-    const type = ext[1].toUpperCase() + ext.slice(2).toLowerCase();
-    const scanMethod = `scan${type}File`;
     return File({
       fileName,
       baseDirectory: path.dirname(fileName),
-      scanMethod,
+      ext,
       trap,
       reference: {}
     });
