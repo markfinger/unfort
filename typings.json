@@ -1,0 +1,10 @@
+{
+  "name": "unfort",
+  "dependencies": {},
+  "globalDependencies": {
+    "mkdirp": "registry:dt/mkdirp#0.3.0+20160317120654",
+    "node": "registry:env/node#6.0.0+20160723033700",
+    "sqlite3": "registry:dt/sqlite3#2.2.3+20160724070935",
+    "tmp": "registry:dt/tmp#0.0.0+20160514170650"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES6",
+    "pretty": true,
+    "moduleResolution": "node",
+    "inlineSourceMap": true
+  },
+  "exclude": [
+    "node_modules"
+  ]
+}

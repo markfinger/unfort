@@ -4,8 +4,8 @@
   "description": "A build tool for the web that prioritises performance during development. Fundamentally, this project is a greenfield reimplementation of a subset of webpack's features.",
   "main": "lib/unfort.js",
   "scripts": {
-    "lint": "eslint */*.js */tests/test_*.js languages/*/*.js languages/*/test_*.js --ignore-pattern node_modules",
-    "test": "ava */tests/test_*.js languages/*/tests/test_*.js"
+    "build": "tsc  --watch",
+    "test": "ava */tests/test_*.js"
   },
   "repository": {
     "type": "git",
@@ -42,6 +42,7 @@
     "ava": "^0.16.0",
     "eslint": "^3.0.0",
     "tmp": "0.0.28",
+    "typescript": "^2.0.0",
     "yargs": "^4.7.1"
   }
 }
