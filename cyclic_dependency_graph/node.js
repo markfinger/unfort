@@ -1,140 +1,84 @@
 "use strict";
-
-const imm = require('immutable');
-
-const Node = imm.Record({
-  id: '',
-  dependencies: imm.Set(),
-  dependents: imm.Set()
-});
-
+const immutable_1 = require('immutable');
 function addNode(nodes, id) {
-  const node = nodes.get(id);
-
-  if (node) {
-    throw new Error(`Node "${id}" already exists`);
-  }
-
-  return nodes.set(id, Node({
-    id
-  }));
+    if (nodes.has(id)) {
+        throw new Error(`Node "${id}" already exists`);
+    }
+    return nodes.set(id, immutable_1.Map({
+        id,
+        dependencies: immutable_1.Set(),
+        dependents: immutable_1.Set()
+    }));
 }
-
+exports.addNode = addNode;
 function removeNode(nodes, id) {
-  const node = nodes.get(id);
-
-  if (!node) {
-    throw new Error(`Node "${id}" does not exist`);
-  }
-
-  return nodes.delete(id);
+    if (!nodes.has(id)) {
+        throw new Error(`Node "${id}" does not exist`);
+    }
+    return nodes.delete(id);
 }
-
+exports.removeNode = removeNode;
 function addEdge(nodes, head, tail) {
-  if (head === tail) {
-    throw new Error(
-      `Edges must point to two different nodes. Cannot add an edge from "${head}" to itself`
-    );
-  }
-
-  const headNode = nodes.get(head);
-  const tailNode = nodes.get(tail);
-
-  if (!headNode) {
-    throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
-  }
-  if (!tailNode) {
-    throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
-  }
-
-  nodes = nodes.set(
-    head,
-    headNode.set(
-      'dependencies',
-      headNode.dependencies.add(tail)
-    )
-  );
-
-  nodes = nodes.set(
-    tail,
-    tailNode.set(
-      'dependents',
-      tailNode.dependents.add(head)
-    )
-  );
-
-  return nodes;
+    if (head === tail) {
+        throw new Error(`Edges must point to two different nodes. Cannot add an edge from "${head}" to itself`);
+    }
+    const headNode = nodes.get(head);
+    const tailNode = nodes.get(tail);
+    if (!headNode) {
+        throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
+    }
+    if (!tailNode) {
+        throw new Error(`Cannot add edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
+    }
+    return nodes.withMutations((nodes) => {
+        nodes.set(head, headNode.set('dependencies', headNode.get('dependencies').add(tail)));
+        nodes.set(tail, tailNode.set('dependents', tailNode.get('dependents').add(head)));
+    });
 }
-
+exports.addEdge = addEdge;
 function removeEdge(nodes, head, tail) {
-  const headNode = nodes.get(head);
-  const tailNode = nodes.get(tail);
-
-  if (!headNode) {
-    throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
-  }
-  if (!tailNode) {
-    throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
-  }
-
-  nodes = nodes.set(
-    head,
-    headNode.set(
-      'dependencies',
-      headNode.dependencies.remove(tail)
-    )
-  );
-
-  nodes = nodes.set(
-    tail,
-    tailNode.set(
-      'dependents',
-      tailNode.dependents.remove(head)
-    )
-  );
-
-  return nodes;
+    const headNode = nodes.get(head);
+    const tailNode = nodes.get(tail);
+    if (!headNode) {
+        throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${head}" has not been defined`);
+    }
+    if (!tailNode) {
+        throw new Error(`Cannot remove edge from "${head}" -> "${tail}" as "${tail}" has not been defined`);
+    }
+    nodes = nodes.set(head, headNode.set('dependencies', headNode.get('dependencies').remove(tail)));
+    nodes = nodes.set(tail, tailNode.set('dependents', tailNode.get('dependents').remove(head)));
+    return nodes;
 }
-
+exports.removeEdge = removeEdge;
 /**
  * Given a Map containing nodes, returns an array of node ids
  * where each node is disconnected from the defined entry nodes
  */
 function findNodesDisconnectedFromEntryNodes(nodes, entryPoints) {
-  const entries = [];
-  for (const id of entryPoints) {
-    const node = nodes.get(id);
-    if (node) {
-      entries.push(node);
+    const entries = [];
+    for (const id of entryPoints) {
+        const node = nodes.get(id);
+        if (node) {
+            entries.push(node);
+        }
     }
-  }
-  const encountered = Object.create(null);
-
-  function checkFromNode(node) {
-    encountered[node.id] = true;
-    for (const id of node.dependencies) {
-      if (!encountered[id]) {
-        checkFromNode(nodes.get(id));
-      }
+    const encountered = Object.create(null);
+    function checkFromNode(node) {
+        encountered[node.get('id')] = true;
+        for (const id of node.get('dependencies')) {
+            if (!encountered[id]) {
+                checkFromNode(nodes.get(id));
+            }
+        }
     }
-  }
-
-  entries.forEach(checkFromNode);
-
-  const disconnected = [];
-  for (const id of nodes.keySeq()) {
-    if (!encountered[id]) {
-      disconnected.push(id);
+    entries.forEach(checkFromNode);
+    const disconnected = [];
+    for (const id of nodes.keySeq()) {
+        if (!encountered[id]) {
+            disconnected.push(id);
+        }
     }
-  }
-  return disconnected;
+    return disconnected;
 }
-
-module.exports = {
-  Node,
-  addNode,
-  removeNode,
-  addEdge,
-  removeEdge,
-  findNodesDisconnectedFromEntryNodes
-};
+exports.findNodesDisconnectedFromEntryNodes = findNodesDisconnectedFromEntryNodes;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoibm9kZS5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIm5vZGUudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IjtBQUFBLDRCQUF5RCxXQUFXLENBQUMsQ0FBQTtBQUVyRSxpQkFBd0IsS0FBSyxFQUFFLEVBQVU7SUFDdkMsRUFBRSxDQUFDLENBQUMsS0FBSyxDQUFDLEdBQUcsQ0FBQyxFQUFFLENBQUMsQ0FBQyxDQUFDLENBQUM7UUFDbEIsTUFBTSxJQUFJLEtBQUssQ0FBQyxTQUFTLEVBQUUsa0JBQWtCLENBQUMsQ0FBQztJQUNqRCxDQUFDO0lBRUQsTUFBTSxDQUFDLEtBQUssQ0FBQyxHQUFHLENBQUMsRUFBRSxFQUFFLGVBQVksQ0FBQztRQUNoQyxFQUFFO1FBQ0YsWUFBWSxFQUFFLGVBQVksRUFBRTtRQUM1QixVQUFVLEVBQUUsZUFBWSxFQUFFO0tBQzNCLENBQUMsQ0FBQyxDQUFDO0FBQ04sQ0FBQztBQVZlLGVBQU8sVUFVdEIsQ0FBQTtBQUVELG9CQUEyQixLQUFLLEVBQUUsRUFBVTtJQUMxQyxFQUFFLENBQUMsQ0FBQyxDQUFDLEtBQUssQ0FBQyxHQUFHLENBQUMsRUFBRSxDQUFDLENBQUMsQ0FBQyxDQUFDO1FBQ25CLE1BQU0sSUFBSSxLQUFLLENBQUMsU0FBUyxFQUFFLGtCQUFrQixDQUFDLENBQUM7SUFDakQsQ0FBQztJQUVELE1BQU0sQ0FBQyxLQUFLLENBQUMsTUFBTSxDQUFDLEVBQUUsQ0FBQyxDQUFDO0FBQzFCLENBQUM7QUFOZSxrQkFBVSxhQU16QixDQUFBO0FBRUQsaUJBQXdCLEtBQUssRUFBRSxJQUFZLEVBQUUsSUFBWTtJQUN2RCxFQUFFLENBQUMsQ0FBQyxJQUFJLEtBQUssSUFBSSxDQUFDLENBQUMsQ0FBQztRQUNsQixNQUFNLElBQUksS0FBSyxDQUNiLHFFQUFxRSxJQUFJLGFBQWEsQ0FDdkYsQ0FBQztJQUNKLENBQUM7SUFFRCxNQUFNLFFBQVEsR0FBRyxLQUFLLENBQUMsR0FBRyxDQUFDLElBQUksQ0FBQyxDQUFDO0lB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

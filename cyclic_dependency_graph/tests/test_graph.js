@@ -1,278 +1,224 @@
 "use strict";
-
 const imm = require('immutable');
-const test = require('ava');
-const {CyclicDependencyGraph} = require('../graph');
-const {Node} = require('../node');
-const {createNodesFromNotation} = require('../utils');
-
-test.cb('.start should emit during the first trace call', (t) => {
-  const graph = new CyclicDependencyGraph(() => Promise.resolve([]));
-  graph.trace('test');
-  graph.start.subscribe(name => {
-    t.is(name, 'test');
-    t.end();
-  });
+const ava_1 = require('ava');
+const graph_1 = require('../graph');
+const utils_1 = require('../utils');
+ava_1.default.cb('.start should emit during the first trace call', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => Promise.resolve([]));
+    graph.trace('test');
+    graph.start.subscribe(name => {
+        t.is(name, 'test');
+        t.end();
+    });
 });
-
-test.cb('.start should emit only once per run', (t) => {
-  const graph = new CyclicDependencyGraph(() => Promise.resolve([]));
-
-  graph.error.subscribe(obj => {
-    throw obj.error;
-  });
-
-  let called = 0;
-  graph.start.subscribe(() => {
-    called++;
-  });
-
-  graph.trace('a');
-  graph.trace('b');
-  graph.trace('c');
-  const subscription = graph.complete.subscribe(() => {
-    subscription.unsubscribe();
-
+ava_1.default.cb('.start should emit only once per run', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => Promise.resolve([]));
+    graph.error.subscribe(obj => {
+        throw obj.error;
+    });
+    let called = 0;
+    graph.start.subscribe(() => {
+        called++;
+    });
     graph.trace('a');
     graph.trace('b');
     graph.trace('c');
-    graph.complete.subscribe(() => {
-      t.is(called, 2);
-      t.end();
+    const subscription = graph.complete.subscribe(() => {
+        subscription.unsubscribe();
+        graph.trace('a');
+        graph.trace('b');
+        graph.trace('c');
+        graph.complete.subscribe(() => {
+            t.is(called, 2);
+            t.end();
+        });
     });
-  });
 });
-
-test.cb('.complete should emit once all tracing has completed', (t) => {
-  const graph = new CyclicDependencyGraph(() => Promise.resolve([]));
-
-  graph.addEntryPoint('test');
-  graph.traceFromEntryPoints();
-
-  graph.complete.subscribe(({nodes, pruned}) => {
-    t.truthy(nodes instanceof imm.Map);
-    t.truthy(nodes.has('test'));
-    t.truthy(pruned instanceof imm.List);
-    t.end();
-  });
+ava_1.default.cb('.complete should emit once all tracing has completed', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => Promise.resolve([]));
+    graph.addEntryPoint('test');
+    graph.traceFromEntryPoints();
+    graph.complete.subscribe(({ nodes, pruned }) => {
+        t.truthy(nodes instanceof imm.Map);
+        t.truthy(nodes.has('test'));
+        t.truthy(pruned instanceof imm.List);
+        t.end();
+    });
 });
-
-test.cb('.error should emit if the resolver rejects', (t) => {
-  const graph = new CyclicDependencyGraph(() => Promise.reject('expected error'));
-
-  graph.trace('test');
-
-  graph.error.subscribe(({error, fileName}) => {
-    t.is(error, 'expected error');
-    t.is(fileName, 'test');
-    t.end();
-  });
+ava_1.default.cb('.error should emit if the resolver rejects', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => Promise.reject(new Error('expected error')));
+    graph.trace('test');
+    graph.error.subscribe(({ error, fileName }) => {
+        t.is(error.message, 'expected error');
+        t.is(fileName, 'test');
+        t.end();
+    });
 });
-
-test.cb('.error should emit if the resolver throws', (t) => {
-  const graph = new CyclicDependencyGraph(() => {
-    throw 'expected error';
-  });
-
-  graph.trace('test');
-
-  graph.error.subscribe(({error, fileName}) => {
-    t.is(error, 'expected error');
-    t.is(fileName, 'test');
-    t.end();
-  });
+ava_1.default.cb('.error should emit if the resolver throws', (t) => {
+    let err;
+    const graph = new graph_1.CyclicDependencyGraph(() => {
+        err = new Error('expected error');
+        throw err;
+    });
+    graph.trace('test');
+    graph.error.subscribe(({ error, fileName }) => {
+        t.is(error, err);
+        t.is(error.message, 'expected error');
+        t.is(fileName, 'test');
+        t.end();
+    });
 });
-
-test.cb('.trace should call the provided resolve function', (t) => {
-  const graph = new CyclicDependencyGraph(name => {
-    t.is(name, 'test');
-    t.end();
-  });
-
-  graph.trace('test');
+ava_1.default.cb('.trace should call the provided resolve function', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(name => {
+        t.is(name, 'test');
+        t.end();
+    });
+    graph.trace('test');
 });
-
-test('.trace should create pending jobs for the node', (t) => {
-  const graph = new CyclicDependencyGraph(() => {});
-
-  graph.trace('test');
-
-  t.truthy(graph._pendingJobs[0] instanceof Object);
-  t.is(graph._pendingJobs[0].name, 'test');
-  t.truthy(graph._pendingJobs[0].isValid);
+ava_1.default('.trace should create pending jobs for the node', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { });
+    graph.trace('test');
+    t.truthy(graph._pendingJobs[0] instanceof Object);
+    t.is(graph._pendingJobs[0].name, 'test');
+    t.truthy(graph._pendingJobs[0].isValid);
 });
-
-test.cb('.trace should signal once all the dependencies have been resolved', (t) => {
-  const graph = new CyclicDependencyGraph(() => Promise.resolve([]));
-
-  graph.complete.subscribe(() => {
-    t.end();
-  });
-
-  graph.trace('test');
+ava_1.default.cb('.trace should signal once all the dependencies have been resolved', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => Promise.resolve([]));
+    graph.complete.subscribe(() => {
+        t.end();
+    });
+    graph.trace('test');
 });
-
-test.cb('.trace should populate the graph with the provided dependencies', (t) => {
-  const graph = new CyclicDependencyGraph(resolver);
-
-  graph.addEntryPoint('a');
-  graph.traceFromEntryPoints();
-
-  function resolver(file) {
-    if (file === 'a') {
-      return Promise.resolve(['b', 'c']);
-    } else {
-      return Promise.resolve([]);
+ava_1.default.cb('.trace should populate the graph with the provided dependencies', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(resolver);
+    graph.addEntryPoint('a');
+    graph.traceFromEntryPoints();
+    function resolver(file) {
+        if (file === 'a') {
+            return Promise.resolve(['b', 'c']);
+        }
+        else {
+            return Promise.resolve([]);
+        }
     }
-  }
-
-  graph.complete.subscribe(({nodes}) => {
-    t.truthy(nodes.has('a'));
-    t.truthy(nodes.has('b'));
-    t.truthy(nodes.has('c'));
-    t.end();
-  });
+    graph.complete.subscribe(({ nodes }) => {
+        t.truthy(nodes.has('a'));
+        t.truthy(nodes.has('b'));
+        t.truthy(nodes.has('c'));
+        t.end();
+    });
 });
-
-test('.trace should invalidate any pending jobs for the node', (t) => {
-  const graph = new CyclicDependencyGraph(() => {});
-
-  const job = {name: 'test', isValid: true};
-
-  graph._pendingJobs.push(job);
-
-  graph.trace('test');
-
-  t.falsy(job.isValid);
+ava_1.default('.trace should invalidate any pending jobs for the node', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { });
+    const job = { name: 'test', isValid: true };
+    graph._pendingJobs.push(job);
+    graph.trace('test');
+    t.falsy(job.isValid);
 });
-
-
-test('.prune should remove nodes', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation('a')
-  });
-
-  t.true(graph.nodes.has('a'));
-  graph.prune('a');
-  t.false(graph.nodes.has('a'));
+ava_1.default('.prune should remove nodes', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation('a')
+    });
+    t.true(graph.nodes.has('a'));
+    graph.prune('a');
+    t.false(graph.nodes.has('a'));
 });
-
-test('.prune should track removed nodes', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation('a')
-  });
-  graph.prune('a');
-  t.deepEqual(Array.from(graph._prunedNodes), ['a']);
+ava_1.default('.prune should track removed nodes', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation('a')
+    });
+    graph.prune('a');
+    t.deepEqual(Array.from(graph._prunedNodes), ['a']);
 });
-
-test('.prune should not prune dependencies without dependents', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation('a -> b')
-  });
-  graph.prune('a');
-  t.deepEqual(Array.from(graph._prunedNodes), ['a']);
+ava_1.default('.prune should not prune dependencies without dependents', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation('a -> b')
+    });
+    graph.prune('a');
+    t.deepEqual(Array.from(graph._prunedNodes), ['a']);
 });
-
-test('.prune should invalidate any pending jobs related to the pruned nodes', (t) => {
-  const graph = new CyclicDependencyGraph();
-
-  const job = {name: 'a', isValid: true};
-  graph._pendingJobs.push(job);
-
-  graph.prune('a');
-  t.is(graph._pendingJobs.indexOf(job), -1);
-  t.falsy(job.isValid);
+ava_1.default('.prune should invalidate any pending jobs related to the pruned nodes', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { });
+    const job = { name: 'a', isValid: true };
+    graph._pendingJobs.push(job);
+    graph.prune('a');
+    t.is(graph._pendingJobs.indexOf(job), -1);
+    t.falsy(job.isValid);
 });
-  
-test('.pruneDisconnected should prune all nodes that are not connected to an entry', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should prune all nodes that are not connected to an entry', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation(`
       a -> b
       c -> b
       d
     `)
-  });
-  graph.addEntryPoint('a');
-  graph.pruneDisconnected();
-  t.deepEqual(Array.from(graph._prunedNodes), ['c', 'd']);
+    });
+    graph.addEntryPoint('a');
+    graph.pruneDisconnected();
+    t.deepEqual(Array.from(graph._prunedNodes), ['c', 'd']);
 });
-
-test('.pruneDisconnected should prune all nodes if there is no entry', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should prune all nodes if there is no entry', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation(`
       a -> b
       c -> b
       d
     `)
-  });
-  graph.pruneDisconnected();
-  t.deepEqual(Array.from(graph._prunedNodes), ['a', 'b', 'c', 'd']);
+    });
+    graph.pruneDisconnected();
+    t.deepEqual(Array.from(graph._prunedNodes), ['a', 'b', 'c', 'd']);
 });
-
-test('.addEntryPoint should allow nodes to be denoted as entry nodes', (t) => {
-  const graph = new CyclicDependencyGraph();
-  graph.addEntryPoint('a');
-  t.deepEqual(Array.from(graph.entryPoints), ['a']);
+ava_1.default('.addEntryPoint should allow nodes to be denoted as entry nodes', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { });
+    graph.addEntryPoint('a');
+    t.deepEqual(Array.from(graph.entryPoints), ['a']);
 });
-
-test('.pruneDisconnected should handle cyclic graphs 1', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should handle cyclic graphs 1', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation(`
       a -> b -> c -> b
     `)
-  });
-  graph.prune('a');
-  graph.pruneDisconnected();
-  t.truthy(
-    imm.is(graph.nodes, imm.Map())
-  );
+    });
+    graph.prune('a');
+    graph.pruneDisconnected();
+    t.truthy(imm.is(graph.nodes, imm.Map()));
 });
-
-test('.pruneDisconnected should handle cyclic graphs 2', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should handle cyclic graphs 2', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation(`
       a -> b -> c -> d -> b
     `)
-  });
-  graph.prune('a');
-  graph.pruneDisconnected();
-  t.truthy(
-    imm.is(graph.nodes, imm.Map())
-  );
+    });
+    graph.prune('a');
+    graph.pruneDisconnected();
+    t.truthy(imm.is(graph.nodes, imm.Map()));
 });
-
-test('.pruneDisconnected should handle cyclic graphs 3', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should handle cyclic graphs 3', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation(`
       a -> b -> c -> d -> b
       c -> b
     `)
-  });
-  graph.prune('a');
-  graph.pruneDisconnected();
-  t.truthy(
-    imm.is(graph.nodes, imm.Map())
-  );
+    });
+    graph.prune('a');
+    graph.pruneDisconnected();
+    t.truthy(imm.is(graph.nodes, imm.Map()));
 });
-
-test('.pruneDisconnected should handle cyclic graphs 4', (t) => {
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should handle cyclic graphs 4', (t) => {
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: utils_1.createNodesFromNotation(`
       a -> b -> c -> d -> b
       c -> b
     `)
-  });
-  graph.addEntryPoint('a');
-  graph.prune('b');
-  graph.pruneDisconnected();
-  t.truthy(
-    imm.is(graph.nodes, imm.Map({a: Node({id: 'a'})}))
-  );
+    });
+    graph.addEntryPoint('a');
+    graph.prune('b');
+    graph.pruneDisconnected();
+    t.truthy(imm.is(graph.nodes, imm.Map({ a: imm.Map({ id: 'a', dependencies: imm.Set(), dependents: imm.Set() }) })));
 });
-
-test('.pruneDisconnected should successfully prune a graph representing a tournament', (t) => {
-  // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
-  const tournament = createNodesFromNotation(`
+ava_1.default('.pruneDisconnected should successfully prune a graph representing a tournament', (t) => {
+    // https://en.wikipedia.org/wiki/Tournament_(graph_theory)
+    const tournament = utils_1.createNodesFromNotation(`
     a -> b -> a 
     a -> c -> a
     a -> d -> a
@@ -280,14 +226,13 @@ test('.pruneDisconnected should successfully prune a graph representing a tourna
     b -> d -> b
     c -> d -> c
   `);
-  const graph = new CyclicDependencyGraph(() => {}, {
-    initialState: tournament
-  });
-  t.truthy(imm.is(graph.nodes, tournament));
-  graph.addEntryPoint('a');
-  graph.prune('a');
-  graph.pruneDisconnected();
-  t.truthy(
-    imm.is(graph.nodes, imm.Map())
-  );
+    const graph = new graph_1.CyclicDependencyGraph(() => { }, {
+        initialState: tournament
+    });
+    t.truthy(imm.is(graph.nodes, tournament));
+    graph.addEntryPoint('a');
+    graph.prune('a');
+    graph.pruneDisconnected();
+    t.truthy(imm.is(graph.nodes, imm.Map()));
 });
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoidGVzdF9ncmFwaC5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbInRlc3RfZ3JhcGgudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IjtBQUFBLE1BQVksR0FBRyxXQUFNLFdBQVcsQ0FBQyxDQUFBO0FBQ2pDLHNCQUFpQixLQUFLLENBQUMsQ0FBQTtBQUN2Qix3QkFBb0MsVUFBVSxDQUFDLENBQUE7QUFDL0Msd0JBQXNDLFVBQVUsQ0FBQyxDQUFBO0FBRWpELGFBQUksQ0FBQyxFQUFFLENBQUMsZ0RBQWdELEVBQUUsQ0FBQyxDQUFDO0lBQzFELE1BQU0sS0FBSyxHQUFHLElBQUksNkJBQXFCLENBQUMsTUFBTSxPQUFPLENBQUMsT0FBTyxDQUFDLEVBQUUsQ0FBQyxDQUFDLENBQUM7SUFDbkUsS0FBSyxDQUFDLEtBQUssQ0FBQyxNQUFNLENBQUMsQ0FBQztJQUNwQixLQUFLLENBQUMsS0FBSyxDQUFDLFNBQVMsQ0FBQyxJQUFJO1FBQ3hCLENBQUMsQ0FBQyxFQUFFLENBQUMsSUFBSSxFQUFFLE1BQU0sQ0FBQyxDQUFDO1FBQ25CLENBQUMsQ0FBQyxHQUFHLEVBQUUsQ0FBQztJQUNWLENBQUMsQ0FBQyxDQUFDO0FBQ0wsQ0FBQyxDQUFDLENBQUM7QUFFSCxhQUFJLENBQUMsRUFBRSxDQUFDLHNDQUFzQyxFQUFFLENBQUMsQ0FBQztJQUNoRCxNQUFNLEtBQUssR0FBRyxJQUFJLDZCQUFxQixDQUFDLE1BQU0sT0FBTyxDQUFDLE9BQU8sQ0FBQyxFQUFFLENBQUMsQ0FBQyxDQUFDO0lBRW5FLEtBQUssQ0FBQyxLQUFLLENBQUMsU0FBUyxDQUFDLEdBQUc7UUFDdkIsTUFBTSxHQUFHLENBQUMsS0FBSyxDQUFDO0lBQ2xCLENBQUMsQ0FBQyxDQUFDO0lBRUgsSUFBSSxNQUFNLEdBQUcsQ0FBQyxDQUFDO0lBQ2YsS0FBSyxDQUFDLEtBQUssQ0FBQyxTQUFTLENBQUM7UUFDcEIsTUFBTSxFQUFFLENBQUM7SUFDWCxDQUFDLENBQUMsQ0FBQztJQUVILEtBQUssQ0FB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
