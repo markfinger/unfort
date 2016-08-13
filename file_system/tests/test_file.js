@@ -1,142 +1,133 @@
 "use strict";
-
 const fs = require('fs');
-const {Buffer} = require('buffer');
-const test = require('ava');
-const {generateStringHash} = require('../../utils/hash');
-const {File} = require('../file');
-const {readFile, stat} = require('../utils');
-
+const buffer_1 = require('buffer');
+const ava_1 = require('ava');
+const hash_1 = require('../../utils/hash');
+const file_1 = require('../file');
+const utils_1 = require('../utils');
 const fileSystem = {
-  readFile,
-  stat
+    readFile: utils_1.readFile,
+    stat: utils_1.stat
 };
-
-test('File should produce the expected dataset of a file', (t) => {
-  const file = new File(__filename, fileSystem);
-  t.is(file.path, __filename);
-  return Promise.all([
-    file.getStat(),
-    file.getModifiedTime(),
-    file.getIsFile(),
-    file.getBuffer(),
-    file.getText(),
-    file.getTextHash()
-  ])
-    .then(([stat, modifiedTime, isFile, buffer, text, textHash]) => {
-      const actualBuffer = fs.readFileSync(__filename);
-      const actualText = fs.readFileSync(__filename, 'utf8');
-      const actualStat = fs.statSync(__filename);
-      t.is(stat.mtime.getTime(), actualStat.mtime.getTime());
-      t.is(modifiedTime, actualStat.mtime.getTime());
-      t.true(isFile);
-      t.truthy(buffer instanceof Buffer);
-      t.is(buffer.toString(), actualBuffer.toString());
-      t.is(text, actualText);
-      t.is(textHash, generateStringHash(actualText));
+ava_1.default('File should produce the expected dataset of a file', (t) => {
+    const file = new file_1.File(__filename, fileSystem);
+    t.is(file.path, __filename);
+    return Promise.all([
+        file.getStat(),
+        file.getModifiedTime(),
+        file.getIsFile(),
+        file.getBuffer(),
+        file.getText(),
+        file.getTextHash()
+    ])
+        .then(([stat, modifiedTime, isFile, buffer, text, textHash]) => {
+        const actualBuffer = fs.readFileSync(__filename);
+        const actualText = fs.readFileSync(__filename, 'utf8');
+        const actualStat = fs.statSync(__filename);
+        t.is(stat.mtime.getTime(), actualStat.mtime.getTime());
+        t.is(modifiedTime, actualStat.mtime.getTime());
+        t.true(isFile);
+        t.truthy(buffer instanceof buffer_1.Buffer);
+        t.is(buffer.toString(), actualBuffer.toString());
+        t.is(text, actualText);
+        t.is(textHash, hash_1.generateStringHash(actualText));
     });
 });
-
-test('File should indicate if a file does not exist', (t) => {
-  const file = new File('___NON_EXISTENT_FILE__', fileSystem);
-  return file.getIsFile()
-    .then(isFile => {
-      t.is(isFile, false);
+ava_1.default('File should indicate if a file does not exist', (t) => {
+    const file = new file_1.File('___NON_EXISTENT_FILE__', fileSystem);
+    return file.getIsFile()
+        .then(isFile => {
+        t.is(isFile, false);
     });
 });
-
-test('File should allow a stat to be set manually', (t) => {
-  const file = new File('/some/file');
-  const stat = {mtime: new Date(2000, 1, 1)};
-  file.setStat(stat);
-  return Promise.all([
-    file.getStat(),
-    file.getModifiedTime()
-  ])
-    .then(data => {
-      t.deepEqual(data, [stat, (new Date(2000, 1, 1)).getTime()]);
+ava_1.default('File should allow a stat to be set manually', (t) => {
+    const file = new file_1.File('/some/file', fileSystem);
+    const stat = { mtime: new Date(2000, 1, 1) };
+    file.setStat(stat);
+    return Promise.all([
+        file.getStat(),
+        file.getModifiedTime()
+    ])
+        .then(data => {
+        t.deepEqual(data, [stat, (new Date(2000, 1, 1)).getTime()]);
     });
 });
-
-test('File should allow a modified time to be set manually', (t) => {
-  const file = new File('/some/file');
-  file.setModifiedTime('test');
-  return file.getModifiedTime()
-    .then(modifiedTime => {
-      t.is(modifiedTime, 'test');
+ava_1.default('File should allow a modified time to be set manually', (t) => {
+    const file = new file_1.File('/some/file', fileSystem);
+    file.setModifiedTime(-1);
+    return file.getModifiedTime()
+        .then(modifiedTime => {
+        t.is(modifiedTime, -1);
     });
 });
-
-test('File should allow isFile to be set manually', (t) => {
-  const file = new File('/some/file');
-  file.setIsFile('test');
-  return file.getIsFile()
-    .then(isFile => {
-      t.is(isFile, 'test');
+ava_1.default('File should allow isFile to be set manually', (t) => {
+    const file = new file_1.File('/some/file', fileSystem);
+    file.setIsFile(true);
+    return file.getIsFile()
+        .then(isFile => {
+        t.is(isFile, true);
     });
 });
-
-test('File should create an object that lazily evaluates text files and preserves the value', (t) => {
-  let called = false;
-  function readFile(path, encoding) {
-    if (called) {
-      throw new Error('should not be called twice');
+ava_1.default('File should create an object that lazily evaluates text files and preserves the value', (t) => {
+    let called = false;
+    function readFile(path, encoding) {
+        if (called) {
+            throw new Error('should not be called twice');
+        }
+        called = true;
+        t.is(path, '/some/file');
+        t.is(encoding, 'utf8');
+        return Promise.resolve('text');
     }
-    called = true;
-    t.is(path, '/some/file');
-    t.is(encoding, 'utf8');
-    return Promise.resolve('text');
-  }
-  const file = new File('/some/file', {readFile});
-  return file.getText()
-    .then(text => {
-      t.is(text, 'text');
-      return file.getText()
+    const file = new file_1.File('/some/file', { readFile });
+    return file.getText()
         .then(text => {
-          t.is(text, 'text');
+        t.is(text, 'text');
+        return file.getText()
+            .then(text => {
+            t.is(text, 'text');
         });
     });
 });
-
-test('File should create an object that lazily evaluates buffers and preserves the value', (t) => {
-  let called = false;
-  function readFile(path, encoding) {
-    if (called) {
-      throw new Error('should not be called twice');
+ava_1.default('File should create an object that lazily evaluates buffers and preserves the value', (t) => {
+    let called = false;
+    function readFile(path, encoding) {
+        if (called) {
+            throw new Error('should not be called twice');
+        }
+        called = true;
+        t.is(path, '/some/file');
+        t.is(encoding, undefined);
+        return Promise.resolve(new buffer_1.Buffer('buffer'));
     }
-    called = true;
-    t.is(path, '/some/file');
-    t.is(encoding, undefined);
-    return Promise.resolve(new Buffer('buffer'));
-  }
-  const file = new File('/some/file', {readFile});
-  return file.getBuffer()
-    .then(buffer => {
-      t.is(buffer.toString(), 'buffer');
-      return file.getBuffer()
-        .then(_buffer => {
-          t.is(buffer, _buffer);
+    const file = new file_1.File('/some/file', { readFile });
+    return file.getBuffer()
+        .then(buffer => {
+        t.is(buffer.toString(), 'buffer');
+        return file.getBuffer()
+            .then(_buffer => {
+            t.is(buffer, _buffer);
         });
     });
 });
-
-test('File should create an object that lazily evaluates file stats and preserves the value', (t) => {
-  let called = false;
-  function stat(path) {
-    if (called) {
-      throw new Error('should not be called twice');
+ava_1.default('File should create an object that lazily evaluates file stats and preserves the value', (t) => {
+    let called = false;
+    function stat(path) {
+        if (called) {
+            throw new Error('should not be called twice');
+        }
+        called = true;
+        t.is(path, '/some/file');
+        return Promise.resolve('stat');
     }
-    called = true;
-    t.is(path, '/some/file');
-    return Promise.resolve('stat');
-  }
-  const file = new File('/some/file', {stat});
-  return file.getStat()
-    .then(text => {
-      t.is(text, 'stat');
-      return file.getStat()
-        .then(text => {
-          t.is(text, 'stat');
+    const file = new file_1.File('/some/file', { stat });
+    return file.getStat()
+        .then((text) => {
+        t.is(text, 'stat');
+        return file.getStat()
+            .then((text) => {
+            t.is(text, 'stat');
         });
     });
 });
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoidGVzdF9maWxlLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsidGVzdF9maWxlLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7QUFBQSxNQUFZLEVBQUUsV0FBTSxJQUFJLENBQUMsQ0FBQTtBQUN6Qix5QkFBcUIsUUFBUSxDQUFDLENBQUE7QUFDOUIsc0JBQWlCLEtBQUssQ0FBQyxDQUFBO0FBQ3ZCLHVCQUFpQyxrQkFBa0IsQ0FBQyxDQUFBO0FBQ3BELHVCQUFtQixTQUFTLENBQUMsQ0FBQTtBQUM3Qix3QkFBNkIsVUFBVSxDQUFDLENBQUE7QUFFeEMsTUFBTSxVQUFVLEdBQUc7SUFDakIsMEJBQVE7SUFDUixrQkFBSTtDQUNMLENBQUM7QUFFRixhQUFJLENBQUMsb0RBQW9ELEVBQUUsQ0FBQyxDQUFDO0lBQzNELE1BQU0sSUFBSSxHQUFHLElBQUksV0FBSSxDQUFDLFVBQVUsRUFBRSxVQUFVLENBQUMsQ0FBQztJQUM5QyxDQUFDLENBQUMsRUFBRSxDQUFDLElBQUksQ0FBQyxJQUFJLEVBQUUsVUFBVSxDQUFDLENBQUM7SUFDNUIsTUFBTSxDQUFDLE9BQU8sQ0FBQyxHQUFHLENBQUM7UUFDakIsSUFBSSxDQUFDLE9BQU8sRUFBRTtRQUNkLElBQUksQ0FBQyxlQUFlLEVBQUU7UUFDdEIsSUFBSSxDQUFDLFNBQVMsRUFBRTtRQUNoQixJQUFJLENBQUMsU0FBUyxFQUFFO1FBQ2hCLElBQUksQ0FBQyxPQUFPLEVBQUU7UUFDZCxJQUFJLENBQUMsV0FBVyxFQUFFO0tBQ25CLENBQUM7U0FDQyxJQUFJLENBQUMsQ0FBQyxDQUFDLElBQUksRUFBRSxZQUFZLEVBQUUsTUFBTSxFQUFFLE1BQU0sRUFBRSxJQUFJLEVBQUUsUUFBUSxDQUFDO1FBQ3pELE1BQU0sWUFBWSxHQUFHLEVBQUUsQ0FBQyxZQUFZLENBQUMsVUFBVSxDQUFDLENBQUM7UUFDakQsTUFBTSxVQUFVLEdBQUcsRUFBRSxDQUFDLFlBQVksQ0FBQyxVQUFVLEVBQUUsTUFBTSxDQUFDLENBQUM7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

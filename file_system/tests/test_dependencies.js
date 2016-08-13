@@ -1,9 +1,7 @@
-"use strict";
-
-const fs = require('fs');
-const test = require('ava');
-const {FileSystemCache} = require('../cache');
-const {validateFileSystemDependencies} = require('../dependencies');
+import * as fs from 'fs';
+import test from 'ava';
+import {FileSystemCache} from '../cache';
+import {validateFileSystemDependencies} from '../dependencies';
 
 test('should accept dependencies from a trap and indicate if they are still true', (t) => {
   const cache = new FileSystemCache();
