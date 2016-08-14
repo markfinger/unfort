@@ -1,8 +1,0 @@
-"use strict";
-const Murmur = require('imurmurhash');
-function generateStringHash(str) {
-    const murmur = new Murmur(str).result();
-    return murmur.toString();
-}
-exports.generateStringHash = generateStringHash;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaGFzaC5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbImhhc2gudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6IjtBQUFBLE1BQU0sTUFBTSxHQUFHLE9BQU8sQ0FBQyxhQUFhLENBQUMsQ0FBQztBQUV0Qyw0QkFBbUMsR0FBVztJQUM1QyxNQUFNLE1BQU0sR0FBRyxJQUFJLE1BQU0sQ0FBQyxHQUFHLENBQUMsQ0FBQyxNQUFNLEVBQUUsQ0FBQztJQUN4QyxNQUFNLENBQUMsTUFBTSxDQUFDLFFBQVEsRUFBRSxDQUFDO0FBQzNCLENBQUM7QUFIZSwwQkFBa0IscUJBR2pDLENBQUEifQ==

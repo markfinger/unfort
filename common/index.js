@@ -1,5 +1,0 @@
-"use strict";
-class CodeError extends Error {
-}
-exports.CodeError = CodeError;
-//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaW5kZXguanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyJpbmRleC50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiO0FBV0Esd0JBQStCLEtBQUs7QUFHcEMsQ0FBQztBQUhZLGlCQUFTLFlBR3JCLENBQUEifQ==
