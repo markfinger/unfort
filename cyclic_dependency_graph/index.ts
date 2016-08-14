@@ -1,2 +1,2 @@
-export {CyclicDependencyGraph} from './graph';
+export {CyclicDependencyGraph, Graph} from './graph';
 export {createNodesFromNotation} from './utils';

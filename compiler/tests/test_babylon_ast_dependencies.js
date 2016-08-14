@@ -1,302 +1,71 @@
 "use strict";
-
-const test = require('ava');
+const ava_1 = require('ava');
 const babylon = require('babylon');
-const {babylonAstDependencies, COMMONJS, ES_MODULE} = require('../babylon_ast_dependencies');
-const babelGenerator = require('babel-generator').default;
-
-test('should accept an AST and provide a list of dependencies specified in `require` calls', (t) => {
-  const ast = babylon.parse(`
+const babylon_ast_dependencies_1 = require('../babylon_ast_dependencies');
+ava_1.default('should accept an AST and provide a list of identifiers specified in `require` calls', (t) => {
+    const ast = babylon.parse(`
     var foo = require("foo");
     const bar = require('bar');
     foo(bar);
   `);
-
-  const outcome = babylonAstDependencies(ast);
-  t.deepEqual(
-    outcome.dependencies,
-    [
-      {
-        type: COMMONJS,
-        identifier: 'foo'
-      },
-      {
-        type: COMMONJS,
-        identifier: 'bar'
-      }
-    ]
-  );
+    const outcome = babylon_ast_dependencies_1.babylonAstDependencies(ast);
+    t.deepEqual(outcome.identifiers, ['foo', 'bar']);
 });
-
-test('should not pull dependencies from `require` calls that are properties of an object', (t) => {
-  const ast = babylon.parse(`
+ava_1.default('should not pull identifiers from `require` calls that are properties of an object', (t) => {
+    const ast = babylon.parse(`
     const foo = {require: function() {}};
     var bar = foo.require('bar');
   `);
-
-  t.deepEqual(babylonAstDependencies(ast).dependencies, []);
+    t.deepEqual(babylon_ast_dependencies_1.babylonAstDependencies(ast).identifiers, []);
 });
-
-test('should pull dependencies from es module imports and provide context about specifiers', (t) => {
-  const ast = babylon.parse(
-    `
+ava_1.default('should pull dependencies from es module imports', (t) => {
+    const ast = babylon.parse(`
       import foo from "foo";
       import {bar, woz} from "bar";
       import qux, {dux} from "qux";
-    `,
-    {sourceType: 'module'}
-  );
-
-  t.deepEqual(
-    babylonAstDependencies(ast).dependencies,
-    [
-      {
-        type: ES_MODULE,
-        identifier: 'foo',
-        specifiers: [
-          {
-            name: 'foo',
-            isDefault: true
-          }
-        ]
-      },
-      {
-        type: ES_MODULE,
-        identifier: 'bar',
-        specifiers: [
-          {
-            name: 'bar',
-            isDefault: false
-          },
-          {
-            name: 'woz',
-            isDefault: false
-          }
-        ]
-      },
-      {
-        type: ES_MODULE,
-        identifier: 'qux',
-        specifiers: [
-          {
-            name: 'qux',
-            isDefault: true
-          },
-          {
-            name: 'dux',
-            isDefault: false
-          }
-        ]
-      }
-    ]
-  );
+    `, { sourceType: 'module' });
+    t.deepEqual(babylon_ast_dependencies_1.babylonAstDependencies(ast).identifiers, ['foo', 'bar', 'qux']);
 });
-
-test('should identify a dependency if it occurs multiple times', (t) => {
-  const ast = babylon.parse(
-    'import foo from "foo"; import {bar} from "foo";',
-    {sourceType: 'module'}
-  );
-
-  t.deepEqual(
-    babylonAstDependencies(ast).dependencies,
-    [
-      {
-        type: ES_MODULE,
-        identifier: 'foo',
-        specifiers: [
-          {
-            name: 'foo',
-            isDefault: true
-          }
-        ]
-      },
-      {
-        type: ES_MODULE,
-        identifier: 'foo',
-        specifiers: [
-          {
-            name: 'bar',
-            isDefault: false
-          }
-        ]
-      }
-    ]
-  );
+ava_1.default('should only indicate each dependency once', (t) => {
+    const ast = babylon.parse(`
+      import foo1 from "foo";
+      import foo2 from "foo";
+      const foo3 = require('foo');
+      const foo4 = require('foo');
+    `, { sourceType: 'module' });
+    t.deepEqual(babylon_ast_dependencies_1.babylonAstDependencies(ast).identifiers, ['foo']);
 });
-
-test('should identify dependencies in export ... from \'...\' statements', (t) => {
-  const ast = babylon.parse(`
+ava_1.default('should identify dependencies in export ... from \'...\' statements', (t) => {
+    const ast = babylon.parse(`
       export {foo} from 'foo';
-
-      export const bar = 1;
-    `,
-    {sourceType: 'module'}
-  );
-
-  t.deepEqual(
-    babylonAstDependencies(ast).dependencies,
-    [
-      {
-        type: ES_MODULE,
-        identifier: 'foo',
-        specifiers: [
-          {
-            name: 'foo',
-            isDefault: false
-          }
-        ]
-      }
-    ]
-  );
+    `, { sourceType: 'module' });
+    t.deepEqual(babylon_ast_dependencies_1.babylonAstDependencies(ast).identifiers, ['foo']);
 });
-
-test('babylonAstDependencies should enable dependency source identifiers to be rewritten', (t) => {
-  const input = `
-    import foo from "foo";
-    import {bar} from "bar";
-    const woz1 = require('woz');
-    const woz2 = require('woz');
-  `;
-
-  const expected = (
-    '\nimport foo from "0"; /* foo */\n' +
-    'import { bar } from "1"; /* bar */\n' +
-    'const woz1 = require("2") /* woz */;\n' +
-    'const woz2 = require("2") /* woz */;'
-  );
-
-  const ast = babylon.parse(input, {sourceType: 'module'});
-
-  function resolveModuleIdentifier(identifier) {
-    if (identifier === 'foo') {
-      return '0';
-    }
-    if (identifier === 'bar') {
-      return '1';
-    }
-    if (identifier === 'woz') {
-      return '2';
-    }
-    throw new Error('Unexpected identifier: ' + identifier);
-  }
-
-  const outcome = babylonAstDependencies(ast, {resolveModuleIdentifier});
-
-  t.deepEqual(
-    outcome.dependencies,
-    [
-      {
-        type: ES_MODULE,
-        identifier: 'foo',
-        specifiers: [
-          {
-            name: 'foo',
-            isDefault: true
-          }
-        ]
-      },
-      {
-        type: ES_MODULE,
-        identifier: 'bar',
-        specifiers: [
-          {
-            name: 'bar',
-            isDefault: false
-          }
-        ]
-      },
-      {
-        type: COMMONJS,
-        identifier: 'woz'
-      },
-      {
-        type: COMMONJS,
-        identifier: 'woz'
-      }
-    ]
-  );
-
-  t.is(
-    babelGenerator(ast, {comments: true}, input).code,
-    expected
-  );
-});
-
-test('should describe the specifiers produced in export statements', (t) => {
-  const ast = babylon.parse(`
-      export {foo, bar} from 'foo';
-      export const woz = 1;
-      const qux = 1;
-      export default qux;
-    `,
-    {sourceType: 'module'}
-  );
-
-  t.deepEqual(
-    babylonAstDependencies(ast).exports,
-    [
-      {
-        type: ES_MODULE,
-        name: 'foo',
-        isDefault: false
-      },
-      {
-        type: ES_MODULE,
-        name: 'bar',
-        isDefault: false
-      },
-      {
-        type: ES_MODULE,
-        name: 'woz',
-        isDefault: false
-      },
-      {
-        type: ES_MODULE,
-        name: null,
-        isDefault: true
-      }
-    ]
-  );
-});
-
-test('should produce errors if `require` calls contain variables', (t) => {
-  const ast = babylon.parse(`
+ava_1.default('should produce errors if `require` calls contain variables', (t) => {
+    const ast = babylon.parse(`
     const foo = 'foo';
     var bar = require(foo);
   `);
-
-  const err = t.throws(() => babylonAstDependencies(ast));
-  t.is(err.message, 'require(...) expression at line 3, column 22 cannot be statically analyzed');
+    const err = t.throws(() => babylon_ast_dependencies_1.babylonAstDependencies(ast));
+    t.is(err.message, 'require(...) expression at line 3, column 22 cannot be statically analyzed');
 });
-
-test('should produce errors if `require` calls contain expressions', (t) => {
-  const ast = babylon.parse(`
+ava_1.default('should produce errors if `require` calls contain expressions', (t) => {
+    const ast = babylon.parse(`
     const foo = 'foo';
     var bar = require('bar/' + foo);
   `);
-
-  const err = t.throws(() => babylonAstDependencies(ast));
-  t.is(err.message, 'require(...) expression at line 3, column 22 cannot be statically analyzed');
+    const err = t.throws(() => babylon_ast_dependencies_1.babylonAstDependencies(ast));
+    t.is(err.message, 'require(...) expression at line 3, column 22 cannot be statically analyzed');
 });
-
-test('should produce errors with a `loc` property', (t) => {
-  const ast = babylon.parse(`
+ava_1.default('should produce errors with a `loc` property', (t) => {
+    const ast = babylon.parse(`
     const foo = 'foo';
     var bar = require('bar/' + foo);
   `);
-
-  try {
-    babylonAstDependencies(ast);
-  } catch(err) {
-    t.deepEqual(
-      err.loc,
-      {
+    const err = t.throws(() => babylon_ast_dependencies_1.babylonAstDependencies(ast));
+    t.deepEqual(err.loc, {
         line: 3,
         column: 22
-      }
-    );
-    return;
-  }
-  throw new Error('Should not reach this point');
+    });
 });
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoidGVzdF9iYWJ5bG9uX2FzdF9kZXBlbmRlbmNpZXMuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyJ0ZXN0X2JhYnlsb25fYXN0X2RlcGVuZGVuY2llcy50cyJdLCJuYW1lcyI6W10sIm1hcHBpbmdzIjoiO0FBQUEsc0JBQWlCLEtBQUssQ0FBQyxDQUFBO0FBQ3ZCLE1BQVksT0FBTyxXQUFNLFNBQVMsQ0FBQyxDQUFBO0FBQ25DLDJDQUFxQyw2QkFBNkIsQ0FBQyxDQUFBO0FBRW5FLGFBQUksQ0FBQyxxRkFBcUYsRUFBRSxDQUFDLENBQUM7SUFDNUYsTUFBTSxHQUFHLEdBQUcsT0FBTyxDQUFDLEtBQUssQ0FBQzs7OztHQUl6QixDQUFDLENBQUM7SUFFSCxNQUFNLE9BQU8sR0FBRyxpREFBc0IsQ0FBQyxHQUFHLENBQUMsQ0FBQztJQUM1QyxDQUFDLENBQUMsU0FBUyxDQUNULE9BQU8sQ0FBQyxXQUFXLEVBQ25CLENBQUMsS0FBSyxFQUFFLEtBQUssQ0FBQyxDQUNmLENBQUM7QUFDSixDQUFDLENBQUMsQ0FBQztBQUVILGFBQUksQ0FBQyxtRkFBbUYsRUFBRSxDQUFDLENBQUM7SUFDMUYsTUFBTSxHQUFHLEdBQUcsT0FBTyxDQUFDLEtBQUssQ0FBQzs7O0dBR3pCLENBQUMsQ0FBQztJQUVILENBQUMsQ0FBQyxTQUFTLENBQUMsaURBQXNCLENBQUMsR0FBRyxDQUFDLENBQUMsV0FBVyxFQUFFLEVBQUUsQ0FBQyxDQUFDO0FBQzNELENBQUMsQ0FBQyxDQUFDO0FBRUgsYUFBSSxDQUFDLGlEQUFpRCxFQUFFLENBQUMsQ0FBQztJQUN4RCxNQUFNLEdBQUcsR0FBRyxPQUFPLENBQUMsS0FBSyxDQUN2Qjs7OztLQUlDLEVBQ0QsRUFBQyxVQUFVLEVBQUUsUUFBUSxFQUFDLENBQ3ZCLENBQUM7SUFFRixDQUFDLENBQUMsU0FBUyxDQUNULGlEQUFzQixDQUFDLEdBQUcsQ0FBQyxDQUFDLFdBQVcsRUFDdkMsQ0FBQyxLQUFLLEVBQUUsS0FBSyxFQUFFLEtBQUssQ0FBQyxDQUN0QixDQUFDO0FBQ0osQ0FBQyxDQUFDLENBQUM7QUFFSCxhQUFJLENBQUMsMkNBQTJDLEVBQUUsQ0FBQyxDQUFDO0lBQ2xELE1BQU0sR0FBRyxHQUFHLE9BQU8sQ0FBQyxLQUFLLENBQ3ZCOzs7OztLQUtDLEVBQ0QsRUFBQyxVQUFVLEVBQUUsUUFBUSxFQUFDLENBQ3ZCLENBQUM7SUFFRixDQUFDLENBQUMsU0FBUyxDQUNULGlEQUFzQixDQUFDLEdBQUcsQ0FBQyxDQUFDLFdBQVcsRUFDdkMsQ0FBQyxLQUFLLENBQUMsQ0FDUixDQUFDO0FBQ0osQ0FBQyxDQUFDLENBQUM7QUFFSCxhQUFJLENBQUMsb0VBQW9FLEVBQUUsQ0FBQyxDQUFDO0lBQzNFLE1BQU0sR0FBRyxHQUFHLE9BQU8sQ0FBQyxLQUFLLENBQUM7O0tBRXZCLEVBQ0QsRUFBQyxVQUFVLEVBQUUsUUFBUSxFQUFDLENBQ3ZCLENBQUM7SUFFRixDQUFDLENBQUMsU0FBUyxDQUNULGlEQUFzQixDQUFDLEdBQUcsQ0FBQyxDQUFDLFdBQVcsRUFDdkMsQ0FBQyxLQUFLLENBQUMsQ0FDUixDQUFDO0FBQ0osQ0FBQyxDQUFDLENBQUM7QUFFSCxhQUFJLENBQUMsNERBQTRELEVBQUUsQ0FBQyxDQUFDO0lBQ25FLE1BQU0sR0FBRyxHQUFHLE9BQU8sQ0FBQyxLQUFLLENBQUM7OztHQUd6QixDQUFDLENBQUM7SUFFSCxNQUFNLEdBQUcsR0FBRyxDQUFDLENBQUMsTUFBTSxDQUFDLE1BQU0saURBQXNCLENBQUMsR0FBRyxDQUFDLENBQUMsQ0FBQztJQUN4RCxDQUFDLENBQUMsRUFBRSxDQUFDLEdBQUcsQ0FBQyxPQUFPLEVBQUUsNEVBQTRFLENBQUMsQ0FBQztBQUNsRyxDQUFDLENBQUMsQ0FBQztBQUVILGFBQUksQ0FBQyw4REFBOEQsRUFBRSxDQUFDLENBQUM7SUFDckUsTUFBTSxHQUFHLEdBQUcsT0FBTyxDQUFDLEtBQUssQ0FBQzs7O0dBR3pCLENBQUMsQ0FBQztJQUVILE1BQU0sR0FBRyxHQUFHLENBQUMsQ0FBQyxNQUFNLENBQUMsTUFBTSxpREFBc0IsQ0FBQyxHQUFHLENBQUMsQ0FBQyxDQUFDO0lBQ3hELENBQUMsQ0FBQyxFQUFFLENBQUMsR0FBRyxDQUFDLE9BQU8sRUFBRSw0RUFBNEUsQ0FBQyxDQUFDO0FBQ2xHLENBQUMsQ0FBQyxDQUFDO0FBRUgsYUFBSSxDQUFDLDZDQUE2QyxFQUFFLENBQUMsQ0FBQztJQUNwRCxNQUFNLEdBQUcsR0FBRyxPQUFPLENBQUMsS0FBSyxDQUFDOzs7R0FHekIsQ0FBQyxDQUFDO0lBRUgsTUFBTSxHQUFHLEdBQUcsQ0FBQyxDQUFDLE1BQU0sQ0FBQyxNQUFNLGlEQUFzQixDQUFDLEdBQUcsQ0FBQyxDQUFDLENBQUM7SUFDeEQsQ0FBQyxDQUFDLFNBQVMsQ0FDVCxHQUFHLENBQUMsR0FBRyxFQUNQO1FBQ0UsSUFBSSxFQUFFLENBQUM7UUFDUCxNQUFNLEVBQUUsRUFBRTtLQUNYLENBQ0YsQ0FBQztBQUNKLENBQUMsQ0FBQyxDQUFDIn0=

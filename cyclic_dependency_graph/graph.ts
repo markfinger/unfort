@@ -2,10 +2,12 @@ import { Promise } from 'bluebird';
 import { Subject } from 'rxjs';
 import * as imm from 'immutable';
 import { pull } from 'lodash';
-import { ErrorObject } from '../common/interfaces';
+import { ErrorObject } from '../common';
 import { addNode, addEdge, removeEdge, removeNode, findNodesDisconnectedFromEntryNodes } from './node';
 
-export type Graph = imm.Map<any, any>;
+export type GraphNode = imm.Map<string, any>;
+
+export type Graph = imm.Map<string, GraphNode>;
 
 export interface GraphOutput {
   nodes: Graph,
