@@ -8,29 +8,36 @@ import * as babylon from 'babylon';
 import * as postcss from 'postcss';
 import * as parse5 from 'parse5';
 import * as chalk from 'chalk';
+import babelGenerator from 'babel-generator';
 import * as babelCodeFrame from 'babel-code-frame';
 import {ErrorObject} from '../common';
 import {FileSystemCache, FileSystemTrap} from '../file_system';
 import {CyclicDependencyGraph, Graph} from '../cyclic_dependency_graph';
 import {babylonAstDependencies} from './babylon_ast_dependencies';
 import {postcssAstDependencies} from './postcss_ast_dependencies';
-import {parse5AstDependencies} from './parse5_ast_dependencies';
+import {parse5AstDependencies, rewriteParse5AstDependencies} from './parse5_ast_dependencies';
+import {GraphOutput} from "../cyclic_dependency_graph/graph";
 
 class File {
   fileName: string;
   baseDirectory: string;
   ext: string;
+  baseName: string;
   trap: FileSystemTrap;
+  content: string | Buffer;
+  hash: string;
   constructor(fileName: string) {
     this.fileName = fileName;
     this.baseDirectory = path.dirname(fileName);
     this.ext = path.extname(fileName);
+    this.baseName = path.basename(fileName, this.ext);
   }
 }
 
 class FileScan {
   file: File;
   identifiers: string[];
+  ast: any;
   constructor(file) {
     this.file = file;
   }
@@ -39,41 +46,81 @@ class FileScan {
 class FileDependencies {
   scan: FileScan;
   resolved: string[];
+  resolvedByIdentifier: any;
   constructor(scan) {
     this.scan = scan;
   }
 }
 
+class FileBuild {
+  file: File;
+  scan: FileScan;
+  content: string | Buffer;
+  url: string;
+  sourceMap?: any;
+  constructor(file, scan) {
+    this.file = file;
+    this.scan = scan;
+  }
+}
+
 interface buildOutput {
-  graph: Graph
+  graph: Graph,
+  files: ImmutableMap<string, File>
+  scans: ImmutableMap<string, FileScan>
+  built: ImmutableMap<string, FileBuild>
 }
 
 const NODE_MODULES = /node_modules/;
 
 export class Compiler {
   fileSystemCache = new FileSystemCache();
-  graph = new CyclicDependencyGraph((fileName) => this.handleGraphRequest(fileName));
+  graph: CyclicDependencyGraph;
   files = ImmutableMap<string, File>();
   scans = ImmutableMap<string, FileScan>();
+  built = ImmutableMap<string, FileBuild>();
   dependencies = ImmutableMap<string, FileDependencies>();
   start: Subject<string>;
   error = new Subject<ErrorObject>();
   complete = new Subject<buildOutput>();
+  graphState: Graph;
+  rootDirectory: string;
   constructor() {
+    this.graph = new CyclicDependencyGraph((fileName: string) => this.handleGraphRequest(fileName));
     this.start = this.graph.start;
-    this.graph.error.subscribe((obj: ErrorObject) => this._handleErrorObject(obj));
-    this.graph.complete.subscribe((obj) => {
-      const {
-        nodes,
-        // pruned
-      } = obj;
-      this.build(nodes);
-    });
+    this.graph.error.subscribe((errorObject: ErrorObject) => this.handleErrorObject(errorObject));
+    this.graph.complete.subscribe((graphOutput: GraphOutput) => this.handleGraphOutput(graphOutput));
+    this.rootDirectory = process.cwd();
   }
-  compile() {
+  startCompilation() {
     this.graph.traceFromEntryPoints();
   }
-  scan(file: File): Promise<FileScan> {
+  addEntryPoint(file: string) {
+    this.graph.addEntryPoint(file);
+  }
+  getFileSourceUrl(file: File): string {
+    if (file.fileName.startsWith(this.rootDirectory)) {
+      return file.fileName.slice(this.rootDirectory.length);
+    } else {
+      return file.fileName;
+    }
+  }
+  getFileOutputUrl(file: File): string {
+    const baseDirectory = file.baseDirectory;
+    let fileSystemPath;
+    if (baseDirectory.startsWith(this.rootDirectory)) {
+      fileSystemPath = baseDirectory.slice(this.rootDirectory.length);
+    } else {
+      fileSystemPath = baseDirectory;
+    }
+    const rootUrl = fileSystemPath.split(path.sep).join('/');
+    const url = rootUrl + '/' + file.baseName + '-' + file.hash + file.ext;
+    if (url[0] !== '/') {
+      return '/' + url;
+    }
+    return url;
+  }
+  scanFile(file: File): Promise<FileScan> {
     switch(file.ext) {
       case '.js':
         return this.scanJsFile(file);
@@ -84,66 +131,76 @@ export class Compiler {
     }
     return this.scanUnknownFile(file);
   }
-  getFileScan(file: File): Promise<FileScan> {
-    const scan = this.scans.get(file.fileName);
-    if (scan) {
-      return Promise.resolve(scan);
-    }
-    return this.scan(file)
-      .then(scan => {
-        if (this.isFileValid(file)) {
-          this.scans = this.scans.set(file.fileName, scan);
-        }
-        return scan;
-      });
-  }
   scanHtmlFile(file: File): Promise<FileScan> {
     const {fileName, trap} = file;
-    return trap.readText(fileName)
-      .then(text => {
+    return Promise.all([
+      trap.readText(fileName),
+      trap.readTextHash(fileName)
+    ])
+      .then(([text, textHash]) => {
+        file.content = text;
+        file.hash = textHash;
         const ast = parse5.parse(text);
         const outcome = parse5AstDependencies(ast);
         const scan = new FileScan(file);
+        scan.ast = ast;
         scan.identifiers = outcome.identifiers;
         return scan;
       });
   }
   scanJsFile(file: File): Promise<FileScan> {
     const {fileName, trap} = file;
-    return trap.readText(fileName)
-      .then(text => {
+    return Promise.all([
+      trap.readText(fileName),
+      trap.readTextHash(fileName)
+    ])
+      .then(([text, textHash]) => {
+        file.content = text;
+        file.hash = textHash;
         const sourceType = NODE_MODULES.test(fileName) ? 'script' : 'module';
         const ast = babylon.parse(text, {
           sourceType
         });
         const outcome = babylonAstDependencies(ast);
         const scan = new FileScan(file);
+        scan.ast = ast;
         scan.identifiers = outcome.identifiers;
         return scan;
       });
   }
   scanCssFile(file): Promise<FileScan> {
     const {fileName, trap} = file;
-    return trap.readText(fileName)
-      .then(text => {
+    return Promise.all([
+      trap.readText(fileName),
+      trap.readTextHash(fileName)
+    ])
+      .then(([text, textHash]) => {
+        file.content = text;
+        file.hash = textHash;
         const ast = postcss.parse(text);
         const outcome = postcssAstDependencies(ast);
+        // As we serve the files with different names, we need to remove
+        // the `@import ...` rules
+        ast.walkAtRules('import', rule => rule.remove());
         const scan = new FileScan(file);
+        scan.ast = ast;
         scan.identifiers = outcome.identifiers;
         return scan;
       });
   }
   scanUnknownFile(file): Promise<FileScan> {
     const {fileName, trap} = file;
-    return trap.readBuffer(fileName)
-      .then(buffer => {
+    return Promise.all([
+      trap.readText(fileName),
+      trap.readModifiedTime(fileName)
+    ])
+      .then(([buffer, modifiedTime]) => {
+        file.content = buffer;
+        file.hash = modifiedTime;
         const scan = new FileScan(file);
         scan.identifiers = [];
         return scan;
       });
-  }
-  addEntryPoint(file: string) {
-    this.graph.addEntryPoint(file);
   }
   resolveIdentifier(identifier: string, file: File): Promise<string> {
     const {fileName, baseDirectory, trap} = file;
@@ -164,14 +221,96 @@ export class Compiler {
       );
     });
   }
+  build(file: File): Promise<FileBuild> {
+    switch(file.ext) {
+      case '.js':
+        return this.buildJsFile(file);
+      case '.css':
+        return this.buildCssFile(file);
+      case '.html':
+        return this.buildHtmlFile(file);
+    }
+    return this.buildUnknownFile(file);
+  }
+  buildJsFile(file: File): Promise<FileBuild> {
+    const sourceUrl = this.getFileSourceUrl(file);
+    const outputUrl = this.getFileOutputUrl(file);
+    const scan = this.scans.get(file.fileName);
+    const babelFile = babelGenerator(
+      scan.ast,
+      {
+        sourceMaps: true,
+        sourceFileName: sourceUrl,
+        sourceMapTarget: outputUrl
+      },
+      file.content
+    );
+    const build = new FileBuild(file, scan);
+    build.url = outputUrl;
+    build.content = babelFile.code;
+    build.sourceMap = babelFile.map;
+    return Promise.resolve(build);
+  }
+  buildCssFile(file: File): Promise<FileBuild>  {
+    const sourceUrl = this.getFileSourceUrl(file);
+    const outputUrl = this.getFileOutputUrl(file);
+    const scan = this.scans.get(file.fileName);
+
+    return Promise.resolve(
+      postcss().process(
+        scan.ast,
+        {
+          from: sourceUrl,
+          to: outputUrl,
+          // Generate a source map, but keep it separate from the code
+          map: {
+            inline: false,
+            annotation: false
+          }
+        }
+      )
+    )
+      .then(output => {
+        const build = new FileBuild(file, scan);
+        build.url = outputUrl;
+        build.content = output.css;
+        build.sourceMap = output.map;
+        return Promise.resolve(build);
+      });
+  }
+  buildHtmlFile(file: File): Promise<FileBuild>  {
+    // Rewrite each dependency to target the output file
+    const scan = this.scans.get(file.fileName);
+    const dependencies = this.dependencies.get(file.fileName);
+    const identifiers = {};
+    for (const identifier of Object.keys(dependencies.resolvedByIdentifier)) {
+      const depFileName = dependencies.resolvedByIdentifier[identifier];
+      const depFile = this.files.get(depFileName);
+      identifiers[identifier] = this.getFileOutputUrl(depFile);
+    }
+    rewriteParse5AstDependencies(scan.ast, identifiers);
+    // Convert the AST to text
+    const build = new FileBuild(file, scan);
+    build.url = this.getFileOutputUrl(file);
+    build.content = parse5.serialize(scan.ast);
+    return Promise.resolve(build);
+  }
+  buildUnknownFile(file: File): Promise<FileBuild>  {
+    const scan = this.scans.get(file.fileName);
+    const build = new FileBuild(file, scan);
+    build.url = this.getFileOutputUrl(file);
+    build.content = file.content;
+    return Promise.resolve(build);
+  }
   handleGraphRequest(fileName: string): Promise<string[]> {
     let file = this.files.get(fileName);
     if (!file) {
       file = this.createFile(fileName);
       this.files = this.files.set(fileName, file);
     }
-    return this.getFileScan(file)
+    return this.scanFile(file)
       .then(scan => {
+        this.scans = this.scans.set(fileName, scan);
         if (!this.isFileValid(file)) {
           return [];
         }
@@ -186,24 +325,23 @@ export class Compiler {
             }
             const dependencies = new FileDependencies(scan);
             dependencies.resolved = resolvedDependencies;
+            dependencies.resolvedByIdentifier = {};
+            for (let i=0; i<resolvedDependencies.length; i++) {
+              const identifier = scan.identifiers[i];
+              dependencies.resolvedByIdentifier[identifier] = resolvedDependencies[i];
+            }
             this.dependencies = this.dependencies.set(fileName, dependencies);
             return resolvedDependencies;
           });
       });
   }
-  build(nodes) {
-    // TODO
-    this.complete.next({
-      graph: nodes
-    });
-  }
   isFileValid(file) {
     return this.files.get(file.fileName) === file;
   }
-  _handleErrorObject(obj: ErrorObject) {
-    const {error, fileName} = obj;
+  handleErrorObject(errorObject: ErrorObject) {
+    const {error, fileName} = errorObject;
     let text = Promise.resolve(null);
-    if (error.loc) {
+    if (error.loc && !error.codeFrame) {
       text = this.fileSystemCache.readText(fileName)
         .catch(_ => null); // Ignore any errors
     }
@@ -219,25 +357,55 @@ export class Compiler {
           lines.push(error.message);
         }
         // Improve the reporting on parse errors by generating a code frame
-        if (error.loc && !error.codeFrame) {
-          if (text) {
-            error.codeFrame = babelCodeFrame(text, error.loc.line, error.loc.column);
-          }
+        if (text) {
+          error.codeFrame = babelCodeFrame(text, error.loc.line, error.loc.column);
         }
         if (
           error.codeFrame &&
-          // In case another tool has already added the code frame to the error, we should avoid duplicating it
-          !error.message.includes(error.codeFrame) &&
-          !error.stack.includes(error.codeFrame)
+          // If another tool has already added the code frame to the error, we should avoid duplicating it
+          !(error.message.includes(error.codeFrame) || error.stack.includes(error.codeFrame))
         ) {
           lines.push(error.codeFrame);
         }
         lines.push(error.stack);
-        obj.description = lines.join('\n');
-        this.error.next(obj);
+        errorObject.description = lines.join('\n');
+        this.error.next(errorObject);
       })
       // Sanity check to ensure that errors are not swallowed
       .catch(err => console.error(err));
+  }
+  handleGraphOutput(graphOutput: GraphOutput) {
+    this.graphState = graphOutput.graph;
+    for (const fileName of graphOutput.pruned) {
+      this.purgeDataForFile(fileName);
+    }
+    this.buildFiles();
+  }
+  buildFiles() {
+    const fileBuilds = [];
+    this.graphState.keySeq().forEach(fileName => {
+      const file = this.files.get(fileName);
+      fileBuilds.push(this.build(file));
+    });
+    Promise.all(fileBuilds)
+      .then((builtFiles: FileBuild[]) => {
+        this.built = ImmutableMap<string, FileBuild>().withMutations(map => {
+          for (const builtFile of builtFiles) {
+            map.set(builtFile.file.fileName, builtFile);
+          }
+        });
+        this.complete.next({
+          graph: this.graphState,
+          files: this.files,
+          scans: this.scans,
+          built: this.built
+        });
+      });
+  }
+  purgeDataForFile(fileName: string) {
+    this.files.delete(fileName);
+    this.scans.delete(fileName);
+    this.dependencies.delete(fileName);
   }
   createFile(fileName: string) {
     const file = new File(fileName);

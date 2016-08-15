@@ -4,7 +4,8 @@
     "target": "ES6",
     "pretty": true,
     "moduleResolution": "node",
-    "inlineSourceMap": true
+    "inlineSourceMap": true,
+    "allowSyntheticDefaultImports": true
   },
   "exclude": [
     "node_modules"

@@ -46,10 +46,10 @@ test.cb('.complete should emit once all tracing has completed', (t) => {
   graph.addEntryPoint('test');
   graph.traceFromEntryPoints();
 
-  graph.complete.subscribe(({nodes, pruned}) => {
-    t.truthy(nodes instanceof imm.Map);
-    t.truthy(nodes.has('test'));
-    t.truthy(pruned instanceof imm.List);
+  graph.complete.subscribe(({graph, pruned}) => {
+    t.truthy(graph instanceof imm.Map);
+    t.truthy(graph.has('test'));
+    t.truthy(pruned instanceof Array);
     t.end();
   });
 });
@@ -126,10 +126,10 @@ test.cb('.trace should populate the graph with the provided dependencies', (t) =
     }
   }
 
-  graph.complete.subscribe(({nodes}) => {
-    t.truthy(nodes.has('a'));
-    t.truthy(nodes.has('b'));
-    t.truthy(nodes.has('c'));
+  graph.complete.subscribe(({graph}) => {
+    t.truthy(graph.has('a'));
+    t.truthy(graph.has('b'));
+    t.truthy(graph.has('c'));
     t.end();
   });
 });

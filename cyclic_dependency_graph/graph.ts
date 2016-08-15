@@ -10,8 +10,8 @@ export type GraphNode = imm.Map<string, any>;
 export type Graph = imm.Map<string, GraphNode>;
 
 export interface GraphOutput {
-  nodes: Graph,
-  pruned: imm.List<string>;
+  graph: Graph,
+  pruned: string[];
 }
 
 export class CyclicDependencyGraph {
@@ -201,8 +201,8 @@ export class CyclicDependencyGraph {
   _signalComplete() {
     this.pruneDisconnected();
     const payload = {
-      nodes: this.nodes,
-      pruned: imm.List(Array.from(this._prunedNodes))
+      graph: this.nodes,
+      pruned: Array.from(this._prunedNodes)
     };
     this._hasSignalledStart = false;
     this._prunedNodes.clear();
