@@ -1,22 +1,9 @@
-import {Buffer} from 'buffer';
 import test from 'ava';
 import {Subject} from 'rxjs';
 import * as imm from 'immutable';
-import {FileSystemCache} from '../../file_system';
 import {createNodesFromNotation} from '../../cyclic_dependency_graph';
 import {Compiler} from '../compiler';
-
-function createPrepopulatedFileSystemCache(files) {
-  const cache = new FileSystemCache();
-  for (const path of Object.keys(files)) {
-    const file = cache._createFile(path);
-    file.setIsFile(true);
-    file.setModifiedTime(-Infinity);
-    file.setText(files[path]);
-    file.setBuffer(new Buffer(files[path]));
-  }
-  return cache;
-}
+import {createPrepopulatedFileSystemCache, handleCompilerErrors} from './utils';
 
 test('should produce a dependency graph of multiple file types that link to one another', (t) => {
   const files = {
@@ -44,10 +31,7 @@ test('should produce a dependency graph of multiple file types that link to one 
   compiler.addEntryPoint('/foo/index.html');
   compiler.startCompilation();
   const obs = new Subject<any>();
-  compiler.error.subscribe(obj => {
-    console.error(obj.description);
-    obs.error(obj.error);
-  });
+  handleCompilerErrors(compiler, obs);
   compiler.graph.complete.subscribe(data => {
     const expected = createNodesFromNotation(`
       /foo/index.html -> /foo/script1.js
@@ -76,10 +60,7 @@ test('should compile JS files into the expected format', (t) => {
   compiler.addEntryPoint('/foo/file1.js');
   compiler.startCompilation();
   const obs = new Subject<any>();
-  compiler.error.subscribe(obj => {
-    console.error(obj.description);
-    obs.error(obj.error);
-  });
+  handleCompilerErrors(compiler, obs);
   compiler.complete.subscribe(data => {
     const built1 = data.built.get('/foo/file1.js');
     const built2 = data.built.get('/foo/file2.js');
@@ -100,10 +81,7 @@ test('should compile CSS files into the expected format', (t) => {
   compiler.addEntryPoint('/foo/file1.css');
   compiler.startCompilation();
   const obs = new Subject<any>();
-  compiler.error.subscribe(obj => {
-    console.error(obj.description);
-    obs.error(obj.error);
-  });
+  handleCompilerErrors(compiler, obs);
   compiler.complete.subscribe(data => {
     const built1 = data.built.get('/foo/file1.css');
     const built2 = data.built.get('/foo/file2.css');
@@ -124,10 +102,7 @@ test('should compile html files into the expected format', (t) => {
   compiler.addEntryPoint('/foo/file1.html');
   compiler.startCompilation();
   const obs = new Subject<any>();
-  compiler.error.subscribe(obj => {
-    console.error(obj.description);
-    obs.error(obj.error);
-  });
+  handleCompilerErrors(compiler, obs);
   compiler.complete.subscribe(data => {
     const builtHtml = data.built.get('/foo/file1.html');
     const expected = '<html><head><script src=\"/foo/file2-2938366898.js"></script></head><body></body></html>';

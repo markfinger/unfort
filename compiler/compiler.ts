@@ -99,13 +99,14 @@ export class Compiler {
     this.graph.addEntryPoint(file);
   }
   getFileSourceUrl(file: File): string {
-    if (file.fileName.startsWith(this.rootDirectory)) {
-      return file.fileName.slice(this.rootDirectory.length);
+    const fileName = file.fileName;
+    if (fileName.startsWith(this.rootDirectory)) {
+      return fileName.slice(this.rootDirectory.length);
     } else {
-      return file.fileName;
+      return fileName;
     }
   }
-  getFileOutputUrl(file: File): string {
+  getFileOutputUrl(file: File): Promise<string> {
     const baseDirectory = file.baseDirectory;
     let fileSystemPath;
     if (baseDirectory.startsWith(this.rootDirectory)) {
@@ -114,11 +115,11 @@ export class Compiler {
       fileSystemPath = baseDirectory;
     }
     const rootUrl = fileSystemPath.split(path.sep).join('/');
-    const url = rootUrl + '/' + file.baseName + '-' + file.hash + file.ext;
+    let url = rootUrl + '/' + file.baseName + '-' + file.hash + file.ext;
     if (url[0] !== '/') {
-      return '/' + url;
+      url = '/' + url;
     }
-    return url;
+    return Promise.resolve(url);
   }
   scanFile(file: File): Promise<FileScan> {
     switch(file.ext) {
@@ -234,73 +235,90 @@ export class Compiler {
   }
   buildJsFile(file: File): Promise<FileBuild> {
     const sourceUrl = this.getFileSourceUrl(file);
-    const outputUrl = this.getFileOutputUrl(file);
-    const scan = this.scans.get(file.fileName);
-    const babelFile = babelGenerator(
-      scan.ast,
-      {
-        sourceMaps: true,
-        sourceFileName: sourceUrl,
-        sourceMapTarget: outputUrl
-      },
-      file.content
-    );
-    const build = new FileBuild(file, scan);
-    build.url = outputUrl;
-    build.content = babelFile.code;
-    build.sourceMap = babelFile.map;
-    return Promise.resolve(build);
-  }
-  buildCssFile(file: File): Promise<FileBuild>  {
-    const sourceUrl = this.getFileSourceUrl(file);
-    const outputUrl = this.getFileOutputUrl(file);
-    const scan = this.scans.get(file.fileName);
-
-    return Promise.resolve(
-      postcss().process(
-        scan.ast,
-        {
-          from: sourceUrl,
-          to: outputUrl,
-          // Generate a source map, but keep it separate from the code
-          map: {
-            inline: false,
-            annotation: false
-          }
-        }
-      )
-    )
-      .then(output => {
+    return this.getFileOutputUrl(file)
+      .then(outputUrl => {
+        const scan = this.scans.get(file.fileName);
+        const babelFile = babelGenerator(
+          scan.ast,
+          {
+            sourceMaps: true,
+            sourceFileName: sourceUrl,
+            sourceMapTarget: outputUrl
+          },
+          file.content
+        );
         const build = new FileBuild(file, scan);
         build.url = outputUrl;
-        build.content = output.css;
-        build.sourceMap = output.map;
+        build.content = babelFile.code;
+        build.sourceMap = babelFile.map;
         return Promise.resolve(build);
       });
   }
+  buildCssFile(file: File): Promise<FileBuild>  {
+    const sourceUrl = this.getFileSourceUrl(file);
+    return this.getFileOutputUrl(file)
+      .then((outputUrl) => {
+        const scan = this.scans.get(file.fileName);
+        return Promise.resolve(
+          postcss().process(
+            scan.ast,
+            {
+              from: sourceUrl,
+              to: outputUrl,
+              // Generate a source map, but keep it separate from the code
+              map: {
+                inline: false,
+                annotation: false
+              }
+            }
+          )
+        )
+          .then(output => {
+            const build = new FileBuild(file, scan);
+            build.url = outputUrl;
+            build.content = output.css;
+            build.sourceMap = output.map;
+            return Promise.resolve(build);
+          });
+      });
+  }
   buildHtmlFile(file: File): Promise<FileBuild>  {
-    // Rewrite each dependency to target the output file
     const scan = this.scans.get(file.fileName);
     const dependencies = this.dependencies.get(file.fileName);
-    const identifiers = {};
+    const outputUrls = [];
     for (const identifier of Object.keys(dependencies.resolvedByIdentifier)) {
       const depFileName = dependencies.resolvedByIdentifier[identifier];
       const depFile = this.files.get(depFileName);
-      identifiers[identifier] = this.getFileOutputUrl(depFile);
+      outputUrls.push(
+        this.getFileOutputUrl(depFile)
+          .then(outputUrl => [identifier, outputUrl])
+      );
     }
-    rewriteParse5AstDependencies(scan.ast, identifiers);
-    // Convert the AST to text
-    const build = new FileBuild(file, scan);
-    build.url = this.getFileOutputUrl(file);
-    build.content = parse5.serialize(scan.ast);
-    return Promise.resolve(build);
+    return Promise.all(outputUrls)
+      .then(data => {
+        const identifiers = {};
+        for (const [identifier, outputUrl] of data) {
+          identifiers[identifier] = outputUrl;
+        }
+        rewriteParse5AstDependencies(scan.ast, identifiers);
+        return this.getFileOutputUrl(file)
+          .then(outputUrl => {
+            const build = new FileBuild(file, scan);
+            build.url = outputUrl;
+            build.content = parse5.serialize(scan.ast);
+            return Promise.resolve(build);
+          });
+      });
   }
   buildUnknownFile(file: File): Promise<FileBuild>  {
     const scan = this.scans.get(file.fileName);
     const build = new FileBuild(file, scan);
-    build.url = this.getFileOutputUrl(file);
-    build.content = file.content;
-    return Promise.resolve(build);
+    return this.getFileOutputUrl(file)
+      .then(outputUrl => {
+        build.url = outputUrl;
+        build.content = file.content;
+        return Promise.resolve(build);
+      });
   }
   handleGraphRequest(fileName: string): Promise<string[]> {
     let file = this.files.get(fileName);
