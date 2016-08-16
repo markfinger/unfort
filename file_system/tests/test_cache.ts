@@ -1,12 +1,10 @@
 import * as fs from 'fs';
-import { Buffer } from 'buffer';
+import {Buffer} from 'buffer';
 import test from 'ava';
-import { generateStringHash } from '../../utils/hash';
-import { FileSystemCache } from '../cache';
-import { FileSystemTrap } from '../trap';
-import { fileSystemInterface } from "../interfaces";
-import { readFile, stat } from '../utils';
-import {Stats} from "fs";
+import {generateStringHash} from '../../common';
+import {FileSystemCache} from '../cache';
+import {FileSystemTrap} from '../trap';
+import {fileSystemInterface} from "../interfaces";
 
 test('FileSystemCaches should produce the expected dataset of a file', (t) => {
   const cache = new FileSystemCache();
@@ -41,7 +39,7 @@ test('FileSystemCaches should only hit the filesystem once for a particular job 
     called = true;
     return Promise.resolve('text');
   }
-  const cache = new FileSystemCache({readFile, stat} as fileSystemInterface);
+  const cache = new FileSystemCache({readFile});
 
   return Promise.all([
     cache.readText('/some/file.js'),
@@ -95,8 +93,7 @@ test('FileSystemCaches should handle multiple concurrent file requests', (t) => 
 test('FileSystemCaches should intercept jobs for files that are removed during processing', (t) => {
   const cache = new FileSystemCache({
     readFile: () => Promise.resolve('test'),
-    stat
-  } as fileSystemInterface);
+  });
   let completed = false;
   cache.readText('/some/file')
     .then(() => completed = true);
@@ -203,9 +200,8 @@ test('FileSystemCaches should trigger traps for file creation', (t) => {
           return false;
         }
       });
-    },
-    readFile
-  } as fileSystemInterface);
+    }
+  });
   const trap1 = cache.createTrap();
   const trap2 = cache.createTrap();
   const triggered = [];
@@ -230,9 +226,8 @@ test('FileSystemCaches should trigger traps for file creation', (t) => {
 
 test('FileSystemCaches should not re-trigger traps for file creation', (t) => {
   const cache = new FileSystemCache({
-    stat: () => Promise.resolve({isFile: () => false}),
-    readFile
-  } as fileSystemInterface);
+    stat: () => Promise.resolve({isFile: () => false})
+  });
   const trap1 = cache.createTrap();
   const triggered = [];
   cache.trapTriggered.subscribe(obj => {
@@ -256,9 +251,8 @@ test('FileSystemCaches should not re-trigger traps for file creation', (t) => {
 
 test('FileSystemCaches should trigger traps for file deletion', (t) => {
   const cache = new FileSystemCache({
-    stat: () => Promise.resolve({isFile: () => true}),
-    readFile
-  } as fileSystemInterface);
+    stat: () => Promise.resolve({isFile: () => true})
+  });
   const trap1 = cache.createTrap();
   const trap2 = cache.createTrap();
   const triggered = [];
@@ -283,9 +277,8 @@ test('FileSystemCaches should trigger traps for file deletion', (t) => {
 
 test('FileSystemCaches should not re-trigger traps for file deletion', (t) => {
   const cache = new FileSystemCache({
-    stat: () => Promise.resolve({isFile: () => true}),
-    readFile
-  } as fileSystemInterface);
+    stat: () => Promise.resolve({isFile: () => true})
+  });
   const trap = cache.createTrap();
   const triggered = [];
   cache.trapTriggered.subscribe(obj => {
@@ -361,7 +354,11 @@ test('FileSystemCaches should not re-trigger traps for file changes', (t) => {
 });
 
 test('FileSystemCaches should prepopulate file stats when possible', (t) => {
-  const stat = {mtime: new Date(2000, 1, 1), isFile: () => true, isDirectory: () => false} as Stats;
+  const stat = {
+    mtime: new Date(2000, 1, 1),
+    isFile: () => true,
+    isDirectory: () => false
+  } as fs.Stats;
   const cache = new FileSystemCache();
   const trap = cache.createTrap();
   cache.fileAdded.next({path: '/some/file', stat});
@@ -374,8 +371,7 @@ test('FileSystemCaches should prepopulate file stats when possible', (t) => {
 test('FileSystemCaches should trigger if isFile evaluated to False', (t) => {
   const cache = new FileSystemCache({
     stat: () => Promise.resolve({isFile: () => false}),
-    readFile
-  } as fileSystemInterface);
+  });
   const trap = cache.createTrap();
   let triggered;
   cache.trapTriggered.subscribe(obj => {
@@ -391,8 +387,7 @@ test('FileSystemCaches should trigger if isFile evaluated to False', (t) => {
 test('FileSystemCaches should trigger if isFile evaluated to true', (t) => {
   const cache = new FileSystemCache({
     stat: () => Promise.resolve({isFile: () => true}),
-    readFile
-  } as fileSystemInterface);
+  });
   const trap = cache.createTrap();
   let triggered;
   cache.trapTriggered.subscribe(obj => {
@@ -408,8 +403,7 @@ test('FileSystemCaches should trigger if isFile evaluated to true', (t) => {
 test('FileSystemCaches should trigger if stat evaluated', (t) => {
   const cache = new FileSystemCache({
     stat: () => Promise.resolve({isFile: () => true, mtime: new Date()}),
-    readFile
-  } as fileSystemInterface);
+  });
   const trap = cache.createTrap();
   let triggered;
   cache.trapTriggered.subscribe(obj => {
@@ -425,8 +419,7 @@ test('FileSystemCaches should trigger if stat evaluated', (t) => {
 test('FileSystemCaches should trigger if modifiedTime evaluated', (t) => {
   const cache = new FileSystemCache({
     stat: () => Promise.resolve({isFile: () => true, mtime: new Date()}),
-    readFile
-  } as fileSystemInterface);
+  });
   const trap = cache.createTrap();
   let triggered;
   cache.trapTriggered.subscribe(obj => {
@@ -493,8 +486,7 @@ test('FileSystemCaches should trigger if readTextHash evaluated', (t) => {
 test('FileSystemCaches should trigger if stat evaluated', (t) => {
   const cache = new FileSystemCache({
     stat: () => Promise.resolve({isFile: () => true, mtime: new Date()}),
-    readFile
-  } as fileSystemInterface);
+  });
   const trap = cache.createTrap();
   let triggered;
   cache.trapTriggered.subscribe(obj => {
@@ -510,8 +502,7 @@ test('FileSystemCaches should trigger if stat evaluated', (t) => {
 test('FileSystemCaches should trigger if modifiedTime evaluated', (t) => {
   const cache = new FileSystemCache({
     stat: () => Promise.resolve({isFile: () => true, mtime: new Date()}),
-    readFile
-  } as fileSystemInterface);
+  });
   const trap = cache.createTrap();
   let triggered;
   cache.trapTriggered.subscribe(obj => {

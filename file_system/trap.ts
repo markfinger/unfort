@@ -96,6 +96,10 @@ export class FileSystemTrap implements fileSystemCache {
           });
       });
   }
+  readDirectoryContents(path) {
+    // TODO track directory dependencies
+    return this.cache.readDirectoryContents(path);
+  }
   describeDependencies(): any {
     const description = {};
     for (const [key, value] of this.bindings) {

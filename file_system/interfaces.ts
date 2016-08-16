@@ -8,9 +8,20 @@ export interface stat {
   (path: string): Promise<Stats>;
 }
 
+export interface readDirectory {
+  (path: string): Promise<string[]>;
+}
+
 export interface fileSystemInterface {
   readFile: readFile;
   stat: stat;
+  readDirectory: readDirectory;
+}
+
+export interface fileSystemInterfaceOverrides {
+  readFile?: readFile;
+  stat?: stat;
+  readDirectory?: readDirectory;
 }
 
 export interface fileSystemCache {
@@ -20,6 +31,7 @@ export interface fileSystemCache {
   readBuffer(path: string): Promise<Buffer>;
   readText(path: string): Promise<string>;
   readTextHash(path: string): Promise<string>;
+  readDirectoryContents(path: string): Promise<string[]>;
 }
 
 export interface fileSystemDependency {

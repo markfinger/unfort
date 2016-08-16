@@ -1,7 +1,8 @@
 import test from 'ava';
 import { Subject } from 'rxjs';
 import { Compiler } from '../compiler';
-import { createPrepopulatedFileSystemCache, handleCompilerErrors } from './utils';
+import { handleCompilerErrors } from './utils';
+import { createVirtualFileSystemCache } from '../../file_system/test_utils';
 
 test('should produce urls to the output of the assets', (t) => {
   const files = {
@@ -11,7 +12,7 @@ test('should produce urls to the output of the assets', (t) => {
   };
   const compiler = new Compiler();
   compiler.rootDirectory = '/foo';
-  compiler.fileSystemCache = createPrepopulatedFileSystemCache(files);
+  compiler.fileSystemCache = createVirtualFileSystemCache(files);
   compiler.addEntryPoint('/foo/index.html');
   compiler.startCompilation();
   compiler.error.subscribe(obj => {

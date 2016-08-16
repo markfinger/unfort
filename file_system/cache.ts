@@ -3,8 +3,8 @@ import {Subject} from 'rxjs';
 import {File} from './file';
 import {validateFileSystemDependencies} from './dependencies';
 import {FileSystemTrap} from './trap';
-import {readFile, stat} from './utils';
-import {fileSystemInterface, fileSystemCache} from "./interfaces";
+import {readFile, stat, readDirectory} from './utils';
+import {fileSystemInterface, fileSystemInterfaceOverrides, fileSystemCache} from "./interfaces";
 import {Stats} from "fs";
 
 export interface triggeredTrap {
@@ -28,10 +28,11 @@ export class FileSystemCache implements fileSystemCache {
   fileRemoved = new Subject<fileFeed>();
   // Outgoing data
   trapTriggered = new Subject<triggeredTrap>();
-  constructor(fileSystemOverrides?: fileSystemInterface) {
+  constructor(fileSystemOverrides?: fileSystemInterfaceOverrides) {
     this.fileSystem = {
       readFile: (fileSystemOverrides && fileSystemOverrides.readFile) || readFile,
-      stat: (fileSystemOverrides && fileSystemOverrides.stat) || stat
+      stat: (fileSystemOverrides && fileSystemOverrides.stat) || stat,
+      readDirectory: (fileSystemOverrides && fileSystemOverrides.readDirectory) || readDirectory
     };
 
     // Handle incoming data
@@ -39,23 +40,26 @@ export class FileSystemCache implements fileSystemCache {
     this.fileChanged.subscribe((data) => this._handleFileChanged(data.path, data.stat));
     this.fileRemoved.subscribe((data) => this._handleFileRemoved(data.path));
   }
-  isFile(path): Promise<boolean> {
+  isFile(path: string): Promise<boolean> {
     return this._evaluateFileMethod('getIsFile', path);
   }
-  stat(path): Promise<Stats> {
+  stat(path: string): Promise<Stats> {
     return this._evaluateFileMethod('getStat', path);
   }
-  readModifiedTime(path): Promise<number> {
+  readModifiedTime(path: string): Promise<number> {
     return this._evaluateFileMethod('getModifiedTime', path);
   }
-  readBuffer(path): Promise<Buffer> {
+  readBuffer(path: string): Promise<Buffer> {
     return this._evaluateFileMethod('getBuffer', path);
   }
-  readText(path): Promise<string> {
+  readText(path: string): Promise<string> {
     return this._evaluateFileMethod('getText', path);
   }
-  readTextHash(path): Promise<string> {
+  readTextHash(path: string): Promise<string> {
     return this._evaluateFileMethod('getTextHash', path);
+  }
+  readDirectoryContents(path: string): Promise<string[]> {
+    return this._evaluateFileMethod('getDirectoryContents', path);
   }
   createTrap() {
     return new FileSystemTrap(this);
@@ -138,7 +142,7 @@ export class FileSystemCache implements fileSystemCache {
       this._triggerTraps(trapsToTrigger, path, 'removed');
     }
   }
-  _createFile(path, stat?: Stats) {
+  _createFile(path, stat?: Stats): File {
     const file = new File(path, this.fileSystem);
     if (stat) {
       // Prepopulate the file's data

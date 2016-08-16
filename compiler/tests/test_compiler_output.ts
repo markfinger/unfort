@@ -3,7 +3,8 @@ import {Subject} from 'rxjs';
 import * as imm from 'immutable';
 import {createNodesFromNotation} from '../../cyclic_dependency_graph';
 import {Compiler} from '../compiler';
-import {createPrepopulatedFileSystemCache, handleCompilerErrors} from './utils';
+import {handleCompilerErrors} from './utils';
+import {createVirtualFileSystemCache} from '../../file_system/test_utils';
 
 test('should produce a dependency graph of multiple file types that link to one another', (t) => {
   const files = {
@@ -27,7 +28,7 @@ test('should produce a dependency graph of multiple file types that link to one 
     '/foo/image.png': ''
   };
   const compiler = new Compiler();
-  compiler.fileSystemCache = createPrepopulatedFileSystemCache(files);
+  compiler.fileSystemCache = createVirtualFileSystemCache(files);
   compiler.addEntryPoint('/foo/index.html');
   compiler.startCompilation();
   const obs = new Subject<any>();
@@ -56,7 +57,7 @@ test('should compile JS files into the expected format', (t) => {
     '/foo/file2.js': 'export const two = 2'
   };
   const compiler = new Compiler();
-  compiler.fileSystemCache = createPrepopulatedFileSystemCache(files);
+  compiler.fileSystemCache = createVirtualFileSystemCache(files);
   compiler.addEntryPoint('/foo/file1.js');
   compiler.startCompilation();
   const obs = new Subject<any>();
@@ -77,7 +78,7 @@ test('should compile CSS files into the expected format', (t) => {
     '/foo/file2.css': 'body { font-size: 28px; }'
   };
   const compiler = new Compiler();
-  compiler.fileSystemCache = createPrepopulatedFileSystemCache(files);
+  compiler.fileSystemCache = createVirtualFileSystemCache(files);
   compiler.addEntryPoint('/foo/file1.css');
   compiler.startCompilation();
   const obs = new Subject<any>();
@@ -98,7 +99,7 @@ test('should compile html files into the expected format', (t) => {
     '/foo/file2.js': 'console.log("hello");'
   };
   const compiler = new Compiler();
-  compiler.fileSystemCache = createPrepopulatedFileSystemCache(files);
+  compiler.fileSystemCache = createVirtualFileSystemCache(files);
   compiler.addEntryPoint('/foo/file1.html');
   compiler.startCompilation();
   const obs = new Subject<any>();

@@ -1,5 +1,5 @@
 import { Promise } from 'bluebird';
-import { generateStringHash } from '../utils/hash';
+import { generateStringHash } from '../common';
 import { fileSystemInterface } from './interfaces';
 import { Stats } from 'fs';
 
@@ -9,9 +9,11 @@ export class File {
   protected stat: Promise<Stats>;
   protected modifiedTime: Promise<number>;
   protected isFile: Promise<boolean>;
+  protected isDirectory: Promise<boolean>;
   protected buffer: Promise<Buffer>;
   protected text: Promise<string>;
   protected textHash: Promise<string>;
+  protected contents: Promise<string[]>;
   constructor(path, fileSystem) {
     this.path = path;
     this.fileSystem = fileSystem;
@@ -38,18 +40,38 @@ export class File {
   getIsFile() {
     if (!this.isFile) {
       this.isFile = this.getStat()
-        .then(stat => stat.isFile())
-        .catch(err => {
-          if (err.code === 'ENOENT') {
-            return false;
+        .then(
+          (stat) => stat.isFile(),
+          (err) => {
+            if (err.code === 'ENOENT') {
+              return false;
+            }
+            return Promise.reject(err);
           }
-          return Promise.reject(err);
-        });
+        );
     }
     return this.isFile;
   }
   setIsFile(isFile) {
     this.isFile = Promise.resolve(isFile);
+  }
+  getIsDirectory() {
+    if (!this.isDirectory) {
+      this.isDirectory = this.getStat()
+        .then(
+          (stat) => stat.isDirectory(),
+          (err) => {
+            if (err.code === 'ENOENT') {
+              return false;
+            }
+            return Promise.reject(err);
+          }
+        );
+    }
+    return this.isDirectory;
+  }
+  setIsDirectory(isDirectory) {
+    this.isDirectory = Promise.resolve(isDirectory);
   }
   getBuffer() {
     if (!this.buffer) {
@@ -82,5 +104,14 @@ export class File {
   }
   setTextHash(textHash) {
     this.textHash = Promise.resolve(textHash);
+  }
+  getDirectoryContents() {
+    if (!this.contents) {
+      this.contents = this.fileSystem.readDirectory(this.path);
+    }
+    return this.contents;
+  }
+  setDirectoryContents(contents) {
+    this.contents = Promise.resolve(contents);
   }
 }

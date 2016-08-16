@@ -1749,14 +1749,14 @@ declare module "path" {
      * Join all arguments together and normalize the resulting path.
      * Arguments must be strings. In v0.8, non-string arguments were silently ignored. In v0.10 and up, an exception is thrown.
      *
-     * @param paths string paths to join.
+     * @param paths string paths to ensureAbsolute.
      */
     export function join(...paths: any[]): string;
     /**
      * Join all arguments together and normalize the resulting path.
      * Arguments must be strings. In v0.8, non-string arguments were silently ignored. In v0.10 and up, an exception is thrown.
      *
-     * @param paths string paths to join.
+     * @param paths string paths to ensureAbsolute.
      */
     export function join(...paths: string[]): string;
     /**
@@ -1766,7 +1766,7 @@ declare module "path" {
      *
      * If {to} isn't already absolute, {from} arguments are prepended in right to left order, until an absolute path is found. If after using all {from} paths still no absolute path is found, the current working directory is used as well. The resulting path is normalized, and trailing slashes are removed unless the path gets resolved to the root directory.
      *
-     * @param pathSegments string paths to join.  Non-string arguments are ignored.
+     * @param pathSegments string paths to ensureAbsolute.  Non-string arguments are ignored.
      */
     export function resolve(...pathSegments: any[]): string;
     /**

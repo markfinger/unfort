@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import {Buffer} from 'buffer';
 import test from 'ava';
-import {generateStringHash} from '../../utils/hash';
+import {generateStringHash} from '../../common';
 import {FileSystemCache} from '../cache';
 import {FileSystemTrap} from '../trap';
 

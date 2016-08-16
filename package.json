@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc --watch",
     "build-once": "tsc",
-    "test": "ava */tests/test_*.js --require ./utils/handle_rejected"
+    "test": "ava */tests/test_*.js --require ./common/_ensure_rejected_handled"
   },
   "repository": {
     "type": "git",
