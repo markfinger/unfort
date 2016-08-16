@@ -1,9 +1,11 @@
+import * as path from 'path';
 import * as fs from 'fs';
 import {Buffer} from 'buffer';
 import test from 'ava';
+import * as tmp from 'tmp';
 import {generateStringHash} from '../../common';
 import {File} from '../file';
-import {readFile, stat} from '../utils';
+import {readFile, stat, readDirectory} from '../utils';
 
 const fileSystem = {
   readFile,
@@ -74,6 +76,24 @@ test('File should allow isFile to be set manually', (t) => {
     });
 });
 
+test('File should allow isDirectory to be set manually', (t) => {
+  const file = new File('/some/file', fileSystem);
+  file.setIsDirectory(true);
+  return file.getIsDirectory()
+    .then(isDirectory => {
+      t.is(isDirectory, true);
+    });
+});
+
+test('File should allow textHash to be set manually', (t) => {
+  const file = new File('/some/file', fileSystem);
+  file.setTextHash('test');
+  return file.getTextHash()
+    .then(textHash => {
+      t.is(textHash, 'test');
+    });
+});
+
 test('File should create an object that lazily evaluates text files and preserves the value', (t) => {
   let called = false;
   function readFile(path, encoding) {
@@ -136,5 +156,29 @@ test('File should create an object that lazily evaluates file stats and preserve
         .then((text: any) => {
           t.is(text, 'stat');
         });
+    });
+});
+
+test('File should indicate if it is a directory', (t) => {
+  const file = new File(__filename, {stat});
+  return file.getIsDirectory()
+    .then(isDirectory => {
+      t.is(isDirectory, false);
+      const file = new File(__dirname, {stat});
+      return file.getIsDirectory()
+        .then(isDirectory => {
+          t.is(isDirectory, true);
+        });
+    });
+});
+
+test('File should be able to list its directory contents', (t) => {
+  const dir = tmp.dirSync().name;
+  fs.writeFileSync(path.join(dir, 'test1'), 'test');
+  fs.writeFileSync(path.join(dir, 'test2'), 'test');
+  const file = new File(dir, {readDirectory});
+  return file.getDirectoryContents()
+    .then((contents) => {
+      t.deepEqual(contents, ['test1', 'test2']);
     });
 });
