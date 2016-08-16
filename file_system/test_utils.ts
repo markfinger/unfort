@@ -15,6 +15,7 @@ export function createVirtualFileSystemCache(files: any, directories?: any): Fil
     for (const path of Object.keys(directories)) {
       const directory = cache._createFile(path);
       directory.setDirectoryContents(directories[path]);
+      directory.setModifiedTime(-Infinity);
       directory.setIsFile(false);
       directory.setIsDirectory(true);
     }
