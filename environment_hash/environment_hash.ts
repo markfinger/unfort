@@ -1,6 +1,5 @@
 import * as path from 'path';
 import {Promise} from 'bluebird';
-import {zip, flatten} from 'lodash';
 import {FileSystemCache} from '../file_system';
 import {IncrementalStringHash} from '../common';
 
