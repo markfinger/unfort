@@ -1,3 +1,4 @@
+// Need direct access to `module.exports`, hence the CJS import
 const Murmur = require('imurmurhash');
 
 export function generateStringHash(str: string): string {
