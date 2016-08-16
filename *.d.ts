@@ -19,3 +19,6 @@ declare module "parse5" {
 }
 declare module "browserify/lib/builtins"
 declare module "browser-resolve"
+declare module "chokidar" {
+  const FSWatcher: any
+}
