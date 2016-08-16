@@ -42,9 +42,7 @@
   },
   "devDependencies": {
     "ava": "^0.16.0",
-    "eslint": "^3.0.0",
     "tmp": "0.0.28",
-    "typescript": "^2.0.0",
-    "yargs": "^4.7.1"
+    "typescript": "^2.0.0"
   }
 }
