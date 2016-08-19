@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc --watch",
     "build-once": "tsc",
-    "test": "ava */tests/test_*.js --require ./common/_ensure_rejected_handled"
+    "test": "ava */tests/test_*.js --require ./common/_ensure_rejected_handled",
+    "typings": "typings"
   },
   "repository": {
     "type": "git",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "ava": "^0.16.0",
     "tmp": "0.0.28",
-    "typescript": "^2.0.0"
+    "typescript": "^2.0.0",
+    "typings": "^1.3.2"
   }
 }
