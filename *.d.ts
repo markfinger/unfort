@@ -5,7 +5,9 @@ declare module "babel-types" {
   function isLiteral(node: any): boolean
 }
 declare module "babel-traverse"
-declare module "babel-generator"
+declare module "babel-generator" {
+  export default function(ast: any, options?: any, text?: string): any
+}
 declare module "babylon" {
   function parse(text: string, options?: any): any
 }

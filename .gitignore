@@ -28,5 +28,5 @@ node_modules
 
 # Build artifacts
 *.cpuprofile
-typings/*
+typings
 *.js

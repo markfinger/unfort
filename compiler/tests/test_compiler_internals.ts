@@ -1,6 +1,6 @@
 import test from 'ava';
 import { Subject } from 'rxjs';
-import { Compiler } from '../compiler';
+import { Compiler, buildOutput } from '../compiler';
 import { handleCompilerErrors } from './utils';
 import { createVirtualFileSystemCache } from '../../file_system/test_utils';
 
@@ -21,7 +21,7 @@ test('should produce urls to the output of the assets', (t) => {
   });
   const obs = new Subject();
   handleCompilerErrors(compiler, obs);
-  compiler.complete.subscribe(data => {
+  compiler.complete.subscribe((data: buildOutput) => {
     const htmlFile = data.files.get('/foo/index.html');
     const jsFile = data.files.get('/foo/bar/script.js');
     const cssFile = data.files.get('/woz/styles.css');

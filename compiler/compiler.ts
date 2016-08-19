@@ -18,7 +18,7 @@ import {postcssAstDependencies} from './postcss_ast_dependencies';
 import {parse5AstDependencies, rewriteParse5AstDependencies} from './parse5_ast_dependencies';
 import {GraphOutput} from "../cyclic_dependency_graph/graph";
 
-class File {
+export class File {
   fileName: string;
   baseDirectory: string;
   ext: string;
@@ -34,7 +34,7 @@ class File {
   }
 }
 
-class FileScan {
+export class FileScan {
   file: File;
   identifiers: string[];
   ast: any;
@@ -43,7 +43,7 @@ class FileScan {
   }
 }
 
-class FileDependencies {
+export class FileDependencies {
   scan: FileScan;
   resolved: string[];
   resolvedByIdentifier: any;
@@ -52,7 +52,7 @@ class FileDependencies {
   }
 }
 
-class FileBuild {
+export class FileBuild {
   file: File;
   scan: FileScan;
   content: string | Buffer;
@@ -64,14 +64,12 @@ class FileBuild {
   }
 }
 
-interface buildOutput {
+export interface buildOutput {
   graph: Graph,
   files: ImmutableMap<string, File>
   scans: ImmutableMap<string, FileScan>
   built: ImmutableMap<string, FileBuild>
 }
-
-const NODE_MODULES = /node_modules/;
 
 export class Compiler {
   fileSystemCache = new FileSystemCache();
@@ -158,7 +156,7 @@ export class Compiler {
       .then(([text, textHash]) => {
         file.content = text;
         file.hash = textHash;
-        const sourceType = NODE_MODULES.test(fileName) ? 'script' : 'module';
+        const sourceType = fileName.indexOf('node_modules') !== -1 ? 'script' : 'module';
         const ast = babylon.parse(text, {
           sourceType
         });
@@ -245,7 +243,7 @@ export class Compiler {
             sourceFileName: sourceUrl,
             sourceMapTarget: outputUrl
           },
-          file.content
+          file.content as string
         );
         const build = new FileBuild(file, scan);
         build.url = outputUrl;
