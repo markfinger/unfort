@@ -1,4 +1,9 @@
-This project's currently midway through an exploratory rewrite. The last stable and functional release is https://github.com/markfinger/unfort/tree/v1.3.0
+**Project Status** 
+
+- _November 2016_: on hiatus as I take a break from open source work.
+- _June 2016_: currently midway through an exploratory rewrite.
+
+The last stable and functional release is https://github.com/markfinger/unfort/tree/v1.3.0
 
 # unfort
 
