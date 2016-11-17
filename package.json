@@ -34,7 +34,7 @@
     "css-selector-tokenizer": "^0.7.0",
     "immutable": "^3.8.1",
     "imurmurhash": "^0.1.4",
-    "lodash": "^4.13.1",
+    "lodash": "^4.17.1",
     "mkdirp": "^0.5.1",
     "parse5": "^2.1.5",
     "postcss": "^5.1.2",
