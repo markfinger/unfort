@@ -22,7 +22,7 @@
   "dependencies": {
     "babel-code-frame": "^6.11.0",
     "babel-core": "^6.10.4",
-    "babel-generator": "^6.11.0",
+    "babel-generator": "^6.19.0",
     "babel-traverse": "^6.10.4",
     "babel-types": "^6.11.1",
     "babylon": "^6.8.4",
