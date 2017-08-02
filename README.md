@@ -1,6 +1,6 @@
 **Project Status** 
 
-- _August 2017_: project abandoned. [Pundle](https://github.com/steelbrain/pundle) and [FuseBox](https://github.com/fuse-box/fuse-box) should be considered as alternatives.
+- _August 2017_: project abandoned. [FuseBox](https://github.com/fuse-box/fuse-box) and [Pundle](https://github.com/steelbrain/pundle) should be considered as alternatives.
 - ~~_November 2016_: on hiatus as I take a break from open source work.~~
 - ~~_June 2016_: currently midway through an exploratory rewrite.~~
 
